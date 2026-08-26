@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Niyati TV</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #080b12;
+            color: white;
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            padding: 0 35px;
+            background: #10151f;
+            border-bottom: 1px solid #202735;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #ff1744, #ff5c7a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 21px;
+            font-weight: bold;
+        }
+
+        .title {
+            margin-right: 15px;
+        }
+
+        .title h1 {
+            font-size: 23px;
+        }
+
+        .title span {
+            color: #9299a8;
+            font-size: 12px;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            padding: 25px;
+            gap: 25px;
+        }
+
+        .sidebar {
+            width: 230px;
+            background: #10151f;
+            border-radius: 18px;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 17px;
+            margin-bottom: 18px;
+            color: #b8bfcd;
+        }
+
+        .package {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 0;
+            border-radius: 12px;
+            background: #171d28;
+            color: white;
+            text-align: right;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .package.active {
+            background: #e91542;
+        }
+
+        .content {
+            flex: 1;
+        }
+
+        .content h2 {
+            margin-bottom: 18px;
+        }
+
+        .channels {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .channel {
+            min-height: 105px;
+            background: #111722;
+            border: 1px solid #202735;
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .channel:hover,
+        .channel:focus {
+            outline: none;
+            border-color: #e91542;
+            transform: translateY(-2px);
+        }
+
+        .channel-logo {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            background: #202735;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        .channel-name {
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .player {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            z-index: 10;
+            background: rgba(0,0,0,.7);
+            color: white;
+            border: 0;
+            border-radius: 10px;
+            padding: 12px 18px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        @media(max-width:700px) {
+            main {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .channels {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <header>
+        <div class="logo">NT</div>
+
+        <div class="title">
+            <h1>Niyati TV</h1>
+            <span>IPTV Platform</span>
+        </div>
+    </header>
+
+    <main>
+
+        <aside class="sidebar">
+
+            <h2>الباقات</h2>
+
+            <button class="package active" tabindex="0"
+                    onclick="showPackage('sport')">
+                ⚽ الرياضة
+            </button>
+
+            <button class="package" tabindex="0"
+                    onclick="showPackage('iraq')">
+                🇮🇶 القنوات العراقية
+            </button>
+
+            <button class="package" tabindex="0"
+                    onclick="showPackage('news')">
+                📰 الأخبار
+            </button>
+
+        </aside>
+
+        <section class="content">
+
+            <h2 id="packageTitle">القنوات الرياضية</h2>
+
+            <div class="channels" id="channels">
+
+                <div class="channel"
+                     tabindex="0"
+                     onclick="openPlayer('')">
+
+                    <div class="channel-logo">1</div>
+                    <div class="channel-name">
+                        قناة رياضية 1
+                    </div>
+
+                </div>
+
+                <div class="channel"
+                     tabindex="0"
+                     onclick="openPlayer('')">
+
+                    <div class="channel-logo">2</div>
+                    <div class="channel-name">
+                        قناة رياضية 2
+                    </div>
+
+                </div>
+
+                <div class="channel"
+                     tabindex="0"
+                     onclick="openPlayer('')">
+
+                    <div class="channel-logo">3</div>
+                    <div class="channel-name">
+                        قناة رياضية 3
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<div class="player" id="player">
+
+    <button class="close" onclick="closePlayer()">
+        رجوع
+    </button>
+
+    <video id="video"
+           controls
+           autoplay
+           playsinline>
+    </video>
+
+</div>
+
+<script>
+
+const packages = {
+
+    sport: {
+        title: "القنوات الرياضية",
+        channels: [
+            "قناة رياضية 1",
+            "قناة رياضية 2",
+            "قناة رياضية 3",
+            "قناة رياضية 4"
+        ]
+    },
+
+    iraq: {
+        title: "القنوات العراقية",
+        channels: [
+            "العراقية",
+            "الشرقية",
+            "الرابعة",
+            "السومرية"
+        ]
+    },
+
+    news: {
+        title: "القنوات الإخبارية",
+        channels: [
+            "قناة أخبار 1",
+            "قناة أخبار 2",
+            "قناة أخبار 3"
+        ]
+    }
+
+};
+
+function showPackage(type) {
+
+    const data = packages[type];
+
+    document.getElementById("packageTitle").textContent =
+        data.title;
+
+    const container =
+        document.getElementById("channels");
+
+    container.innerHTML = "";
+
+    data.channels.forEach((name, index) => {
+
+        const div = document.createElement("div");
+
+        div.className = "channel";
+        div.tabIndex = 0;
+
+        div.innerHTML = `
+            <div class="channel-logo">
+                ${index + 1}
+            </div>
+
+            <div class="channel-name">
+                ${name}
+            </div>
+        `;
+
+        div.onclick = function() {
+            openPlayer("");
+        };
+
+        container.appendChild(div);
+
+    });
+
+    document.querySelectorAll(".package")
+        .forEach(btn => btn.classList.remove("active"));
+
+    event.currentTarget.classList.add("active");
+}
+
+function openPlayer(url) {
+
+    const player =
+        document.getElementById("player");
+
+    const video =
+        document.getElementById("video");
+
+    player.style.display = "flex";
+
+    if (url) {
+        video.src = url;
+        video.play();
+    }
+
+}
+
+function closePlayer() {
+
+    const player =
+        document.getElementById("player");
+
+    const video =
+        document.getElementById("video");
+
+    video.pause();
+    video.src = "";
+
+    player.style.display = "none";
+}
+
+document.addEventListener("keydown", function(e) {
+
+    if (e.key === "Escape" || e.key === "Backspace") {
+        closePlayer();
+    }
+
+});
+
+</script>
+
+</body>
+</html>
