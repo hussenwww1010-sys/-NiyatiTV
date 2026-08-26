@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Niyati TV</title>
 
     <style>
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -14,9 +16,10 @@
 
         body {
             background: #080b12;
-            color: white;
+            color: #ffffff;
             font-family: Arial, sans-serif;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         .app {
@@ -24,6 +27,10 @@
             display: flex;
             flex-direction: column;
         }
+
+        /* =========================
+           HEADER
+        ========================= */
 
         header {
             height: 80px;
@@ -38,10 +45,18 @@
             width: 50px;
             height: 50px;
             border-radius: 14px;
-            background: linear-gradient(135deg, #ff1744, #ff5c7a);
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #ff1744,
+                    #ff5c7a
+                );
+
             display: flex;
             align-items: center;
             justify-content: center;
+
             font-size: 21px;
             font-weight: bold;
         }
@@ -59,6 +74,10 @@
             font-size: 12px;
         }
 
+        /* =========================
+           MAIN
+        ========================= */
+
         main {
             flex: 1;
             display: flex;
@@ -66,10 +85,18 @@
             gap: 25px;
         }
 
+        /* =========================
+           SIDEBAR
+        ========================= */
+
         .sidebar {
             width: 230px;
+            flex-shrink: 0;
+
             background: #10151f;
+
             border-radius: 18px;
+
             padding: 20px;
         }
 
@@ -79,77 +106,158 @@
             color: #b8bfcd;
         }
 
+        #packages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
         .package {
             width: 100%;
+
             padding: 15px;
-            margin-bottom: 10px;
+
             border: 0;
             border-radius: 12px;
+
             background: #171d28;
+
             color: white;
+
             text-align: right;
+
             cursor: pointer;
+
             font-size: 15px;
+
+            transition: 0.2s;
+        }
+
+        .package:hover,
+        .package:focus {
+            outline: none;
+
+            background: #252d3b;
+
+            transform: scale(1.02);
         }
 
         .package.active {
             background: #e91542;
         }
 
+        /* =========================
+           CONTENT
+        ========================= */
+
         .content {
             flex: 1;
+            min-width: 0;
         }
 
         .content h2 {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
+            font-size: 22px;
         }
+
+        /* =========================
+           CHANNELS
+        ========================= */
 
         .channels {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+
+            grid-template-columns:
+                repeat(
+                    auto-fill,
+                    minmax(180px, 1fr)
+                );
+
             gap: 15px;
         }
 
         .channel {
-            min-height: 105px;
+            min-height: 115px;
+
             background: #111722;
-            border: 1px solid #202735;
+
+            border: 2px solid transparent;
+
             border-radius: 16px;
+
             padding: 20px;
+
             cursor: pointer;
-            transition: .2s;
+
+            transition: 0.2s;
         }
 
         .channel:hover,
         .channel:focus {
             outline: none;
+
             border-color: #e91542;
+
             transform: translateY(-2px);
+
+            background: #151c28;
+        }
+
+        .channel.selected {
+            border-color: #e91542;
         }
 
         .channel-logo {
             width: 45px;
             height: 45px;
+
             border-radius: 12px;
+
             background: #202735;
+
             display: flex;
+
             align-items: center;
             justify-content: center;
+
             margin-bottom: 12px;
+
             font-weight: bold;
         }
 
         .channel-name {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
+            line-height: 1.4;
         }
+
+        /* =========================
+           EMPTY
+        ========================= */
+
+        .empty {
+            padding: 40px;
+
+            color: #9299a8;
+
+            text-align: center;
+        }
+
+        /* =========================
+           PLAYER
+        ========================= */
 
         .player {
             display: none;
+
             position: fixed;
+
             inset: 0;
+
             background: #000;
-            z-index: 1000;
+
+            z-index: 9999;
+
             align-items: center;
             justify-content: center;
         }
@@ -157,24 +265,43 @@
         .player video {
             width: 100%;
             height: 100%;
+
             object-fit: contain;
         }
 
         .close {
             position: absolute;
+
             top: 20px;
             right: 25px;
-            z-index: 10;
-            background: rgba(0,0,0,.7);
+
+            z-index: 10000;
+
+            background: rgba(0,0,0,.75);
+
             color: white;
+
             border: 0;
+
             border-radius: 10px;
-            padding: 12px 18px;
+
+            padding: 12px 20px;
+
             font-size: 15px;
+
             cursor: pointer;
         }
 
+        .close:focus {
+            outline: 2px solid #e91542;
+        }
+
+        /* =========================
+           MOBILE
+        ========================= */
+
         @media(max-width:700px) {
+
             main {
                 flex-direction: column;
             }
@@ -183,228 +310,624 @@
                 width: 100%;
             }
 
-            .channels {
-                grid-template-columns: repeat(2, 1fr);
+            #packages {
+                display: grid;
+
+                grid-template-columns:
+                    repeat(2, 1fr);
             }
+
+            .channels {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
         }
+
     </style>
+
 </head>
+
 
 <body>
 
+
 <div class="app">
 
+
+    <!-- =========================
+         HEADER
+    ========================= -->
+
     <header>
-        <div class="logo">NT</div>
+
+        <div class="logo">
+            NT
+        </div>
 
         <div class="title">
-            <h1>Niyati TV</h1>
-            <span>IPTV Platform</span>
+
+            <h1>
+                Niyati TV
+            </h1>
+
+            <span>
+                IPTV Platform
+            </span>
+
         </div>
+
     </header>
+
+
+
+    <!-- =========================
+         MAIN
+    ========================= -->
 
     <main>
 
+
+        <!-- =========================
+             PACKAGES
+        ========================= -->
+
         <aside class="sidebar">
 
-            <h2>الباقات</h2>
+            <h2>
+                الباقات
+            </h2>
 
-            <button class="package active" tabindex="0"
-                    onclick="showPackage('sport')">
-                ⚽ الرياضة
-            </button>
-
-            <button class="package" tabindex="0"
-                    onclick="showPackage('iraq')">
-                🇮🇶 القنوات العراقية
-            </button>
-
-            <button class="package" tabindex="0"
-                    onclick="showPackage('news')">
-                📰 الأخبار
-            </button>
+            <div id="packages"></div>
 
         </aside>
 
+
+
+        <!-- =========================
+             CHANNELS
+        ========================= -->
+
         <section class="content">
 
-            <h2 id="packageTitle">القنوات الرياضية</h2>
+            <h2 id="packageTitle">
+                اختر باقة
+            </h2>
 
-            <div class="channels" id="channels">
-
-                <div class="channel"
-                     tabindex="0"
-                     onclick="openPlayer('')">
-
-                    <div class="channel-logo">1</div>
-                    <div class="channel-name">
-                        قناة رياضية 1
-                    </div>
-
-                </div>
-
-                <div class="channel"
-                     tabindex="0"
-                     onclick="openPlayer('')">
-
-                    <div class="channel-logo">2</div>
-                    <div class="channel-name">
-                        قناة رياضية 2
-                    </div>
-
-                </div>
-
-                <div class="channel"
-                     tabindex="0"
-                     onclick="openPlayer('')">
-
-                    <div class="channel-logo">3</div>
-                    <div class="channel-name">
-                        قناة رياضية 3
-                    </div>
-
-                </div>
+            <div
+                class="channels"
+                id="channels">
 
             </div>
 
         </section>
 
+
     </main>
 
+
 </div>
 
-<div class="player" id="player">
 
-    <button class="close" onclick="closePlayer()">
+
+<!-- =========================
+     PLAYER
+========================= -->
+
+<div
+    class="player"
+    id="player"
+>
+
+
+    <button
+        class="close"
+        id="closePlayer"
+        type="button"
+    >
+
         رجوع
+
     </button>
 
-    <video id="video"
-           controls
-           autoplay
-           playsinline>
-    </video>
+
+    <video
+        id="video"
+        playsinline
+        controls
+    ></video>
+
 
 </div>
+
+
+
+<!-- =========================
+     CHANNEL DATABASE
+========================= -->
+
+<script src="channels.js"></script>
+
+
+<!-- =========================
+     PLAYER JS
+========================= -->
+
+<script src="player.js"></script>
+
+
 
 <script>
 
-const packages = {
+"use strict";
 
-    sport: {
-        title: "القنوات الرياضية",
-        channels: [
-            "قناة رياضية 1",
-            "قناة رياضية 2",
-            "قناة رياضية 3",
-            "قناة رياضية 4"
-        ]
-    },
 
-    iraq: {
-        title: "القنوات العراقية",
-        channels: [
-            "العراقية",
-            "الشرقية",
-            "الرابعة",
-            "السومرية"
-        ]
-    },
+/* =========================
+   ELEMENTS
+========================= */
 
-    news: {
-        title: "القنوات الإخبارية",
-        channels: [
-            "قناة أخبار 1",
-            "قناة أخبار 2",
-            "قناة أخبار 3"
-        ]
+const packagesContainer =
+    document.getElementById("packages");
+
+const channelsContainer =
+    document.getElementById("channels");
+
+const packageTitle =
+    document.getElementById("packageTitle");
+
+const player =
+    document.getElementById("player");
+
+const video =
+    document.getElementById("video");
+
+const closePlayerButton =
+    document.getElementById("closePlayer");
+
+
+
+/* =========================
+   CHECK CHANNEL DATABASE
+========================= */
+
+if (
+    typeof channels === "undefined" ||
+    !Array.isArray(channels)
+) {
+
+    channelsContainer.innerHTML = `
+        <div class="empty">
+            خطأ: لم يتم تحميل channels.js
+        </div>
+    `;
+
+    console.error(
+        "channels.js was not loaded."
+    );
+
+} else {
+
+
+    /* =========================
+       GET PACKAGES
+    ========================= */
+
+    const packageNames = [
+        ...new Set(
+            channels
+                .map(channel => channel.package)
+                .filter(Boolean)
+        )
+    ];
+
+
+    /* =========================
+       CREATE PACKAGES
+    ========================= */
+
+    packageNames.forEach(
+        (packageName, index) => {
+
+            const button =
+                document.createElement("button");
+
+            button.className =
+                "package";
+
+            button.type =
+                "button";
+
+            button.tabIndex =
+                0;
+
+            button.textContent =
+                packageName;
+
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    selectPackage(
+                        packageName
+                    );
+
+                }
+            );
+
+
+            button.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key === "Enter" ||
+                        event.key === " "
+                    ) {
+
+                        event.preventDefault();
+
+                        selectPackage(
+                            packageName
+                        );
+
+                    }
+
+                }
+            );
+
+
+            packagesContainer.appendChild(
+                button
+            );
+
+        }
+    );
+
+
+
+    /* =========================
+       SELECT PACKAGE
+    ========================= */
+
+    function selectPackage(packageName) {
+
+
+        packageTitle.textContent =
+            packageName;
+
+
+        channelsContainer.innerHTML =
+            "";
+
+
+        document
+            .querySelectorAll(".package")
+            .forEach(button => {
+
+                button.classList.remove(
+                    "active"
+                );
+
+            });
+
+
+        const selectedPackage =
+            [...document.querySelectorAll(".package")]
+                .find(
+                    button =>
+                        button.textContent ===
+                        packageName
+                );
+
+
+        if (selectedPackage) {
+
+            selectedPackage.classList.add(
+                "active"
+            );
+
+        }
+
+
+
+        /* =========================
+           FILTER CHANNELS
+        ========================= */
+
+        const packageChannels =
+            channels.filter(
+                channel =>
+                    channel.package ===
+                    packageName
+            );
+
+
+        if (
+            packageChannels.length === 0
+        ) {
+
+            channelsContainer.innerHTML = `
+                <div class="empty">
+                    لا توجد قنوات في هذه الباقة
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+
+        /* =========================
+           CREATE CHANNEL CARDS
+        ========================= */
+
+        packageChannels.forEach(
+            (channel, index) => {
+
+
+                const card =
+                    document.createElement("div");
+
+
+                card.className =
+                    "channel";
+
+
+                card.tabIndex =
+                    0;
+
+
+                card.innerHTML = `
+
+                    <div class="channel-logo">
+                        ${index + 1}
+                    </div>
+
+                    <div class="channel-name">
+                        ${channel.name}
+                    </div>
+
+                `;
+
+
+                /* =========================
+                   MOUSE / TOUCH
+                ========================= */
+
+                card.addEventListener(
+                    "click",
+                    () => {
+
+                        openChannel(
+                            channel
+                        );
+
+                    }
+                );
+
+
+                /* =========================
+                   TV REMOTE
+                ========================= */
+
+                card.addEventListener(
+                    "keydown",
+                    event => {
+
+                        if (
+                            event.key ===
+                            "Enter"
+                        ) {
+
+                            event.preventDefault();
+
+                            openChannel(
+                                channel
+                            );
+
+                        }
+
+                    }
+                );
+
+
+                channelsContainer.appendChild(
+                    card
+                );
+
+            }
+        );
+
+
+        /* =========================
+           FOCUS FIRST CHANNEL
+        ========================= */
+
+        const firstChannel =
+            channelsContainer.querySelector(
+                ".channel"
+            );
+
+
+        if (firstChannel) {
+
+            setTimeout(
+                () => firstChannel.focus(),
+                50
+            );
+
+        }
+
     }
 
-};
 
-function showPackage(type) {
 
-    const data = packages[type];
+    /* =========================
+       OPEN CHANNEL
+    ========================= */
 
-    document.getElementById("packageTitle").textContent =
-        data.title;
+    function openChannel(channel) {
 
-    const container =
-        document.getElementById("channels");
 
-    container.innerHTML = "";
+        if (
+            !channel.url ||
+            channel.url.trim() === ""
+        ) {
 
-    data.channels.forEach((name, index) => {
+            alert(
+                "رابط البث غير موجود لهذه القناة."
+            );
 
-        const div = document.createElement("div");
+            return;
 
-        div.className = "channel";
-        div.tabIndex = 0;
+        }
 
-        div.innerHTML = `
-            <div class="channel-logo">
-                ${index + 1}
-            </div>
 
-            <div class="channel-name">
-                ${name}
+        player.style.display =
+            "flex";
+
+
+        video.src =
+            channel.url;
+
+
+        video.play().catch(
+            error => {
+
+                console.log(
+                    "Playback:",
+                    error
+                );
+
+            }
+        );
+
+    }
+
+
+
+    /* =========================
+       CLOSE PLAYER
+    ========================= */
+
+    function closePlayer() {
+
+
+        video.pause();
+
+        video.removeAttribute(
+            "src"
+        );
+
+        video.load();
+
+
+        player.style.display =
+            "none";
+
+    }
+
+
+
+    /* =========================
+       CLOSE BUTTON
+    ========================= */
+
+    closePlayerButton.addEventListener(
+        "click",
+        closePlayer
+    );
+
+
+
+    /* =========================
+       KEYBOARD / TV REMOTE
+    ========================= */
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+
+            /* Back / Escape */
+
+            if (
+                event.key === "Escape" ||
+                event.key === "Backspace"
+            ) {
+
+                if (
+                    player.style.display ===
+                    "flex"
+                ) {
+
+                    event.preventDefault();
+
+                    closePlayer();
+
+                }
+
+            }
+
+
+            /* OK */
+
+            if (
+                event.key === "Enter"
+            ) {
+
+                const active =
+                    document.activeElement;
+
+
+                if (
+                    active &&
+                    active.classList.contains(
+                        "channel"
+                    )
+                ) {
+
+                    event.preventDefault();
+
+                    active.click();
+
+                }
+
+            }
+
+        }
+    );
+
+
+
+    /* =========================
+       OPEN FIRST PACKAGE
+    ========================= */
+
+    if (
+        packageNames.length > 0
+    ) {
+
+        selectPackage(
+            packageNames[0]
+        );
+
+    } else {
+
+        channelsContainer.innerHTML = `
+            <div class="empty">
+                لا توجد قنوات
             </div>
         `;
 
-        div.onclick = function() {
-            openPlayer("");
-        };
-
-        container.appendChild(div);
-
-    });
-
-    document.querySelectorAll(".package")
-        .forEach(btn => btn.classList.remove("active"));
-
-    event.currentTarget.classList.add("active");
-}
-
-function openPlayer(url) {
-
-    const player =
-        document.getElementById("player");
-
-    const video =
-        document.getElementById("video");
-
-    player.style.display = "flex";
-
-    if (url) {
-        video.src = url;
-        video.play();
     }
 
 }
 
-function closePlayer() {
+</script>
 
-    const player =
-        document.getElementById("player");
 
-    const video =
-        document.getElementById("video");
-
-    video.pause();
-    video.src = "";
-
-    player.style.display = "none";
-}
-
-document.addEventListener("keydown", function(e) {
-
-    if (e.key === "Escape" || e.key === "Backspace") {
-        closePlayer();
-    }
-
-});
-
-<script src="channels.js"></script>
-<script src="player.js"></script>
 </body>
 </html>
