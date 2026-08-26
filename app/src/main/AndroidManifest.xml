@@ -3,9 +3,19 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- السماح بالاتصال بالإنترنت -->
+    <!-- الإنترنت -->
     <uses-permission
         android:name="android.permission.INTERNET" />
+
+    <!-- دعم Android TV / Google TV -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+
+    <!-- التطبيق لا يحتاج شاشة لمس -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -22,6 +32,11 @@
                 <action
                     android:name="android.intent.action.MAIN" />
 
+                <!-- ظهور التطبيق على Android TV -->
+                <category
+                    android:name="android.intent.category.LEANBACK_LAUNCHER" />
+
+                <!-- ظهور التطبيق على الهاتف -->
                 <category
                     android:name="android.intent.category.LAUNCHER" />
 
