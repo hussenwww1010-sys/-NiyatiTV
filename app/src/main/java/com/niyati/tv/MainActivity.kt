@@ -4,16 +4,25 @@ import android.app.Activity
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.view.Gravity
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 class MainActivity : Activity() {
+
+    private var player: ExoPlayer? = null
+    private lateinit var playerView: PlayerView
 
     private val red = Color.rgb(233, 21, 66)
     private val background = Color.rgb(8, 11, 18)
     private val card = Color.rgb(18, 23, 33)
+
+    private val testChannel =
+        "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,7 +31,7 @@ class MainActivity : Activity() {
 
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(background)
-        root.setPadding(25, 25, 25, 25)
+        root.setPadding(20, 20, 20, 20)
 
         val title = TextView(this)
 
@@ -34,92 +43,28 @@ class MainActivity : Activity() {
 
         root.addView(
             title,
-            LinearLayout.LayoutParams(
-                -1,
-                80
-            )
+            LinearLayout.LayoutParams(-1, 70)
         )
 
-        val packageTitle = TextView(this)
+        val playerTitle = TextView(this)
 
-        packageTitle.text = "الباقات"
-        packageTitle.textSize = 22f
-        packageTitle.setTextColor(Color.WHITE)
-        packageTitle.setTypeface(null, Typeface.BOLD)
-        packageTitle.setPadding(10, 15, 10, 15)
+        playerTitle.text = "المشغل"
+        playerTitle.textSize = 20f
+        playerTitle.setTextColor(Color.WHITE)
+        playerTitle.gravity = Gravity.CENTER_VERTICAL
 
         root.addView(
-            packageTitle,
-            LinearLayout.LayoutParams(
-                -1,
-                65
-            )
+            playerTitle,
+            LinearLayout.LayoutParams(-1, 50)
         )
 
-        val packageButton = TextView(this)
+        playerView = PlayerView(this)
 
-        packageButton.text = "⚽  الرياضة"
-        packageButton.textSize = 21f
-        packageButton.setTextColor(Color.WHITE)
-        packageButton.gravity = Gravity.CENTER_VERTICAL
-        packageButton.setPadding(25, 0, 25, 0)
-        packageButton.setBackgroundColor(red)
-        packageButton.isFocusable = true
-        packageButton.isFocusableInTouchMode = true
+        playerView.setBackgroundColor(Color.BLACK)
+        playerView.useController = true
 
         root.addView(
-            packageButton,
-            LinearLayout.LayoutParams(
-                -1,
-                70
-            )
-        )
-
-        val channelTitle = TextView(this)
-
-        channelTitle.text = "القنوات"
-        channelTitle.textSize = 22f
-        channelTitle.setTextColor(Color.WHITE)
-        channelTitle.setTypeface(null, Typeface.BOLD)
-        channelTitle.setPadding(10, 25, 10, 15)
-
-        root.addView(
-            channelTitle,
-            LinearLayout.LayoutParams(
-                -1,
-                70
-            )
-        )
-
-        val channel = TextView(this)
-
-        channel.text = "▶  beIN SPORT 1HD"
-        channel.textSize = 20f
-        channel.setTextColor(Color.WHITE)
-        channel.gravity = Gravity.CENTER_VERTICAL
-        channel.setPadding(25, 0, 25, 0)
-        channel.setBackgroundColor(card)
-        channel.isFocusable = true
-        channel.isFocusableInTouchMode = true
-
-        root.addView(
-            channel,
-            LinearLayout.LayoutParams(
-                -1,
-                75
-            )
-        )
-
-        val info = TextView(this)
-
-        info.text = "اختر قناة للمتابعة"
-        info.textSize = 18f
-        info.setTextColor(Color.LTGRAY)
-        info.gravity = Gravity.CENTER
-        info.setPadding(10, 30, 10, 10)
-
-        root.addView(
-            info,
+            playerView,
             LinearLayout.LayoutParams(
                 -1,
                 0,
@@ -127,12 +72,53 @@ class MainActivity : Activity() {
             )
         )
 
+        val channel = TextView(this)
+
+        channel.text = "▶  تشغيل beIN SPORT 1HD"
+        channel.textSize = 20f
+        channel.setTextColor(Color.WHITE)
+        channel.gravity = Gravity.CENTER
+        channel.setBackgroundColor(red)
+        channel.isFocusable = true
+
+        root.addView(
+            channel,
+            LinearLayout.LayoutParams(-1, 70)
+        )
+
         channel.setOnClickListener {
-            info.text = "تم اختيار: beIN SPORT 1HD\n\nالمشغل سيتم إضافته في المرحلة التالية."
+            playChannel(testChannel)
         }
 
         setContentView(root)
 
-        packageButton.requestFocus()
+        channel.requestFocus()
+    }
+
+    private fun playChannel(url: String) {
+
+        if (player == null) {
+
+            player = ExoPlayer.Builder(this)
+                .build()
+
+            playerView.player = player
+        }
+
+        val mediaItem = MediaItem.fromUri(
+            Uri.parse(url)
+        )
+
+        player?.setMediaItem(mediaItem)
+        player?.prepare()
+        player?.playWhenReady = true
+    }
+
+    override fun onStop() {
+
+        super.onStop()
+
+        player?.release()
+        player = null
     }
 }
