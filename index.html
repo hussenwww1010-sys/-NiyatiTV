@@ -1,200 +1,432 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
 <title>Niyati TV</title>
 
 <style>
 
-*{
-    box-sizing:border-box;
-    margin:0;
-    padding:0;
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-body{
-    background:#080b12;
-    color:#fff;
-    font-family:Arial,sans-serif;
-    min-height:100vh;
+html,
+body {
+    width: 100%;
+    min-height: 100%;
 }
 
-header{
-    height:75px;
-    display:flex;
-    align-items:center;
-    padding:0 25px;
-    background:#10151f;
-    border-bottom:1px solid #202735;
+body {
+    background: #080b12;
+    color: white;
+    font-family: Arial, sans-serif;
 }
 
-.logo{
-    width:48px;
-    height:48px;
-    border-radius:14px;
-    background:linear-gradient(135deg,#e91542,#ff5c7a);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:20px;
-    font-weight:bold;
+
+/* ================================
+   HEADER
+================================ */
+
+header {
+
+    height: 75px;
+
+    display: flex;
+
+    align-items: center;
+
+    padding: 0 25px;
+
+    background: #10151f;
+
+    border-bottom: 1px solid #202735;
 }
 
-.title{
-    margin-right:14px;
+.logo {
+
+    width: 48px;
+
+    height: 48px;
+
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #e91542,
+            #ff5c7a
+        );
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 20px;
+
+    font-weight: bold;
 }
 
-.title h1{
-    font-size:22px;
+.title {
+
+    margin-right: 14px;
 }
 
-.title span{
-    color:#9299a8;
-    font-size:12px;
+.title h1 {
+
+    font-size: 22px;
 }
 
-main{
-    display:flex;
-    gap:22px;
-    padding:22px;
+.title span {
+
+    color: #9299a8;
+
+    font-size: 12px;
 }
 
-.sidebar{
-    width:230px;
-    background:#10151f;
-    border-radius:18px;
-    padding:18px;
-    flex-shrink:0;
+
+/* ================================
+   MAIN
+================================ */
+
+main {
+
+    display: flex;
+
+    gap: 22px;
+
+    padding: 22px;
+
+    min-height: calc(100vh - 75px);
 }
 
-.sidebar h2{
-    color:#b8bfcd;
-    font-size:17px;
-    margin-bottom:15px;
+
+/* ================================
+   SIDEBAR
+================================ */
+
+.sidebar {
+
+    width: 230px;
+
+    flex-shrink: 0;
+
+    background: #10151f;
+
+    border-radius: 18px;
+
+    padding: 18px;
 }
 
-.package{
-    width:100%;
-    border:0;
-    border-radius:12px;
-    padding:14px;
-    margin-bottom:9px;
-    background:#171d28;
-    color:white;
-    text-align:right;
-    cursor:pointer;
-    font-size:15px;
+.sidebar h2 {
+
+    color: #b8bfcd;
+
+    font-size: 17px;
+
+    margin-bottom: 15px;
 }
 
-.package.active,
-.package:focus{
-    background:#e91542;
-    outline:none;
+.package {
+
+    width: 100%;
+
+    border: 0;
+
+    border-radius: 12px;
+
+    padding: 14px;
+
+    margin-bottom: 9px;
+
+    background: #171d28;
+
+    color: white;
+
+    text-align: right;
+
+    cursor: pointer;
+
+    font-size: 15px;
 }
 
-.content{
-    flex:1;
+.package:hover,
+.package:focus {
+
+    outline: none;
+
+    background: #252d3c;
 }
 
-.content h2{
-    margin-bottom:18px;
+.package.active {
+
+    background: #e91542;
 }
 
-.channels{
-    display:grid;
+
+/* ================================
+   CONTENT
+================================ */
+
+.content {
+
+    flex: 1;
+
+    min-width: 0;
+}
+
+.content h2 {
+
+    margin-bottom: 18px;
+
+    font-size: 21px;
+}
+
+
+/* ================================
+   CHANNEL GRID
+================================ */
+
+.channels {
+
+    display: grid;
+
     grid-template-columns:
-        repeat(auto-fill,minmax(190px,1fr));
-    gap:15px;
+        repeat(
+            auto-fill,
+            minmax(190px, 1fr)
+        );
+
+    gap: 15px;
 }
 
-.channel{
-    background:#111722;
-    border:1px solid #202735;
-    border-radius:16px;
-    padding:18px;
-    min-height:110px;
-    cursor:pointer;
-    transition:.2s;
+
+/* ================================
+   CHANNEL
+================================ */
+
+.channel {
+
+    background: #111722;
+
+    border: 1px solid #202735;
+
+    border-radius: 16px;
+
+    padding: 18px;
+
+    min-height: 110px;
+
+    cursor: pointer;
+
+    transition: .2s;
 }
 
-.channel:hover,
-.channel:focus{
-    border-color:#e91542;
-    transform:translateY(-2px);
-    outline:none;
+.channel:hover {
+
+    border-color: #e91542;
+
+    transform: translateY(-2px);
 }
 
-.channel-logo{
-    width:46px;
-    height:46px;
-    border-radius:12px;
-    background:#202735;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    margin-bottom:12px;
-    font-weight:bold;
+.channel:focus {
+
+    outline: 3px solid #e91542;
+
+    outline-offset: 2px;
 }
 
-.channel-name{
-    font-size:14px;
-    font-weight:bold;
+.channel-logo {
+
+    width: 46px;
+
+    height: 46px;
+
+    border-radius: 12px;
+
+    background: #202735;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin-bottom: 12px;
+
+    font-weight: bold;
+
+    font-size: 17px;
 }
 
-/* PLAYER */
+.channel-name {
 
-.player{
-    display:none;
-    position:fixed;
-    inset:0;
-    z-index:9999;
-    background:#000;
-    align-items:center;
-    justify-content:center;
+    font-size: 14px;
+
+    font-weight: bold;
 }
 
-.player video{
-    width:100%;
-    height:100%;
-    object-fit:contain;
+
+/* ================================
+   EMPTY
+================================ */
+
+.empty {
+
+    background: #111722;
+
+    border: 1px solid #202735;
+
+    border-radius: 16px;
+
+    padding: 30px;
+
+    color: #9299a8;
+
+    text-align: center;
 }
 
-.close{
-    position:absolute;
-    top:20px;
-    right:20px;
-    z-index:10000;
-    background:rgba(0,0,0,.75);
-    color:white;
-    border:0;
-    border-radius:10px;
-    padding:12px 18px;
-    font-size:15px;
-    cursor:pointer;
+
+/* ================================
+   PLAYER
+================================ */
+
+.player {
+
+    display: none;
+
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 9999;
+
+    background: #000;
+
+    align-items: center;
+
+    justify-content: center;
 }
 
-@media(max-width:700px){
+.player video {
 
-    main{
-        flex-direction:column;
-        padding:12px;
+    width: 100%;
+
+    height: 100%;
+
+    object-fit: contain;
+
+    background: #000;
+}
+
+
+/* ================================
+   CLOSE BUTTON
+================================ */
+
+.close {
+
+    position: absolute;
+
+    top: 20px;
+
+    right: 20px;
+
+    z-index: 10000;
+
+    background:
+        rgba(0,0,0,.75);
+
+    color: white;
+
+    border: 0;
+
+    border-radius: 10px;
+
+    padding: 12px 18px;
+
+    font-size: 15px;
+
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+
+    outline: 2px solid white;
+}
+
+
+/* ================================
+   MOBILE
+================================ */
+
+@media (max-width: 700px) {
+
+    main {
+
+        flex-direction: column;
+
+        padding: 12px;
+
     }
 
-    .sidebar{
-        width:100%;
+    .sidebar {
+
+        width: 100%;
+
     }
 
-    .channels{
-        grid-template-columns:repeat(2,1fr);
+    .channels {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
     }
+
+}
+
+
+/* ================================
+   TV SCREEN
+================================ */
+
+@media (min-width: 1000px) {
+
+    .channel {
+
+        min-height: 125px;
+
+    }
+
+    .channel-name {
+
+        font-size: 16px;
+
+    }
+
 }
 
 </style>
+
 </head>
 
+
 <body>
+
+
+<!-- ================================
+     HEADER
+================================ -->
 
 <header>
 
@@ -203,176 +435,263 @@ main{
     </div>
 
     <div class="title">
-        <h1>Niyati TV</h1>
-        <span>IPTV Platform</span>
+
+        <h1>
+            Niyati TV
+        </h1>
+
+        <span>
+            IPTV Platform
+        </span>
+
     </div>
 
 </header>
 
 
+
+<!-- ================================
+     MAIN
+================================ -->
+
 <main>
+
+
+    <!-- ============================
+         PACKAGES
+    ============================= -->
 
     <aside class="sidebar">
 
-        <h2>الباقات</h2>
+        <h2>
+            الباقات
+        </h2>
+
 
         <button
             class="package active"
             data-package="bein"
             tabindex="0">
+
             ⚽ beIN SPORTS
+
         </button>
+
 
         <button
             class="package"
             data-package="alwan"
             tabindex="0">
+
             🏆 ALWAN SPORT
+
         </button>
+
 
         <button
             class="package"
             data-package="thamanya"
             tabindex="0">
+
             📺 THAMANYA
+
         </button>
+
 
         <button
             class="package"
             data-package="alkass"
             tabindex="0">
+
             🏆 ALKASS SPORT
+
         </button>
+
 
         <button
             class="package"
             data-package="ad"
             tabindex="0">
+
             🇦🇪 AD SPORT
+
         </button>
+
 
         <button
             class="package"
             data-package="dubai"
             tabindex="0">
+
             📡 DUBAI SPORT
+
         </button>
+
 
         <button
             class="package"
             data-package="iraqia"
             tabindex="0">
+
             🇮🇶 IRAQIA SPORT
+
         </button>
+
 
     </aside>
 
 
+
+    <!-- ============================
+         CHANNELS
+    ============================= -->
+
     <section class="content">
+
 
         <h2 id="packageTitle">
             beIN SPORTS
         </h2>
 
+
         <div
             class="channels"
             id="channels">
+
         </div>
 
+
     </section>
+
 
 </main>
 
 
-<!-- PLAYER -->
+
+<!-- ================================
+     PLAYER
+================================ -->
 
 <div
     class="player"
     id="player">
 
+
     <button
         class="close"
         id="closePlayer">
+
         رجوع
+
     </button>
+
 
     <video
         id="video"
         controls
         playsinline>
+
     </video>
+
 
 </div>
 
 
-<!-- CHANNEL DATA -->
+
+<!-- ================================
+     CHANNEL DATA
+================================ -->
 
 <script src="channels.js"></script>
 
-<!-- PLAYER -->
+
+<!-- ================================
+     PLAYER
+================================ -->
 
 <script src="player.js"></script>
 
 
+
 <script>
 
-/* =====================================
-   Niyati TV
-   ===================================== */
-
-let currentPackage = "bein";
+/* ==================================
+   PACKAGE NAMES
+================================== */
 
 const packageNames = {
 
-    bein: "beIN SPORTS",
+    bein:
+        "beIN SPORTS",
 
-    alwan: "ALWAN SPORT",
+    alwan:
+        "ALWAN SPORT",
 
-    thamanya: "THAMANYA",
+    thamanya:
+        "THAMANYA",
 
-    alkass: "ALKASS SPORT",
+    alkass:
+        "ALKASS SPORT",
 
-    ad: "AD SPORT",
+    ad:
+        "AD SPORT",
 
-    dubai: "DUBAI SPORT",
+    dubai:
+        "DUBAI SPORT",
 
-    iraqia: "IRAQIA SPORT"
+    iraqia:
+        "IRAQIA SPORT"
 
 };
 
 
-/* =====================================
-   FIND CHANNEL DATA
-   ===================================== */
+/* ==================================
+   PACKAGE KEYS
+================================== */
 
-function getChannels(){
+const packageKeys = {
 
-    /*
-       channels.js يجب أن يحتوي
-       على متغير channels
+    bein:
+        "beIN SPORTS",
 
-       مثال:
+    alwan:
+        "ALWAN SPORT",
 
-       const channels = [
-          {
-             name:"...",
-             url:"...",
-             package:"bein"
-          }
-       ];
-    */
+    thamanya:
+        "THAMANYA",
 
-    if(
+    alkass:
+        "ALKASS SPORT",
+
+    ad:
+        "AD SPORT",
+
+    dubai:
+        "DUBAI SPORT",
+
+    iraqia:
+        "IRAQIA SPORT"
+
+};
+
+
+/* ==================================
+   GET CHANNELS
+================================== */
+
+function getChannels() {
+
+    if (
         typeof channels !== "undefined" &&
         Array.isArray(channels)
-    ){
+    ) {
 
         return channels;
 
     }
 
     console.error(
-        "channels.js لم يتم تحميله أو متغير channels غير موجود"
+        "channels.js not found"
     );
 
     return [];
@@ -380,155 +699,253 @@ function getChannels(){
 }
 
 
-/* =====================================
+/* ==================================
    SHOW PACKAGE
-   ===================================== */
+================================== */
 
-function showPackage(packageId){
+function showPackage(packageId) {
 
-    currentPackage = packageId;
 
-    const allChannels = getChannels();
+    const allChannels =
+        getChannels();
 
-    const filtered =
+
+    const realPackage =
+        packageKeys[packageId];
+
+
+    const filteredChannels =
         allChannels.filter(
-            channel =>
-                channel.package === packageId
+
+            function(channel) {
+
+                return (
+                    channel.package ===
+                    realPackage
+                );
+
+            }
+
         );
 
+
     const container =
-        document.getElementById("channels");
+        document.getElementById(
+            "channels"
+        );
+
 
     const title =
-        document.getElementById("packageTitle");
+        document.getElementById(
+            "packageTitle"
+        );
+
 
     title.textContent =
-        packageNames[packageId] || packageId;
+        packageNames[packageId];
+
 
     container.innerHTML = "";
 
-    if(filtered.length === 0){
+
+    /* ==============================
+       NO CHANNELS
+    ============================== */
+
+    if (
+        filteredChannels.length === 0
+    ) {
 
         container.innerHTML = `
-            <div style="
-                padding:30px;
-                color:#9299a8;
-                font-size:16px;
-            ">
+
+            <div class="empty">
+
                 لا توجد قنوات في هذه الباقة
+
             </div>
+
         `;
 
         return;
+
     }
 
 
-    filtered.forEach(
-        (channel,index) => {
+    /* ==============================
+       CREATE CHANNELS
+    ============================== */
+
+    filteredChannels.forEach(
+
+        function(channel, index) {
+
 
             const item =
-                document.createElement("div");
+                document.createElement(
+                    "div"
+                );
 
-            item.className = "channel";
+
+            item.className =
+                "channel";
+
 
             item.tabIndex = 0;
+
 
             item.innerHTML = `
 
                 <div class="channel-logo">
+
                     ${index + 1}
+
                 </div>
 
                 <div class="channel-name">
+
                     ${channel.name}
+
                 </div>
 
             `;
 
 
-            item.addEventListener(
-                "click",
-                function(){
+            /* ========================
+               CLICK
+            ======================== */
 
-                    openChannel(channel);
+            item.addEventListener(
+
+                "click",
+
+                function() {
+
+                    openChannel(
+                        channel
+                    );
 
                 }
+
             );
 
 
-            item.addEventListener(
-                "keydown",
-                function(event){
+            /* ========================
+               REMOTE / KEYBOARD
+            ======================== */
 
-                    if(
-                        event.key === "Enter" ||
-                        event.key === " "
-                    ){
+            item.addEventListener(
+
+                "keydown",
+
+                function(event) {
+
+
+                    if (
+                        event.key ===
+                        "Enter" ||
+
+                        event.key ===
+                        " "
+                    ) {
 
                         event.preventDefault();
 
-                        openChannel(channel);
+
+                        openChannel(
+                            channel
+                        );
 
                     }
 
                 }
+
             );
 
 
-            container.appendChild(item);
+            container.appendChild(
+                item
+            );
+
 
         }
+
     );
 
 }
 
 
-/* =====================================
+/* ==================================
    OPEN CHANNEL
-   ===================================== */
+================================== */
 
-function openChannel(channel){
+function openChannel(channel) {
 
-    if(!channel || !channel.url){
 
-        alert("رابط القناة غير موجود");
+    if (
+        !channel ||
+        !channel.url
+    ) {
+
+        alert(
+            "رابط القناة غير موجود"
+        );
 
         return;
 
     }
 
 
-    const player =
-        document.getElementById("player");
-
-    const video =
-        document.getElementById("video");
-
-
-    player.style.display = "flex";
+    const playerBox =
+        document.getElementById(
+            "player"
+        );
 
 
-    /*
-       نستخدم player.js إذا كانت
-       دالة playChannel موجودة.
-    */
+    playerBox.style.display =
+        "flex";
 
-    if(
-        typeof playChannel === "function"
-    ){
 
-        playChannel(channel.url);
+    /* ==============================
+       USE player.js
+    ============================== */
 
-    }else{
+    if (
+        typeof playChannel ===
+        "function"
+    ) {
+
+        playChannel(
+            channel.url
+        );
+
+    }
+
+    else {
+
+
+        const video =
+            document.getElementById(
+                "video"
+            );
+
 
         video.src =
             channel.url;
 
+
         video.load();
 
+
         video.play().catch(
-            error =>
-                console.log(error)
+
+            function(error) {
+
+                console.log(
+                    error
+                );
+
+            }
+
         );
 
     }
@@ -536,132 +953,245 @@ function openChannel(channel){
 }
 
 
-/* =====================================
+/* ==================================
    CLOSE PLAYER
-   ===================================== */
+================================== */
 
-document
-    .getElementById("closePlayer")
-    .addEventListener(
-        "click",
-        function(){
-
-            if(
-                typeof stopChannel === "function"
-            ){
-
-                stopChannel();
-
-            }else{
-
-                const video =
-                    document.getElementById("video");
-
-                video.pause();
-
-                video.removeAttribute("src");
-
-                video.load();
-
-            }
-
-            document
-                .getElementById("player")
-                .style.display = "none";
-
-        }
-    );
+function closePlayer() {
 
 
-/* =====================================
-   PACKAGE BUTTONS
-   ===================================== */
+    const playerBox =
+        document.getElementById(
+            "player"
+        );
 
-document
-    .querySelectorAll(".package")
-    .forEach(
-        button => {
 
-            button.addEventListener(
-                "click",
-                function(){
+    if (
+        typeof stopChannel ===
+        "function"
+    ) {
 
-                    document
-                        .querySelectorAll(".package")
-                        .forEach(
-                            b =>
-                                b.classList.remove(
-                                    "active"
-                                )
-                        );
+        stopChannel();
 
-                    this.classList.add("active");
+    }
 
-                    showPackage(
-                        this.dataset.package
-                    );
+    else {
 
-                }
+
+        const video =
+            document.getElementById(
+                "video"
             );
 
+
+        video.pause();
+
+
+        video.removeAttribute(
+            "src"
+        );
+
+
+        video.load();
+
+    }
+
+
+    playerBox.style.display =
+        "none";
+
+}
+
+
+/* ==================================
+   CLOSE BUTTON
+================================== */
+
+document
+    .getElementById(
+        "closePlayer"
+    )
+    .addEventListener(
+
+        "click",
+
+        function() {
+
+            closePlayer();
+
         }
+
     );
 
 
-/* =====================================
-   KEYBOARD / TV REMOTE
-   ===================================== */
+/* ==================================
+   PACKAGE BUTTONS
+================================== */
 
-document.addEventListener(
-    "keydown",
-    function(event){
+document
+    .querySelectorAll(
+        ".package"
+    )
+    .forEach(
 
-        if(
-            event.key === "Escape" ||
-            event.key === "Backspace"
-        ){
+        function(button) {
 
-            const player =
-                document.getElementById("player");
 
-            if(
-                player.style.display === "flex"
-            ){
+            button.addEventListener(
 
-                if(
-                    typeof stopChannel === "function"
-                ){
+                "click",
 
-                    stopChannel();
+                function() {
+
+
+                    document
+                        .querySelectorAll(
+                            ".package"
+                        )
+                        .forEach(
+
+                            function(btn) {
+
+                                btn.classList
+                                    .remove(
+                                        "active"
+                                    );
+
+                            }
+
+                        );
+
+
+                    this.classList.add(
+                        "active"
+                    );
+
+
+                    showPackage(
+                        this.dataset
+                            .package
+                    );
+
 
                 }
 
-                player.style.display = "none";
+            );
+
+
+        }
+
+    );
+
+
+/* ==================================
+   KEYBOARD / TV REMOTE
+================================== */
+
+document.addEventListener(
+
+    "keydown",
+
+    function(event) {
+
+
+        const playerBox =
+            document.getElementById(
+                "player"
+            );
+
+
+        /* ============================
+           BACK / ESCAPE
+        ============================ */
+
+        if (
+
+            event.key ===
+                "Escape" ||
+
+            event.key ===
+                "Backspace"
+
+        ) {
+
+
+            if (
+                playerBox.style.display
+                === "flex"
+            ) {
+
+
+                closePlayer();
+
 
                 event.preventDefault();
 
+
+                return;
+
+            }
+
+        }
+
+
+        /* ============================
+           OK
+        ============================ */
+
+        if (
+            event.key ===
+            "Enter"
+        ) {
+
+
+            const active =
+                document.activeElement;
+
+
+            if (
+                active &&
+                active.classList
+                    .contains(
+                        "channel"
+                    )
+            ) {
+
+                openChannel(
+                    active
+                );
+
             }
 
         }
 
     }
+
 );
 
 
-/* =====================================
-   START
-   ===================================== */
+/* ==================================
+   START APP
+================================== */
 
 document.addEventListener(
-    "DOMContentLoaded",
-    function(){
 
-        showPackage("bein");
+    "DOMContentLoaded",
+
+    function() {
+
+
+        showPackage(
+            "bein"
+        );
+
 
     }
+
 );
 
 </script>
 
+
 </body>
+
 </html>
