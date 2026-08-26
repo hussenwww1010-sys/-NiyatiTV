@@ -6,112 +6,723 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
+import android.view.WindowManager
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+
+data class Channel(
+    val name: String,
+    val packageName: String,
+    val url: String
+)
 
 class MainActivity : Activity() {
 
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
 
-    private val red = Color.rgb(233, 21, 66)
-    private val background = Color.rgb(8, 11, 18)
-    private val card = Color.rgb(18, 23, 33)
+    private lateinit var packageList: LinearLayout
+    private lateinit var channelList: LinearLayout
+    private lateinit var channelScroll: ScrollView
+    private lateinit var selectedChannelText: TextView
 
-    private val testChannel =
-        "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
+    private var currentChannel: Channel? = null
+    private var isFullscreen = false
+
+    private val background = Color.rgb(8, 11, 18)
+    private val panel = Color.rgb(15, 20, 30)
+    private val card = Color.rgb(22, 28, 40)
+    private val selected = Color.rgb(233, 21, 66)
+    private val white = Color.WHITE
+    private val gray = Color.rgb(170, 178, 190)
+
+    /*
+     * جميع القنوات الموجودة حاليًا في channels.js
+     */
+
+    private val channels = listOf(
+
+        // =========================
+        // beIN SPORTS
+        // =========================
+
+        Channel(
+            "beIN SPORT 1HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 2HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330438&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 3HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411381&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 4HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411380&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 5HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411379&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 6HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411378&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 7HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411377&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 8HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411376&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 9HD",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411375&extension=ts"
+        ),
+
+        // beIN source 2
+
+        Channel(
+            "beIN SPORT 1HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660413&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 2HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660411&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 3HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660409&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 4HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660407&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 5HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660405&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 6HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660403&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 7HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660401&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 8HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660399&extension=ts"
+        ),
+
+        Channel(
+            "beIN SPORT 9HD - 2",
+            "beIN SPORTS",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660397&extension=ts"
+        ),
+
+        // =========================
+        // ALWAN SPORT
+        // =========================
+
+        Channel(
+            "ALWAN SPORT 1HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859098&extension=ts"
+        ),
+
+        Channel(
+            "ALWAN SPORT 2HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859097&extension=ts"
+        ),
+
+        Channel(
+            "ALWAN SPORT 3HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859096&extension=ts"
+        ),
+
+        Channel(
+            "ALWAN SPORT 4HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859095&extension=ts"
+        ),
+
+        Channel(
+            "ALWAN SPORT 5HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859094&extension=ts"
+        ),
+
+        Channel(
+            "ALWAN SPORT 6HD",
+            "ALWAN SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859093&extension=ts"
+        ),
+
+        // =========================
+        // THAMANYA
+        // =========================
+
+        Channel(
+            "THAMANYA 1HD",
+            "THAMANYA",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936356&extension=ts"
+        ),
+
+        Channel(
+            "THAMANYA 2HD",
+            "THAMANYA",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936355&extension=ts"
+        ),
+
+        Channel(
+            "THAMANYA 3HD",
+            "THAMANYA",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936354&extension=ts"
+        ),
+
+        // =========================
+        // ALKASS SPORT
+        // =========================
+
+        Channel(
+            "ALKASS SPORT 1HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591593&extension=ts"
+        ),
+
+        Channel(
+            "ALKASS SPORT 2HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591591&extension=ts"
+        ),
+
+        Channel(
+            "ALKASS SPORT 3HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787903&extension=ts"
+        ),
+
+        Channel(
+            "ALKASS SPORT 4HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591589&extension=ts"
+        ),
+
+        Channel(
+            "ALKASS SPORT 5HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591587&extension=ts"
+        ),
+
+        Channel(
+            "ALKASS SPORT 6HD",
+            "ALKASS SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787906&extension=ts"
+        ),
+
+        // =========================
+        // AD SPORT
+        // =========================
+
+        Channel(
+            "AD SPORT 1HD",
+            "AD SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993336&extension=ts"
+        ),
+
+        Channel(
+            "AD SPORT 2HD",
+            "AD SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993337&extension=ts"
+        ),
+
+        // =========================
+        // DUBAI SPORT
+        // =========================
+
+        Channel(
+            "DUBAI SPORT 1HD",
+            "DUBAI SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8086&extension=ts"
+        ),
+
+        Channel(
+            "DUBAI SPORT 2HD",
+            "DUBAI SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=84251&extension=ts"
+        ),
+
+        Channel(
+            "DUBAI SPORT 3HD",
+            "DUBAI SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591579&extension=ts"
+        ),
+
+        // =========================
+        // IRAQIA SPORT
+        // =========================
+
+        Channel(
+            "IRAQIA SPORT HD",
+            "IRAQIA SPORT",
+            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8116&extension=ts"
+        )
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        buildInterface()
+    }
+
+    private fun buildInterface() {
 
         val root = LinearLayout(this)
 
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(background)
-        root.setPadding(20, 20, 20, 20)
 
-        val title = TextView(this)
+        // =========================
+        // TOP
+        // =========================
 
-        title.text = "NIYATI TV"
-        title.textSize = 30f
-        title.setTextColor(Color.WHITE)
-        title.setTypeface(null, Typeface.BOLD)
-        title.gravity = Gravity.CENTER_VERTICAL
+        val header = TextView(this)
 
-        root.addView(
-            title,
-            LinearLayout.LayoutParams(-1, 70)
-        )
-
-        val playerTitle = TextView(this)
-
-        playerTitle.text = "المشغل"
-        playerTitle.textSize = 20f
-        playerTitle.setTextColor(Color.WHITE)
-        playerTitle.gravity = Gravity.CENTER_VERTICAL
+        header.text = "NIYATI TV"
+        header.textSize = 28f
+        header.setTextColor(white)
+        header.setTypeface(null, Typeface.BOLD)
+        header.gravity = Gravity.CENTER_VERTICAL
+        header.setPadding(25, 0, 25, 0)
 
         root.addView(
-            playerTitle,
-            LinearLayout.LayoutParams(-1, 50)
+            header,
+            LinearLayout.LayoutParams(
+                -1,
+                70
+            )
         )
+
+        // =========================
+        // PLAYER
+        // =========================
 
         playerView = PlayerView(this)
 
         playerView.setBackgroundColor(Color.BLACK)
         playerView.useController = true
+        playerView.controllerAutoShow = true
 
         root.addView(
             playerView,
             LinearLayout.LayoutParams(
                 -1,
                 0,
+                0.48f
+            )
+        )
+
+        // =========================
+        // CURRENT CHANNEL
+        // =========================
+
+        selectedChannelText = TextView(this)
+
+        selectedChannelText.text = "اختر قناة"
+        selectedChannelText.textSize = 18f
+        selectedChannelText.setTextColor(gray)
+        selectedChannelText.gravity = Gravity.CENTER
+        selectedChannelText.setPadding(10, 8, 10, 8)
+
+        root.addView(
+            selectedChannelText,
+            LinearLayout.LayoutParams(
+                -1,
+                55
+            )
+        )
+
+        // =========================
+        // CONTENT
+        // =========================
+
+        val content = LinearLayout(this)
+
+        content.orientation = LinearLayout.HORIZONTAL
+        content.setBackgroundColor(panel)
+
+        // الباقات
+        val packageScroll = ScrollView(this)
+
+        packageList = LinearLayout(this)
+
+        packageList.orientation = LinearLayout.VERTICAL
+        packageList.setPadding(12, 12, 12, 12)
+
+        packageScroll.addView(packageList)
+
+        content.addView(
+            packageScroll,
+            LinearLayout.LayoutParams(
+                250,
+                -1
+            )
+        )
+
+        // القنوات
+        channelScroll = ScrollView(this)
+
+        channelList = LinearLayout(this)
+
+        channelList.orientation = LinearLayout.VERTICAL
+        channelList.setPadding(12, 12, 12, 12)
+
+        channelScroll.addView(channelList)
+
+        content.addView(
+            channelScroll,
+            LinearLayout.LayoutParams(
+                0,
+                -1,
                 1f
             )
         )
 
-        val channel = TextView(this)
-
-        channel.text = "▶  تشغيل beIN SPORT 1HD"
-        channel.textSize = 20f
-        channel.setTextColor(Color.WHITE)
-        channel.gravity = Gravity.CENTER
-        channel.setBackgroundColor(red)
-        channel.isFocusable = true
-
         root.addView(
-            channel,
-            LinearLayout.LayoutParams(-1, 70)
+            content,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                0.52f
+            )
         )
-
-        channel.setOnClickListener {
-            playChannel(testChannel)
-        }
 
         setContentView(root)
 
-        channel.requestFocus()
+        createPackages()
+
+        if (getPackages().isNotEmpty()) {
+            showPackage(getPackages().first())
+        }
+    }
+
+    private fun getPackages(): List<String> {
+
+        return channels
+            .map { it.packageName }
+            .distinct()
+    }
+
+    private fun createPackages() {
+
+        packageList.removeAllViews()
+
+        getPackages().forEachIndexed { index, packageName ->
+
+            val button = createButton(
+                packageName,
+                if (index == 0) selected else card
+            )
+
+            button.setOnClickListener {
+
+                highlightPackage(button)
+
+                showPackage(packageName)
+            }
+
+            packageList.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    -1,
+                    65
+                ).apply {
+                    setMargins(0, 0, 0, 8)
+                }
+            )
+
+            if (index == 0) {
+                button.requestFocus()
+            }
+        }
+    }
+
+    private fun highlightPackage(selectedButton: TextView) {
+
+        for (i in 0 until packageList.childCount) {
+
+            val child = packageList.getChildAt(i)
+
+            if (child is TextView) {
+                child.setBackgroundColor(card)
+            }
+        }
+
+        selectedButton.setBackgroundColor(selected)
+    }
+
+    private fun showPackage(packageName: String) {
+
+        channelList.removeAllViews()
+
+        val packageChannels = channels.filter {
+            it.packageName == packageName
+        }
+
+        packageChannels.forEachIndexed { index, channel ->
+
+            val button = createButton(
+                "▶  ${channel.name}",
+                if (index == 0) selected else card
+            )
+
+            button.setOnClickListener {
+
+                selectChannel(channel)
+
+                for (i in 0 until channelList.childCount) {
+
+                    val child = channelList.getChildAt(i)
+
+                    if (child is TextView) {
+                        child.setBackgroundColor(card)
+                    }
+                }
+
+                button.setBackgroundColor(selected)
+            }
+
+            channelList.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    -1,
+                    65
+                ).apply {
+                    setMargins(0, 0, 0, 8)
+                }
+            )
+
+            if (index == 0) {
+                button.requestFocus()
+            }
+        })
+
+        channelScroll.scrollTo(0, 0)
+    }
+
+    private fun createButton(
+        text: String,
+        color: Int
+    ): TextView {
+
+        val button = TextView(this)
+
+        button.text = text
+        button.textSize = 18f
+        button.setTextColor(white)
+        button.setBackgroundColor(color)
+        button.gravity = Gravity.CENTER_VERTICAL
+        button.setPadding(20, 0, 20, 0)
+
+        button.isFocusable = true
+        button.isFocusableInTouchMode = true
+
+        button.setOnFocusChangeListener { view, hasFocus ->
+
+            if (hasFocus) {
+                view.setBackgroundColor(selected)
+            }
+        }
+
+        return button
+    }
+
+    private fun selectChannel(channel: Channel) {
+
+        currentChannel = channel
+
+        selectedChannelText.text =
+            "▶  ${channel.name}"
+
+        playChannel(channel.url)
+
+        playerView.requestFocus()
     }
 
     private fun playChannel(url: String) {
 
-        if (player == null) {
+        try {
 
-            player = ExoPlayer.Builder(this)
-                .build()
+            if (player == null) {
 
-            playerView.player = player
+                player = ExoPlayer.Builder(this)
+                    .build()
+
+                playerView.player = player
+
+                player?.addListener(
+                    object : Player.Listener {
+
+                        override fun onPlayerError(
+                            error: PlaybackException
+                        ) {
+
+                            Toast.makeText(
+                                this@MainActivity,
+                                "تعذر تشغيل القناة",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                )
+            }
+
+            val mediaItem = MediaItem.fromUri(
+                Uri.parse(url)
+            )
+
+            player?.setMediaItem(mediaItem)
+
+            player?.prepare()
+
+            player?.playWhenReady = true
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "خطأ في تشغيل القناة",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun enterFullscreen() {
+
+        if (isFullscreen) return
+
+        isFullscreen = true
+
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+
+        supportActionBar?.hide()
+    }
+
+    private fun exitFullscreen() {
+
+        if (!isFullscreen) return
+
+        isFullscreen = false
+
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+
+    }
+
+    override fun dispatchKeyEvent(
+        event: KeyEvent
+    ): Boolean {
+
+        if (
+            event.action == KeyEvent.ACTION_UP &&
+            event.keyCode == KeyEvent.KEYCODE_BACK
+        ) {
+
+            if (isFullscreen) {
+
+                exitFullscreen()
+
+                return true
+            }
+
+            if (player?.isPlaying == true) {
+
+                player?.stop()
+
+                playerView.clearFocus()
+
+                currentChannel?.let {
+                    selectedChannelText.text =
+                        "توقفت: ${it.name}"
+                }
+
+                return true
+            }
         }
 
-        val mediaItem = MediaItem.fromUri(
-            Uri.parse(url)
-        )
+        if (
+            event.action == KeyEvent.ACTION_UP &&
+            event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+        ) {
 
-        player?.setMediaItem(mediaItem)
-        player?.prepare()
-        player?.playWhenReady = true
+            if (playerView.hasFocus()) {
+
+                if (isFullscreen) {
+                    exitFullscreen()
+                } else {
+                    enterFullscreen()
+                }
+
+                return true
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onStop() {
