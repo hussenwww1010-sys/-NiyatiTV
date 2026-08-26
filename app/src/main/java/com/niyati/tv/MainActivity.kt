@@ -8,6 +8,7 @@ import android.net.Uri
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.Window
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -28,11 +29,10 @@ data class Channel(
 class MainActivity : Activity() {
 
     private var player: ExoPlayer? = null
-    private lateinit var playerView: PlayerView
 
+    private lateinit var playerView: PlayerView
     private lateinit var packageList: LinearLayout
     private lateinit var channelList: LinearLayout
-    private lateinit var channelScroll: ScrollView
     private lateinit var selectedChannelText: TextView
 
     private var currentChannel: Channel? = null
@@ -45,15 +45,7 @@ class MainActivity : Activity() {
     private val white = Color.WHITE
     private val gray = Color.rgb(170, 178, 190)
 
-    /*
-     * جميع القنوات الموجودة حاليًا في channels.js
-     */
-
     private val channels = listOf(
-
-        // =========================
-        // beIN SPORTS
-        // =========================
 
         Channel(
             "beIN SPORT 1HD",
@@ -109,66 +101,6 @@ class MainActivity : Activity() {
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411375&extension=ts"
         ),
 
-        // beIN source 2
-
-        Channel(
-            "beIN SPORT 1HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660413&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 2HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660411&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 3HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660409&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 4HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660407&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 5HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660405&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 6HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660403&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 7HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660401&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 8HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660399&extension=ts"
-        ),
-
-        Channel(
-            "beIN SPORT 9HD - 2",
-            "beIN SPORTS",
-            "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660397&extension=ts"
-        ),
-
-        // =========================
-        // ALWAN SPORT
-        // =========================
-
         Channel(
             "ALWAN SPORT 1HD",
             "ALWAN SPORT",
@@ -205,10 +137,6 @@ class MainActivity : Activity() {
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859093&extension=ts"
         ),
 
-        // =========================
-        // THAMANYA
-        // =========================
-
         Channel(
             "THAMANYA 1HD",
             "THAMANYA",
@@ -226,10 +154,6 @@ class MainActivity : Activity() {
             "THAMANYA",
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936354&extension=ts"
         ),
-
-        // =========================
-        // ALKASS SPORT
-        // =========================
 
         Channel(
             "ALKASS SPORT 1HD",
@@ -267,10 +191,6 @@ class MainActivity : Activity() {
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787906&extension=ts"
         ),
 
-        // =========================
-        // AD SPORT
-        // =========================
-
         Channel(
             "AD SPORT 1HD",
             "AD SPORT",
@@ -282,10 +202,6 @@ class MainActivity : Activity() {
             "AD SPORT",
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993337&extension=ts"
         ),
-
-        // =========================
-        // DUBAI SPORT
-        // =========================
 
         Channel(
             "DUBAI SPORT 1HD",
@@ -305,10 +221,6 @@ class MainActivity : Activity() {
             "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591579&extension=ts"
         ),
 
-        // =========================
-        // IRAQIA SPORT
-        // =========================
-
         Channel(
             "IRAQIA SPORT HD",
             "IRAQIA SPORT",
@@ -319,7 +231,9 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
 
         buildInterface()
     }
@@ -330,10 +244,6 @@ class MainActivity : Activity() {
 
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(background)
-
-        // =========================
-        // TOP
-        // =========================
 
         val header = TextView(this)
 
@@ -352,10 +262,6 @@ class MainActivity : Activity() {
             )
         )
 
-        // =========================
-        // PLAYER
-        // =========================
-
         playerView = PlayerView(this)
 
         playerView.setBackgroundColor(Color.BLACK)
@@ -371,17 +277,12 @@ class MainActivity : Activity() {
             )
         )
 
-        // =========================
-        // CURRENT CHANNEL
-        // =========================
-
         selectedChannelText = TextView(this)
 
         selectedChannelText.text = "اختر قناة"
         selectedChannelText.textSize = 18f
         selectedChannelText.setTextColor(gray)
         selectedChannelText.gravity = Gravity.CENTER
-        selectedChannelText.setPadding(10, 8, 10, 8)
 
         root.addView(
             selectedChannelText,
@@ -391,16 +292,11 @@ class MainActivity : Activity() {
             )
         )
 
-        // =========================
-        // CONTENT
-        // =========================
-
         val content = LinearLayout(this)
 
         content.orientation = LinearLayout.HORIZONTAL
         content.setBackgroundColor(panel)
 
-        // الباقات
         val packageScroll = ScrollView(this)
 
         packageList = LinearLayout(this)
@@ -418,8 +314,7 @@ class MainActivity : Activity() {
             )
         )
 
-        // القنوات
-        channelScroll = ScrollView(this)
+        val channelScroll = ScrollView(this)
 
         channelList = LinearLayout(this)
 
@@ -450,8 +345,10 @@ class MainActivity : Activity() {
 
         createPackages()
 
-        if (getPackages().isNotEmpty()) {
-            showPackage(getPackages().first())
+        val packages = getPackages()
+
+        if (packages.isNotEmpty()) {
+            showPackage(packages.first())
         }
     }
 
@@ -466,7 +363,9 @@ class MainActivity : Activity() {
 
         packageList.removeAllViews()
 
-        getPackages().forEachIndexed { index, packageName ->
+        val packages = getPackages()
+
+        packages.forEachIndexed { index, packageName ->
 
             val button = createButton(
                 packageName,
@@ -475,8 +374,7 @@ class MainActivity : Activity() {
 
             button.setOnClickListener {
 
-                highlightPackage(button)
-
+                selectPackage(button)
                 showPackage(packageName)
             }
 
@@ -496,7 +394,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun highlightPackage(selectedButton: TextView) {
+    private fun selectPackage(button: TextView) {
 
         for (i in 0 until packageList.childCount) {
 
@@ -507,7 +405,7 @@ class MainActivity : Activity() {
             }
         }
 
-        selectedButton.setBackgroundColor(selected)
+        button.setBackgroundColor(selected)
     }
 
     private fun showPackage(packageName: String) {
@@ -555,8 +453,6 @@ class MainActivity : Activity() {
                 button.requestFocus()
             }
         })
-
-        channelScroll.scrollTo(0, 0)
     }
 
     private fun createButton(
@@ -631,24 +527,20 @@ class MainActivity : Activity() {
             )
 
             player?.setMediaItem(mediaItem)
-
             player?.prepare()
-
             player?.playWhenReady = true
 
         } catch (e: Exception) {
 
             Toast.makeText(
                 this,
-                "خطأ في تشغيل القناة",
+                "حدث خطأ في تشغيل القناة",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
     private fun enterFullscreen() {
-
-        if (isFullscreen) return
 
         isFullscreen = true
 
@@ -659,19 +551,14 @@ class MainActivity : Activity() {
             View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-
-        supportActionBar?.hide()
     }
 
     private fun exitFullscreen() {
-
-        if (!isFullscreen) return
 
         isFullscreen = false
 
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-
     }
 
     override fun dispatchKeyEvent(
@@ -696,9 +583,12 @@ class MainActivity : Activity() {
 
                 playerView.clearFocus()
 
-                currentChannel?.let {
+                val channel = currentChannel
+
+                if (channel != null) {
+
                     selectedChannelText.text =
-                        "توقفت: ${it.name}"
+                        "توقفت: ${channel.name}"
                 }
 
                 return true
