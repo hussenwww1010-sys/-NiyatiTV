@@ -3,6 +3,9 @@ name: Build Niyati TV
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,19 +26,17 @@ jobs:
       - name: Build APK
         run: gradle assembleDebug
 
-      - name: Find APK
-        run: |
-          echo "APK files:"
-          find app/build/outputs/apk -type f -name "*.apk" -print
-
-      - name: Rename APK
+      - name: Prepare APK
         run: |
           mkdir -p release
           cp app/build/outputs/apk/debug/app-debug.apk release/Niyati-TV-debug.apk
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Niyati-TV-APK
-          path: release/Niyati-TV-debug.apk
-          if-no-files-found: error
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" \
+            release/Niyati-TV-debug.apk \
+            --title "Niyati TV Build ${{ github.run_number }}" \
+            --notes "Niyati TV debug APK"
