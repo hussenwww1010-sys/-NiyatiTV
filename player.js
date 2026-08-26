@@ -1,28 +1,55 @@
 let currentVideo = null;
 
 function playChannel(url) {
-    const player = document.getElementById("video");
 
-    if (!player || !url) return;
+    const video = document.getElementById("video");
+
+    if (!video || !url) {
+        return;
+    }
 
     currentVideo = url;
 
-    player.src = url;
-    player.controls = true;
+    video.pause();
 
-    player.play().catch(() => {
-        console.log("Playback requires user interaction");
+    video.removeAttribute("src");
+
+    video.load();
+
+    video.src = url;
+
+    video.controls = true;
+
+    video.autoplay = true;
+
+    video.load();
+
+    video.play().catch(function(error) {
+
+        console.log(
+            "Playback waiting for user interaction:",
+            error
+        );
+
     });
+
 }
 
+
 function stopChannel() {
-    const player = document.getElementById("video");
 
-    if (!player) return;
+    const video = document.getElementById("video");
 
-    player.pause();
-    player.removeAttribute("src");
-    player.load();
+    if (!video) {
+        return;
+    }
+
+    video.pause();
+
+    video.removeAttribute("src");
+
+    video.load();
 
     currentVideo = null;
+
 }
