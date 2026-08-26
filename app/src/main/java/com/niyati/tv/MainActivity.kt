@@ -4,7 +4,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.graphics.Color
 import android.view.Gravity
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +18,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        try {
+            createInterface()
+        } catch (e: Exception) {
+            showError(e)
+        }
+    }
+
+    private fun createInterface() {
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
@@ -60,11 +68,9 @@ class MainActivity : AppCompatActivity() {
         channelButton.setPadding(20, 20, 20, 20)
 
         channelButton.setOnClickListener {
-
             playChannel(
                 "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
             )
-
         }
 
         root.addView(
@@ -82,23 +88,40 @@ class MainActivity : AppCompatActivity() {
 
     private fun playChannel(url: String) {
 
-        if (player == null) {
+        try {
 
-            player = ExoPlayer.Builder(this)
-                .build()
+            if (player == null) {
 
-            playerView.player = player
+                player = ExoPlayer.Builder(this)
+                    .build()
 
+                playerView.player = player
+            }
+
+            val mediaItem = MediaItem.fromUri(Uri.parse(url))
+
+            player?.setMediaItem(mediaItem)
+            player?.prepare()
+            player?.playWhenReady = true
+
+        } catch (e: Exception) {
+            showError(e)
         }
+    }
 
-        val mediaItem =
-            MediaItem.fromUri(Uri.parse(url))
+    private fun showError(e: Exception) {
 
-        player?.setMediaItem(mediaItem)
+        val message = TextView(this)
 
-        player?.prepare()
+        message.text =
+            "Niyati TV\n\nحدث خطأ أثناء تشغيل التطبيق:\n\n${e.javaClass.simpleName}\n${e.message}"
 
-        player?.playWhenReady = true
+        message.textSize = 16f
+        message.setTextColor(Color.WHITE)
+        message.gravity = Gravity.CENTER
+        message.setPadding(30, 30, 30, 30)
+
+        setContentView(message)
     }
 
     override fun onStop() {
@@ -106,15 +129,17 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
 
         player?.release()
-
         player = null
     }
 
-    private fun Int.dp(): Int {
+    override fun onDestroy() {
 
-        return (
-            this *
-            resources.displayMetrics.density
-        ).toInt()
+        playerView.player = null
+
+        super.onDestroy()
+    }
+
+    private fun Int.dp(): Int {
+        return (this * resources.displayMetrics.density).toInt()
     }
 }
