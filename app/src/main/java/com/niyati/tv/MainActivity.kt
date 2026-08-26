@@ -8,7 +8,6 @@ import android.net.Uri
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
-import android.view.Window
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -22,7 +21,7 @@ import androidx.media3.ui.PlayerView
 
 data class Channel(
     val name: String,
-    val packageName: String,
+    val group: String,
     val url: String
 )
 
@@ -31,20 +30,23 @@ class MainActivity : Activity() {
     private var player: ExoPlayer? = null
 
     private lateinit var playerView: PlayerView
-    private lateinit var packageList: LinearLayout
     private lateinit var channelList: LinearLayout
-    private lateinit var selectedChannelText: TextView
+    private lateinit var packageList: LinearLayout
+    private lateinit var titleText: TextView
 
-    private var currentChannel: Channel? = null
-    private var isFullscreen = false
-
-    private val background = Color.rgb(8, 11, 18)
-    private val panel = Color.rgb(15, 20, 30)
-    private val card = Color.rgb(22, 28, 40)
-    private val selected = Color.rgb(233, 21, 66)
+    private val bg = Color.rgb(8, 11, 18)
+    private val card = Color.rgb(24, 30, 42)
+    private val red = Color.rgb(233, 21, 66)
     private val white = Color.WHITE
     private val gray = Color.rgb(170, 178, 190)
 
+    private var fullscreen = false
+
+    /*
+     * القنوات
+     *
+     * تقدر تضيف بقية قنواتك لاحقاً هنا.
+     */
     private val channels = listOf(
 
         Channel(
@@ -235,27 +237,27 @@ class MainActivity : Activity() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
 
-        buildInterface()
+        createInterface()
     }
 
-    private fun buildInterface() {
+    private fun createInterface() {
 
         val root = LinearLayout(this)
 
         root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(background)
+        root.setBackgroundColor(bg)
 
-        val header = TextView(this)
+        titleText = TextView(this)
 
-        header.text = "NIYATI TV"
-        header.textSize = 28f
-        header.setTextColor(white)
-        header.setTypeface(null, Typeface.BOLD)
-        header.gravity = Gravity.CENTER_VERTICAL
-        header.setPadding(25, 0, 25, 0)
+        titleText.text = "NIYATI TV"
+        titleText.textSize = 26f
+        titleText.setTextColor(white)
+        titleText.setTypeface(null, Typeface.BOLD)
+        titleText.gravity = Gravity.CENTER_VERTICAL
+        titleText.setPadding(25, 0, 25, 0)
 
         root.addView(
-            header,
+            titleText,
             LinearLayout.LayoutParams(
                 -1,
                 70
@@ -266,47 +268,31 @@ class MainActivity : Activity() {
 
         playerView.setBackgroundColor(Color.BLACK)
         playerView.useController = true
-        playerView.controllerAutoShow = true
 
         root.addView(
             playerView,
             LinearLayout.LayoutParams(
                 -1,
                 0,
-                0.48f
+                0.50f
             )
         )
 
-        selectedChannelText = TextView(this)
+        val bottom = LinearLayout(this)
 
-        selectedChannelText.text = "اختر قناة"
-        selectedChannelText.textSize = 18f
-        selectedChannelText.setTextColor(gray)
-        selectedChannelText.gravity = Gravity.CENTER
-
-        root.addView(
-            selectedChannelText,
-            LinearLayout.LayoutParams(
-                -1,
-                55
-            )
-        )
-
-        val content = LinearLayout(this)
-
-        content.orientation = LinearLayout.HORIZONTAL
-        content.setBackgroundColor(panel)
+        bottom.orientation = LinearLayout.HORIZONTAL
+        bottom.setBackgroundColor(Color.rgb(13, 17, 25))
 
         val packageScroll = ScrollView(this)
 
         packageList = LinearLayout(this)
 
         packageList.orientation = LinearLayout.VERTICAL
-        packageList.setPadding(12, 12, 12, 12)
+        packageList.setPadding(10, 10, 10, 10)
 
         packageScroll.addView(packageList)
 
-        content.addView(
+        bottom.addView(
             packageScroll,
             LinearLayout.LayoutParams(
                 250,
@@ -319,11 +305,11 @@ class MainActivity : Activity() {
         channelList = LinearLayout(this)
 
         channelList.orientation = LinearLayout.VERTICAL
-        channelList.setPadding(12, 12, 12, 12)
+        channelList.setPadding(10, 10, 10, 10)
 
         channelScroll.addView(channelList)
 
-        content.addView(
+        bottom.addView(
             channelScroll,
             LinearLayout.LayoutParams(
                 0,
@@ -333,49 +319,46 @@ class MainActivity : Activity() {
         )
 
         root.addView(
-            content,
+            bottom,
             LinearLayout.LayoutParams(
                 -1,
                 0,
-                0.52f
+                0.50f
             )
         )
 
         setContentView(root)
 
-        createPackages()
-
-        val packages = getPackages()
-
-        if (packages.isNotEmpty()) {
-            showPackage(packages.first())
-        }
+        loadPackages()
     }
 
-    private fun getPackages(): List<String> {
-
-        return channels
-            .map { it.packageName }
-            .distinct()
-    }
-
-    private fun createPackages() {
+    private fun loadPackages() {
 
         packageList.removeAllViews()
 
-        val packages = getPackages()
+        val packages = channels
+            .map { it.group }
+            .distinct()
 
-        packages.forEachIndexed { index, packageName ->
+        packages.forEachIndexed { index, group ->
 
-            val button = createButton(
-                packageName,
-                if (index == 0) selected else card
+            val button = makeButton(
+                group,
+                if (index == 0) red else card
             )
 
             button.setOnClickListener {
 
-                selectPackage(button)
-                showPackage(packageName)
+                for (i in 0 until packageList.childCount) {
+
+                    val child = packageList.getChildAt(i)
+
+                    child.setBackgroundColor(card)
+                }
+
+                button.setBackgroundColor(red)
+
+                loadChannels(group)
             }
 
             packageList.addView(
@@ -387,56 +370,40 @@ class MainActivity : Activity() {
                     setMargins(0, 0, 0, 8)
                 }
             )
+        }
 
-            if (index == 0) {
-                button.requestFocus()
-            }
+        if (packages.isNotEmpty()) {
+            loadChannels(packages[0])
         }
     }
 
-    private fun selectPackage(button: TextView) {
-
-        for (i in 0 until packageList.childCount) {
-
-            val child = packageList.getChildAt(i)
-
-            if (child is TextView) {
-                child.setBackgroundColor(card)
-            }
-        }
-
-        button.setBackgroundColor(selected)
-    }
-
-    private fun showPackage(packageName: String) {
+    private fun loadChannels(group: String) {
 
         channelList.removeAllViews()
 
-        val packageChannels = channels.filter {
-            it.packageName == packageName
+        val list = channels.filter {
+            it.group == group
         }
 
-        packageChannels.forEachIndexed { index, channel ->
+        list.forEachIndexed { index, channel ->
 
-            val button = createButton(
-                "▶  ${channel.name}",
-                if (index == 0) selected else card
+            val button = makeButton(
+                channel.name,
+                if (index == 0) red else card
             )
 
             button.setOnClickListener {
-
-                selectChannel(channel)
 
                 for (i in 0 until channelList.childCount) {
 
                     val child = channelList.getChildAt(i)
 
-                    if (child is TextView) {
-                        child.setBackgroundColor(card)
-                    }
+                    child.setBackgroundColor(card)
                 }
 
-                button.setBackgroundColor(selected)
+                button.setBackgroundColor(red)
+
+                playChannel(channel)
             }
 
             channelList.addView(
@@ -448,16 +415,12 @@ class MainActivity : Activity() {
                     setMargins(0, 0, 0, 8)
                 }
             )
-
-            if (index == 0) {
-                button.requestFocus()
-            }
-        })
+        }
     }
 
-    private fun createButton(
+    private fun makeButton(
         text: String,
-        color: Int
+        backgroundColor: Int
     ): TextView {
 
         val button = TextView(this)
@@ -465,9 +428,8 @@ class MainActivity : Activity() {
         button.text = text
         button.textSize = 18f
         button.setTextColor(white)
-        button.setBackgroundColor(color)
-        button.gravity = Gravity.CENTER_VERTICAL
-        button.setPadding(20, 0, 20, 0)
+        button.gravity = Gravity.CENTER
+        button.setBackgroundColor(backgroundColor)
 
         button.isFocusable = true
         button.isFocusableInTouchMode = true
@@ -475,26 +437,16 @@ class MainActivity : Activity() {
         button.setOnFocusChangeListener { view, hasFocus ->
 
             if (hasFocus) {
-                view.setBackgroundColor(selected)
+                view.setBackgroundColor(red)
             }
         }
 
         return button
     }
 
-    private fun selectChannel(channel: Channel) {
+    private fun playChannel(channel: Channel) {
 
-        currentChannel = channel
-
-        selectedChannelText.text =
-            "▶  ${channel.name}"
-
-        playChannel(channel.url)
-
-        playerView.requestFocus()
-    }
-
-    private fun playChannel(url: String) {
+        titleText.text = "NIYATI TV  •  ${channel.name}"
 
         try {
 
@@ -523,18 +475,20 @@ class MainActivity : Activity() {
             }
 
             val mediaItem = MediaItem.fromUri(
-                Uri.parse(url)
+                Uri.parse(channel.url)
             )
 
             player?.setMediaItem(mediaItem)
+
             player?.prepare()
+
             player?.playWhenReady = true
 
         } catch (e: Exception) {
 
             Toast.makeText(
                 this,
-                "حدث خطأ في تشغيل القناة",
+                "حدث خطأ في المشغل",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -542,23 +496,19 @@ class MainActivity : Activity() {
 
     private fun enterFullscreen() {
 
-        isFullscreen = true
+        fullscreen = true
 
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
     }
 
     private fun exitFullscreen() {
 
-        isFullscreen = false
+        fullscreen = false
 
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        window.decorView.systemUiVisibility = 0
     }
 
     override fun dispatchKeyEvent(
@@ -570,7 +520,7 @@ class MainActivity : Activity() {
             event.keyCode == KeyEvent.KEYCODE_BACK
         ) {
 
-            if (isFullscreen) {
+            if (fullscreen) {
 
                 exitFullscreen()
 
@@ -581,15 +531,7 @@ class MainActivity : Activity() {
 
                 player?.stop()
 
-                playerView.clearFocus()
-
-                val channel = currentChannel
-
-                if (channel != null) {
-
-                    selectedChannelText.text =
-                        "توقفت: ${channel.name}"
-                }
+                titleText.text = "NIYATI TV"
 
                 return true
             }
@@ -602,7 +544,7 @@ class MainActivity : Activity() {
 
             if (playerView.hasFocus()) {
 
-                if (isFullscreen) {
+                if (fullscreen) {
                     exitFullscreen()
                 } else {
                     enterFullscreen()
@@ -620,6 +562,7 @@ class MainActivity : Activity() {
         super.onStop()
 
         player?.release()
+
         player = null
     }
 }
