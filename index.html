@@ -12,9 +12,9 @@
 
 <style>
 
-/* =========================================================
+/* =====================================================
    RESET
-========================================================= */
+===================================================== */
 
 * {
     box-sizing: border-box;
@@ -29,19 +29,31 @@ body {
 }
 
 body {
-    background: #080b12;
+
+    background:
+        radial-gradient(
+            circle at top right,
+            #171d2b 0,
+            #080b12 45%
+        );
+
     color: white;
-    font-family: Arial, sans-serif;
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    overflow-x: hidden;
 }
 
 
-/* =========================================================
+/* =====================================================
    HEADER
-========================================================= */
+===================================================== */
 
 header {
 
-    height: 75px;
+    height: 76px;
 
     display: flex;
 
@@ -49,18 +61,24 @@ header {
 
     padding: 0 25px;
 
-    background: #10151f;
+    background:
+        rgba(16,21,31,.96);
 
-    border-bottom: 1px solid #202735;
+    border-bottom:
+        1px solid #252c39;
+
+    position: relative;
+
+    z-index: 10;
 }
 
 .logo {
 
-    width: 48px;
+    width: 50px;
 
-    height: 48px;
+    height: 50px;
 
-    border-radius: 14px;
+    border-radius: 15px;
 
     background:
         linear-gradient(
@@ -78,6 +96,10 @@ header {
     font-size: 20px;
 
     font-weight: bold;
+
+    box-shadow:
+        0 8px 25px
+        rgba(233,21,66,.25);
 }
 
 .title {
@@ -88,6 +110,8 @@ header {
 .title h1 {
 
     font-size: 22px;
+
+    letter-spacing: .3px;
 }
 
 .title span {
@@ -95,12 +119,16 @@ header {
     color: #9299a8;
 
     font-size: 12px;
+
+    display: block;
+
+    margin-top: 3px;
 }
 
 
-/* =========================================================
+/* =====================================================
    MAIN
-========================================================= */
+===================================================== */
 
 main {
 
@@ -111,54 +139,68 @@ main {
     padding: 22px;
 
     min-height:
-        calc(100vh - 75px);
+        calc(100vh - 76px);
 }
 
 
-/* =========================================================
+/* =====================================================
    SIDEBAR
-========================================================= */
+===================================================== */
 
 .sidebar {
 
-    width: 230px;
+    width: 235px;
 
     flex-shrink: 0;
 
-    background: #10151f;
+    background:
+        rgba(16,21,31,.96);
 
-    border-radius: 18px;
+    border:
+        1px solid #252c39;
 
-    padding: 18px;
+    border-radius: 20px;
 
-    max-height:
+    padding: 17px;
+
+    height:
         calc(100vh - 120px);
 
     overflow-y: auto;
+
+    scrollbar-width: thin;
 }
 
 .sidebar h2 {
 
-    color: #b8bfcd;
+    color: #c4cad5;
 
     font-size: 17px;
 
     margin-bottom: 15px;
+
+    padding-right: 3px;
 }
+
+
+/* =====================================================
+   PACKAGE BUTTON
+===================================================== */
 
 .package {
 
     width: 100%;
 
-    border: 0;
+    border: 1px solid transparent;
 
-    border-radius: 12px;
+    border-radius: 13px;
 
     padding: 14px;
 
     margin-bottom: 9px;
 
-    background: #171d28;
+    background:
+        #171d28;
 
     color: white;
 
@@ -166,51 +208,96 @@ main {
 
     cursor: pointer;
 
-    font-size: 15px;
+    font-size: 14px;
 
-    transition: .2s;
+    transition:
+        .2s ease;
 }
 
-.package:hover,
+.package:hover {
+
+    background:
+        #222a38;
+}
+
 .package:focus {
 
     outline: none;
 
-    background: #252d3c;
+    border-color:
+        #e91542;
 }
 
 .package.active {
 
-    background: #e91542;
+    background:
+        linear-gradient(
+            135deg,
+            #e91542,
+            #c90f36
+        );
 
     box-shadow:
-        0 5px 18px
-        rgba(233,21,66,.20);
+        0 7px 22px
+        rgba(233,21,66,.22);
 }
 
 
-/* =========================================================
+/* =====================================================
    CONTENT
-========================================================= */
+===================================================== */
 
 .content {
 
     flex: 1;
 
     min-width: 0;
+
+    padding-top: 3px;
+}
+
+.content-header {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 18px;
 }
 
 .content h2 {
 
-    margin-bottom: 18px;
-
-    font-size: 21px;
+    font-size: 22px;
 }
 
 
-/* =========================================================
+/* =====================================================
+   CHANNEL COUNT
+===================================================== */
+
+.channel-count {
+
+    color: #858d9c;
+
+    font-size: 12px;
+
+    background:
+        #111722;
+
+    border:
+        1px solid #252c39;
+
+    padding: 7px 11px;
+
+    border-radius: 9px;
+}
+
+
+/* =====================================================
    CHANNEL GRID
-========================================================= */
+===================================================== */
 
 .channels {
 
@@ -219,46 +306,60 @@ main {
     grid-template-columns:
         repeat(
             auto-fill,
-            minmax(190px, 1fr)
+            minmax(205px, 1fr)
         );
 
     gap: 15px;
 }
 
 
-/* =========================================================
-   CHANNEL
-========================================================= */
+/* =====================================================
+   CHANNEL CARD
+===================================================== */
 
 .channel {
 
-    background: #111722;
+    background:
+        linear-gradient(
+            145deg,
+            #131925,
+            #0f141e
+        );
 
-    border: 1px solid #202735;
+    border:
+        1px solid #242c39;
 
-    border-radius: 16px;
+    border-radius: 17px;
 
-    padding: 18px;
+    padding: 17px;
 
-    min-height: 125px;
+    min-height: 170px;
 
     cursor: pointer;
 
-    transition: .2s;
+    transition:
+        transform .2s ease,
+        border-color .2s ease,
+        box-shadow .2s ease;
 
     display: flex;
 
     flex-direction: column;
 
-    justify-content: center;
+    justify-content: space-between;
 }
 
 .channel:hover {
 
-    border-color: #e91542;
-
     transform:
-        translateY(-2px);
+        translateY(-3px);
+
+    border-color:
+        #e91542;
+
+    box-shadow:
+        0 12px 30px
+        rgba(0,0,0,.25);
 }
 
 .channel:focus {
@@ -266,13 +367,28 @@ main {
     outline:
         3px solid #e91542;
 
-    outline-offset: 2px;
+    outline-offset:
+        2px;
 }
 
 
-/* =========================================================
+/* =====================================================
+   CHANNEL TOP
+===================================================== */
+
+.channel-top {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+/* =====================================================
    CHANNEL LOGO
-========================================================= */
+===================================================== */
 
 .channel-logo {
 
@@ -280,9 +396,12 @@ main {
 
     height: 58px;
 
-    border-radius: 12px;
+    flex-shrink: 0;
 
-    background: #202735;
+    border-radius: 14px;
+
+    background:
+        #202735;
 
     display: flex;
 
@@ -290,13 +409,13 @@ main {
 
     justify-content: center;
 
-    margin-bottom: 12px;
+    overflow: hidden;
 
-    font-weight: bold;
+    color: #fff;
 
     font-size: 17px;
 
-    overflow: hidden;
+    font-weight: bold;
 }
 
 .channel-logo img {
@@ -311,69 +430,138 @@ main {
 }
 
 
-/* =========================================================
+/* =====================================================
    CHANNEL NAME
-========================================================= */
+===================================================== */
 
 .channel-name {
 
-    font-size: 14px;
+    font-size: 15px;
 
     font-weight: bold;
 
-    line-height: 1.5;
+    line-height: 1.45;
 }
 
 
-/* =========================================================
-   QUALITY
-========================================================= */
+/* =====================================================
+   QUALITY AREA
+===================================================== */
 
-.channel-quality {
+.quality-title {
 
-    margin-top: 7px;
+    color: #858d9c;
 
-    display: inline-flex;
+    font-size: 11px;
 
-    width: fit-content;
+    margin-top: 15px;
 
-    padding: 4px 8px;
+    margin-bottom: 8px;
+}
 
-    border-radius: 7px;
+.qualities {
 
-    background: #202735;
+    display: flex;
 
-    color: #cbd1dc;
+    flex-wrap: wrap;
+
+    gap: 6px;
+}
+
+
+/* =====================================================
+   QUALITY BUTTON
+===================================================== */
+
+.quality {
+
+    border:
+        1px solid #303949;
+
+    background:
+        #1b2230;
+
+    color: #d9dee7;
+
+    border-radius: 8px;
+
+    padding:
+        6px 9px;
 
     font-size: 11px;
 
     font-weight: bold;
+
+    cursor: pointer;
+
+    transition:
+        .15s ease;
+}
+
+.quality:hover,
+.quality:focus {
+
+    background:
+        #e91542;
+
+    border-color:
+        #e91542;
+
+    color: white;
+
+    outline: none;
+}
+
+.quality:focus {
+
+    box-shadow:
+        0 0 0 2px
+        rgba(233,21,66,.25);
 }
 
 
-/* =========================================================
+/* =====================================================
+   SINGLE QUALITY
+===================================================== */
+
+.single-quality {
+
+    margin-top: 15px;
+
+    color: #8f97a6;
+
+    font-size: 11px;
+}
+
+
+/* =====================================================
    EMPTY
-========================================================= */
+===================================================== */
 
 .empty {
 
-    background: #111722;
+    background:
+        #111722;
 
-    border: 1px solid #202735;
+    border:
+        1px solid #242c39;
 
     border-radius: 16px;
 
-    padding: 30px;
+    padding: 35px;
 
     color: #9299a8;
 
     text-align: center;
+
+    grid-column:
+        1 / -1;
 }
 
 
-/* =========================================================
+/* =====================================================
    PLAYER
-========================================================= */
+===================================================== */
 
 .player {
 
@@ -404,9 +592,9 @@ main {
 }
 
 
-/* =========================================================
-   CLOSE BUTTON
-========================================================= */
+/* =====================================================
+   CLOSE PLAYER
+===================================================== */
 
 .close {
 
@@ -423,15 +611,21 @@ main {
 
     color: white;
 
-    border: 0;
+    border:
+        1px solid
+        rgba(255,255,255,.15);
 
     border-radius: 10px;
 
-    padding: 12px 18px;
+    padding:
+        11px 18px;
 
-    font-size: 15px;
+    font-size: 14px;
 
     cursor: pointer;
+
+    backdrop-filter:
+        blur(8px);
 }
 
 .close:hover,
@@ -442,9 +636,9 @@ main {
 }
 
 
-/* =========================================================
-   MOBILE
-========================================================= */
+/* =====================================================
+   RESPONSIVE
+===================================================== */
 
 @media (max-width: 700px) {
 
@@ -460,8 +654,9 @@ main {
 
         width: 100%;
 
-        max-height: none;
+        height: auto;
 
+        max-height: none;
     }
 
     .channels {
@@ -471,18 +666,25 @@ main {
 
     }
 
+    .content-header {
+
+        align-items: flex-start;
+
+        gap: 10px;
+    }
+
 }
 
 
-/* =========================================================
-   TV SCREEN
-========================================================= */
+/* =====================================================
+   TV
+===================================================== */
 
 @media (min-width: 1000px) {
 
     .channel {
 
-        min-height: 135px;
+        min-height: 175px;
 
     }
 
@@ -502,9 +704,9 @@ main {
 <body>
 
 
-<!-- =======================================================
+<!-- =====================================================
      HEADER
-======================================================== -->
+===================================================== -->
 
 <header>
 
@@ -528,16 +730,16 @@ main {
 
 
 
-<!-- =======================================================
+<!-- =====================================================
      MAIN
-======================================================== -->
+===================================================== -->
 
 <main>
 
 
-    <!-- ===================================================
+    <!-- =================================================
          SIDEBAR
-    ==================================================== -->
+    ================================================== -->
 
     <aside class="sidebar">
 
@@ -650,16 +852,27 @@ main {
 
 
 
-    <!-- ===================================================
+    <!-- =================================================
          CONTENT
-    ==================================================== -->
+    ================================================== -->
 
     <section class="content">
 
+        <div class="content-header">
 
-        <h2 id="packageTitle">
-            beIN SPORTS
-        </h2>
+            <h2 id="packageTitle">
+                beIN SPORTS
+            </h2>
+
+            <div
+                class="channel-count"
+                id="channelCount">
+
+                0 قناة
+
+            </div>
+
+        </div>
 
 
         <div
@@ -668,7 +881,6 @@ main {
 
         </div>
 
-
     </section>
 
 
@@ -676,9 +888,9 @@ main {
 
 
 
-<!-- =======================================================
+<!-- =====================================================
      PLAYER
-======================================================== -->
+===================================================== -->
 
 <div
     class="player"
@@ -706,17 +918,16 @@ main {
 
 
 
-<!-- =======================================================
+<!-- =====================================================
      CHANNEL DATA
-======================================================== -->
+===================================================== -->
 
 <script src="channels.js"></script>
 
 
-
-<!-- =======================================================
+<!-- =====================================================
      PLAYER
-======================================================== -->
+===================================================== -->
 
 <script src="player.js"></script>
 
@@ -724,9 +935,9 @@ main {
 
 <script>
 
-/* =========================================================
+/* =====================================================
    PACKAGE NAMES
-========================================================= */
+===================================================== */
 
 const packageNames = {
 
@@ -763,9 +974,9 @@ const packageNames = {
 };
 
 
-/* =========================================================
+/* =====================================================
    PACKAGE KEYS
-========================================================= */
+===================================================== */
 
 const packageKeys = {
 
@@ -802,9 +1013,9 @@ const packageKeys = {
 };
 
 
-/* =========================================================
+/* =====================================================
    GET CHANNELS
-========================================================= */
+===================================================== */
 
 function getChannels() {
 
@@ -826,9 +1037,9 @@ function getChannels() {
 }
 
 
-/* =========================================================
+/* =====================================================
    SHOW PACKAGE
-========================================================= */
+===================================================== */
 
 function showPackage(packageId) {
 
@@ -867,16 +1078,27 @@ function showPackage(packageId) {
         );
 
 
+    const count =
+        document.getElementById(
+            "channelCount"
+        );
+
+
     title.textContent =
         packageNames[packageId];
+
+
+    count.textContent =
+        filteredChannels.length +
+        " قناة";
 
 
     container.innerHTML = "";
 
 
-    /* =====================================================
+    /* =================================================
        NO CHANNELS
-    ===================================================== */
+    ================================================= */
 
     if (
         filteredChannels.length === 0
@@ -897,9 +1119,9 @@ function showPackage(packageId) {
     }
 
 
-    /* =====================================================
-       CREATE CHANNELS
-    ===================================================== */
+    /* =================================================
+       CREATE CHANNEL CARDS
+    ================================================= */
 
     filteredChannels.forEach(
 
@@ -919,9 +1141,9 @@ function showPackage(packageId) {
             item.tabIndex = 0;
 
 
-            /* =================================================
+            /* =========================================
                LOGO
-            ================================================= */
+            ========================================= */
 
             let logoHTML = "";
 
@@ -954,45 +1176,108 @@ function showPackage(packageId) {
             }
 
 
-            /* =================================================
-               QUALITY
-            ================================================= */
+            /* =========================================
+               QUALITY BUTTONS
+            ========================================= */
 
             let qualityHTML = "";
 
 
             if (
-                channel.quality
+                Array.isArray(
+                    channel.qualities
+                ) &&
+                channel.qualities.length > 0
             ) {
 
-                qualityHTML = `
 
-                    <div class="channel-quality">
+                if (
+                    channel.qualities.length === 1
+                ) {
 
-                        ${channel.quality}
+                    qualityHTML = `
 
-                    </div>
+                        <div class="single-quality">
 
-                `;
+                            ${channel.qualities[0].name}
+
+                        </div>
+
+                    `;
+
+                }
+
+                else {
+
+                    qualityHTML = `
+
+                        <div class="quality-title">
+
+                            اختر الجودة
+
+                        </div>
+
+                        <div class="qualities">
+
+                    `;
+
+
+                    channel.qualities.forEach(
+
+                        function(
+                            quality,
+                            qualityIndex
+                        ) {
+
+
+                            qualityHTML += `
+
+                                <button
+                                    class="quality"
+                                    tabindex="0"
+                                    data-quality-index="${qualityIndex}">
+
+                                    ${quality.name}
+
+                                </button>
+
+                            `;
+
+                        }
+
+                    );
+
+
+                    qualityHTML += `
+
+                        </div>
+
+                    `;
+
+                }
 
             }
 
 
-            /* =================================================
-               CHANNEL CONTENT
-            ================================================= */
+            /* =========================================
+               CARD HTML
+            ========================================= */
 
             item.innerHTML = `
 
-                <div class="channel-logo">
+                <div class="channel-top">
 
-                    ${logoHTML}
+                    <div class="channel-logo">
 
-                </div>
+                        ${logoHTML}
 
-                <div class="channel-name">
+                    </div>
 
-                    ${channel.name}
+                    <div class="channel-name">
+
+                        ${channel.name}
+
+                    </div>
 
                 </div>
 
@@ -1001,18 +1286,109 @@ function showPackage(packageId) {
             `;
 
 
-            /* =================================================
-               CLICK
-            ================================================= */
+            /* =========================================
+               QUALITY BUTTON EVENTS
+            ========================================= */
 
-            item.addEventListener(
+            const qualityButtons =
+                item.querySelectorAll(
+                    ".quality"
+                );
 
-                "click",
 
-                function() {
+            qualityButtons.forEach(
 
-                    openChannel(
-                        channel
+                function(button) {
+
+
+                    button.addEventListener(
+
+                        "click",
+
+                        function(event) {
+
+                            event.stopPropagation();
+
+
+                            const qualityIndex =
+                                Number(
+                                    this.dataset
+                                        .qualityIndex
+                                );
+
+
+                            const selectedQuality =
+                                channel.qualities[
+                                    qualityIndex
+                                ];
+
+
+                            if (
+                                selectedQuality &&
+                                selectedQuality.url
+                            ) {
+
+                                openChannel(
+                                    selectedQuality
+                                        .url
+                                );
+
+                            }
+
+                        }
+
+                    );
+
+
+                    button.addEventListener(
+
+                        "keydown",
+
+                        function(event) {
+
+
+                            if (
+                                event.key ===
+                                "Enter" ||
+
+                                event.key ===
+                                " "
+                            ) {
+
+                                event.preventDefault();
+
+                                event.stopPropagation();
+
+
+                                const qualityIndex =
+                                    Number(
+                                        this.dataset
+                                            .qualityIndex
+                                    );
+
+
+                                const selectedQuality =
+                                    channel.qualities[
+                                        qualityIndex
+                                    ];
+
+
+                                if (
+                                    selectedQuality &&
+                                    selectedQuality.url
+                                ) {
+
+                                    openChannel(
+                                        selectedQuality
+                                            .url
+                                    );
+
+                                }
+
+                            }
+
+                        }
+
                     );
 
                 }
@@ -1020,15 +1396,63 @@ function showPackage(packageId) {
             );
 
 
-            /* =================================================
-               REMOTE / KEYBOARD
-            ================================================= */
+            /* =========================================
+               CARD CLICK
+            ========================================= */
+
+            item.addEventListener(
+
+                "click",
+
+                function(event) {
+
+
+                    if (
+                        event.target
+                            .closest(
+                                ".quality"
+                            )
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    /*
+                     * إذا عندنا جودة واحدة
+                     * نشغلها مباشرة.
+                     */
+
+                    if (
+                        Array.isArray(
+                            channel.qualities
+                        ) &&
+                        channel.qualities.length === 1
+                    ) {
+
+                        openChannel(
+                            channel.qualities[0]
+                                .url
+                        );
+
+                    }
+
+                }
+
+            );
+
+
+            /* =========================================
+               REMOTE
+            ========================================= */
 
             item.addEventListener(
 
                 "keydown",
 
                 function(event) {
+
 
                     if (
                         event.key ===
@@ -1038,12 +1462,41 @@ function showPackage(packageId) {
                         " "
                     ) {
 
+
+                        /*
+                         * إذا التركيز على زر جودة
+                         * لا نكرر تشغيل القناة.
+                         */
+
+                        if (
+                            event.target
+                                .classList
+                                .contains(
+                                    "quality"
+                                )
+                        ) {
+
+                            return;
+
+                        }
+
+
                         event.preventDefault();
 
 
-                        openChannel(
-                            channel
-                        );
+                        if (
+                            Array.isArray(
+                                channel.qualities
+                            ) &&
+                            channel.qualities.length === 1
+                        ) {
+
+                            openChannel(
+                                channel.qualities[0]
+                                    .url
+                            );
+
+                        }
 
                     }
 
@@ -1064,15 +1517,14 @@ function showPackage(packageId) {
 }
 
 
-/* =========================================================
+/* =====================================================
    OPEN CHANNEL
-========================================================= */
+===================================================== */
 
-function openChannel(channel) {
+function openChannel(url) {
 
     if (
-        !channel ||
-        !channel.url
+        !url
     ) {
 
         alert(
@@ -1094,9 +1546,9 @@ function openChannel(channel) {
         "flex";
 
 
-    /* =====================================================
-       USE player.js
-    ===================================================== */
+    /* =================================================
+       PLAYER.JS
+    ================================================= */
 
     if (
         typeof playChannel ===
@@ -1104,12 +1556,13 @@ function openChannel(channel) {
     ) {
 
         playChannel(
-            channel.url
+            url
         );
 
     }
 
     else {
+
 
         const video =
             document.getElementById(
@@ -1118,7 +1571,7 @@ function openChannel(channel) {
 
 
         video.src =
-            channel.url;
+            url;
 
 
         video.load();
@@ -1141,9 +1594,9 @@ function openChannel(channel) {
 }
 
 
-/* =========================================================
+/* =====================================================
    CLOSE PLAYER
-========================================================= */
+===================================================== */
 
 function closePlayer() {
 
@@ -1189,9 +1642,9 @@ function closePlayer() {
 }
 
 
-/* =========================================================
-   CLOSE PLAYER BUTTON
-========================================================= */
+/* =====================================================
+   CLOSE BUTTON
+===================================================== */
 
 document
     .getElementById(
@@ -1210,9 +1663,9 @@ document
     );
 
 
-/* =========================================================
+/* =====================================================
    PACKAGE BUTTONS
-========================================================= */
+===================================================== */
 
 document
     .querySelectorAll(
@@ -1269,9 +1722,9 @@ document
     );
 
 
-/* =========================================================
-   TV REMOTE
-========================================================= */
+/* =====================================================
+   TV REMOTE - BACK
+===================================================== */
 
 document.addEventListener(
 
@@ -1286,9 +1739,9 @@ document.addEventListener(
             );
 
 
-        /* ===================================================
-           BACK / ESCAPE
-        =================================================== */
+        /* =============================================
+           BACK / ESC
+        ============================================= */
 
         if (
 
@@ -1306,45 +1759,11 @@ document.addEventListener(
                 === "flex"
             ) {
 
-
                 closePlayer();
-
 
                 event.preventDefault();
 
-
                 return;
-
-            }
-
-        }
-
-
-        /* ===================================================
-           OK / ENTER
-        =================================================== */
-
-        if (
-            event.key ===
-            "Enter"
-        ) {
-
-
-            const active =
-                document.activeElement;
-
-
-            if (
-                active &&
-                active.classList
-                    .contains(
-                        "channel"
-                    )
-            ) {
-
-                openChannel(
-                    active
-                );
 
             }
 
@@ -1355,9 +1774,9 @@ document.addEventListener(
 );
 
 
-/* =========================================================
+/* =====================================================
    START APP
-========================================================= */
+===================================================== */
 
 document.addEventListener(
 
