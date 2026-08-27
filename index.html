@@ -2,19 +2,11 @@
 <html lang="ar" dir="rtl">
 
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Niyati TV</title>
 
 <style>
-
-/* =====================================================
-   RESET
-===================================================== */
 
 * {
     box-sizing: border-box;
@@ -29,20 +21,13 @@ body {
 }
 
 body {
-
     background:
-        radial-gradient(
-            circle at top right,
-            #171d2b 0,
-            #080b12 45%
-        );
+        radial-gradient(circle at 85% 0%, #20283a 0%, transparent 35%),
+        radial-gradient(circle at 10% 100%, #161c2b 0%, transparent 35%),
+        #070a10;
 
-    color: white;
-
-    font-family:
-        Arial,
-        sans-serif;
-
+    color: #fff;
+    font-family: Arial, sans-serif;
     overflow-x: hidden;
 }
 
@@ -52,77 +37,66 @@ body {
 ===================================================== */
 
 header {
-
-    height: 76px;
+    height: 82px;
 
     display: flex;
-
     align-items: center;
 
-    padding: 0 25px;
+    padding: 0 34px;
 
-    background:
-        rgba(16,21,31,.96);
+    background: rgba(9,13,21,.92);
 
-    border-bottom:
-        1px solid #252c39;
+    border-bottom: 1px solid rgba(255,255,255,.07);
 
-    position: relative;
+    backdrop-filter: blur(18px);
 
-    z-index: 10;
+    position: sticky;
+    top: 0;
+
+    z-index: 100;
 }
 
 .logo {
+    width: 52px;
+    height: 52px;
 
-    width: 50px;
+    border-radius: 16px;
 
-    height: 50px;
-
-    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     background:
         linear-gradient(
-            135deg,
-            #e91542,
-            #ff5c7a
+            145deg,
+            #ff315b,
+            #b90035
         );
 
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
     font-size: 20px;
-
-    font-weight: bold;
+    font-weight: 900;
 
     box-shadow:
-        0 8px 25px
-        rgba(233,21,66,.25);
+        0 8px 30px rgba(230,15,65,.35);
 }
 
 .title {
-
-    margin-right: 14px;
+    margin-right: 15px;
 }
 
 .title h1 {
-
     font-size: 22px;
-
-    letter-spacing: .3px;
+    font-weight: 800;
 }
 
 .title span {
-
-    color: #9299a8;
-
-    font-size: 12px;
-
     display: block;
 
-    margin-top: 3px;
+    color: #747d8e;
+
+    font-size: 11px;
+
+    margin-top: 4px;
 }
 
 
@@ -131,15 +105,14 @@ header {
 ===================================================== */
 
 main {
-
     display: flex;
 
-    gap: 22px;
+    gap: 24px;
 
-    padding: 22px;
+    padding: 25px;
 
     min-height:
-        calc(100vh - 76px);
+        calc(100vh - 82px);
 }
 
 
@@ -148,98 +121,142 @@ main {
 ===================================================== */
 
 .sidebar {
-
-    width: 235px;
+    width: 245px;
 
     flex-shrink: 0;
 
+    padding: 20px 15px;
+
     background:
-        rgba(16,21,31,.96);
+        linear-gradient(
+            180deg,
+            rgba(19,25,37,.97),
+            rgba(11,15,23,.97)
+        );
 
     border:
-        1px solid #252c39;
+        1px solid rgba(255,255,255,.07);
 
-    border-radius: 20px;
-
-    padding: 17px;
+    border-radius: 23px;
 
     height:
-        calc(100vh - 120px);
+        calc(100vh - 132px);
 
     overflow-y: auto;
 
     scrollbar-width: thin;
+
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.25);
 }
 
-.sidebar h2 {
+.sidebar-title {
+    display: flex;
 
-    color: #c4cad5;
+    align-items: center;
+
+    gap: 10px;
+
+    padding:
+        0 8px 17px;
+
+    color: #d9dee8;
 
     font-size: 17px;
 
-    margin-bottom: 15px;
+    font-weight: 800;
+}
 
-    padding-right: 3px;
+.sidebar-title::before {
+    content: "";
+
+    width: 4px;
+
+    height: 20px;
+
+    border-radius: 5px;
+
+    background:
+        linear-gradient(
+            #ff315b,
+            #bd0038
+        );
 }
 
 
 /* =====================================================
-   PACKAGE BUTTON
+   PACKAGE
 ===================================================== */
 
 .package {
-
     width: 100%;
 
-    border: 1px solid transparent;
+    min-height: 53px;
 
-    border-radius: 13px;
+    margin-bottom: 8px;
 
-    padding: 14px;
+    padding: 0 15px;
 
-    margin-bottom: 9px;
+    border:
+        1px solid transparent;
+
+    border-radius: 14px;
 
     background:
-        #171d28;
+        rgba(255,255,255,.035);
 
-    color: white;
+    color: #aeb6c5;
 
     text-align: right;
 
+    font-size: 13px;
+
+    font-weight: 700;
+
     cursor: pointer;
 
-    font-size: 14px;
-
     transition:
-        .2s ease;
+        .18s ease;
+
+    display: flex;
+
+    align-items: center;
 }
 
 .package:hover {
-
     background:
-        #222a38;
+        rgba(255,255,255,.08);
+
+    color: white;
 }
 
 .package:focus {
-
     outline: none;
 
     border-color:
-        #e91542;
+        #ff315b;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(255,49,91,.15);
 }
 
 .package.active {
+    color: white;
 
     background:
         linear-gradient(
             135deg,
-            #e91542,
-            #c90f36
+            #ed1648,
+            #a80032
         );
 
+    border-color:
+        rgba(255,255,255,.12);
+
     box-shadow:
-        0 7px 22px
-        rgba(233,21,66,.22);
+        0 9px 25px
+        rgba(225,18,67,.28);
 }
 
 
@@ -248,50 +265,68 @@ main {
 ===================================================== */
 
 .content {
-
     flex: 1;
 
     min-width: 0;
 
-    padding-top: 3px;
+    padding-top: 4px;
 }
 
 .content-header {
-
     display: flex;
 
     align-items: center;
 
     justify-content: space-between;
 
-    margin-bottom: 18px;
+    margin-bottom: 20px;
+
+    padding:
+        0 3px;
 }
 
-.content h2 {
+.content-title {
+    display: flex;
 
-    font-size: 22px;
+    align-items: center;
+
+    gap: 12px;
 }
 
+.content-title h2 {
+    font-size: 25px;
 
-/* =====================================================
-   CHANNEL COUNT
-===================================================== */
+    font-weight: 850;
+}
+
+.live-dot {
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: #ff315b;
+
+    box-shadow:
+        0 0 15px
+        rgba(255,49,91,.8);
+}
 
 .channel-count {
-
-    color: #858d9c;
-
-    font-size: 12px;
-
-    background:
-        #111722;
+    padding:
+        8px 13px;
 
     border:
-        1px solid #252c39;
+        1px solid rgba(255,255,255,.07);
 
-    padding: 7px 11px;
+    border-radius: 10px;
 
-    border-radius: 9px;
+    background:
+        rgba(255,255,255,.035);
+
+    color: #858e9f;
+
+    font-size: 12px;
 }
 
 
@@ -300,16 +335,15 @@ main {
 ===================================================== */
 
 .channels {
-
     display: grid;
 
     grid-template-columns:
         repeat(
             auto-fill,
-            minmax(205px, 1fr)
+            minmax(215px, 1fr)
         );
 
-    gap: 15px;
+    gap: 16px;
 }
 
 
@@ -318,115 +352,148 @@ main {
 ===================================================== */
 
 .channel {
+    position: relative;
+
+    min-height: 178px;
+
+    padding: 17px;
+
+    border:
+        1px solid rgba(255,255,255,.065);
+
+    border-radius: 19px;
 
     background:
         linear-gradient(
             145deg,
-            #131925,
-            #0f141e
+            rgba(23,30,44,.98),
+            rgba(12,17,26,.98)
         );
 
-    border:
-        1px solid #242c39;
-
-    border-radius: 17px;
-
-    padding: 17px;
-
-    min-height: 170px;
-
     cursor: pointer;
-
-    transition:
-        transform .2s ease,
-        border-color .2s ease,
-        box-shadow .2s ease;
 
     display: flex;
 
     flex-direction: column;
 
     justify-content: space-between;
+
+    transition:
+        transform .18s ease,
+        border-color .18s ease,
+        box-shadow .18s ease;
+}
+
+.channel::after {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+
+    bottom: 0;
+
+    height: 2px;
+
+    opacity: 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            #ff315b,
+            transparent
+        );
+
+    transition:
+        .18s ease;
 }
 
 .channel:hover {
+    transform:
+        translateY(-4px);
+
+    border-color:
+        rgba(255,49,91,.55);
+
+    box-shadow:
+        0 18px 40px
+        rgba(0,0,0,.35);
+}
+
+.channel:hover::after {
+    opacity: 1;
+}
+
+.channel:focus {
+    outline: none;
 
     transform:
         translateY(-3px);
 
     border-color:
-        #e91542;
+        #ff315b;
 
     box-shadow:
-        0 12px 30px
-        rgba(0,0,0,.25);
+        0 0 0 3px
+        rgba(255,49,91,.18),
+        0 18px 40px
+        rgba(0,0,0,.4);
 }
-
-.channel:focus {
-
-    outline:
-        3px solid #e91542;
-
-    outline-offset:
-        2px;
-}
-
-
-/* =====================================================
-   CHANNEL TOP
-===================================================== */
 
 .channel-top {
-
     display: flex;
 
     align-items: center;
 
-    gap: 12px;
+    gap: 13px;
 }
 
 
 /* =====================================================
-   CHANNEL LOGO
+   LOGO
 ===================================================== */
 
 .channel-logo {
-
-    width: 58px;
-
-    height: 58px;
+    width: 62px;
+    height: 62px;
 
     flex-shrink: 0;
-
-    border-radius: 14px;
-
-    background:
-        #202735;
 
     display: flex;
 
     align-items: center;
-
     justify-content: center;
 
     overflow: hidden;
 
+    border-radius: 16px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #252e40,
+            #151b28
+        );
+
+    border:
+        1px solid rgba(255,255,255,.07);
+
     color: #fff;
 
-    font-size: 17px;
+    font-size: 18px;
 
-    font-weight: bold;
+    font-weight: 900;
 }
 
 .channel-logo img {
-
     width: 100%;
-
     height: 100%;
 
     object-fit: contain;
 
-    padding: 5px;
+    padding: 6px;
 }
 
 
@@ -435,24 +502,24 @@ main {
 ===================================================== */
 
 .channel-name {
+    color: #f1f3f7;
 
     font-size: 15px;
 
-    font-weight: bold;
+    font-weight: 800;
 
     line-height: 1.45;
 }
 
 
 /* =====================================================
-   QUALITY AREA
+   QUALITY
 ===================================================== */
 
 .quality-title {
+    color: #737d8f;
 
-    color: #858d9c;
-
-    font-size: 11px;
+    font-size: 10px;
 
     margin-top: 15px;
 
@@ -460,7 +527,6 @@ main {
 }
 
 .qualities {
-
     display: flex;
 
     flex-wrap: wrap;
@@ -468,29 +534,23 @@ main {
     gap: 6px;
 }
 
-
-/* =====================================================
-   QUALITY BUTTON
-===================================================== */
-
 .quality {
-
     border:
-        1px solid #303949;
+        1px solid rgba(255,255,255,.08);
 
     background:
-        #1b2230;
+        rgba(255,255,255,.045);
 
-    color: #d9dee7;
+    color: #c5ccd8;
 
     border-radius: 8px;
 
     padding:
-        6px 9px;
+        6px 10px;
 
-    font-size: 11px;
+    font-size: 10px;
 
-    font-weight: bold;
+    font-weight: 800;
 
     cursor: pointer;
 
@@ -500,12 +560,11 @@ main {
 
 .quality:hover,
 .quality:focus {
-
     background:
-        #e91542;
+        #ed1648;
 
     border-color:
-        #e91542;
+        #ed1648;
 
     color: white;
 
@@ -513,24 +572,17 @@ main {
 }
 
 .quality:focus {
-
     box-shadow:
-        0 0 0 2px
-        rgba(233,21,66,.25);
+        0 0 0 3px
+        rgba(255,49,91,.2);
 }
 
-
-/* =====================================================
-   SINGLE QUALITY
-===================================================== */
-
 .single-quality {
+    color: #6f7889;
+
+    font-size: 10px;
 
     margin-top: 15px;
-
-    color: #8f97a6;
-
-    font-size: 11px;
 }
 
 
@@ -539,23 +591,22 @@ main {
 ===================================================== */
 
 .empty {
+    grid-column:
+        1 / -1;
 
-    background:
-        #111722;
-
-    border:
-        1px solid #242c39;
-
-    border-radius: 16px;
-
-    padding: 35px;
-
-    color: #9299a8;
+    padding: 60px 20px;
 
     text-align: center;
 
-    grid-column:
-        1 / -1;
+    border:
+        1px solid rgba(255,255,255,.06);
+
+    border-radius: 18px;
+
+    background:
+        rgba(255,255,255,.025);
+
+    color: #737d8e;
 }
 
 
@@ -564,7 +615,6 @@ main {
 ===================================================== */
 
 .player {
-
     display: none;
 
     position: fixed;
@@ -573,17 +623,14 @@ main {
 
     z-index: 9999;
 
-    background: #000;
-
     align-items: center;
-
     justify-content: center;
+
+    background: #000;
 }
 
 .player video {
-
     width: 100%;
-
     height: 100%;
 
     object-fit: contain;
@@ -593,46 +640,51 @@ main {
 
 
 /* =====================================================
-   CLOSE PLAYER
+   PLAYER CLOSE
 ===================================================== */
 
 .close {
-
     position: absolute;
 
-    top: 20px;
-
-    right: 20px;
+    top: 22px;
+    right: 22px;
 
     z-index: 10000;
 
-    background:
-        rgba(0,0,0,.75);
-
-    color: white;
+    padding:
+        11px 18px;
 
     border:
         1px solid
         rgba(255,255,255,.15);
 
-    border-radius: 10px;
+    border-radius: 11px;
 
-    padding:
-        11px 18px;
+    background:
+        rgba(0,0,0,.7);
 
-    font-size: 14px;
+    color: white;
+
+    font-size: 13px;
 
     cursor: pointer;
 
     backdrop-filter:
-        blur(8px);
+        blur(12px);
+
+    transition:
+        .15s ease;
 }
 
 .close:hover,
 .close:focus {
+    background:
+        #ed1648;
 
-    outline:
-        2px solid white;
+    border-color:
+        #ed1648;
+
+    outline: none;
 }
 
 
@@ -640,64 +692,91 @@ main {
    RESPONSIVE
 ===================================================== */
 
-@media (max-width: 700px) {
+@media (max-width: 850px) {
 
     main {
-
         flex-direction: column;
 
-        padding: 12px;
-
+        padding: 15px;
     }
 
     .sidebar {
-
         width: 100%;
 
         height: auto;
 
-        max-height: none;
+        max-height: 230px;
     }
 
     .channels {
-
         grid-template-columns:
             repeat(2, 1fr);
+    }
+}
 
+@media (max-width: 500px) {
+
+    header {
+        height: 70px;
+
+        padding: 0 16px;
     }
 
-    .content-header {
+    .logo {
+        width: 44px;
+        height: 44px;
 
-        align-items: flex-start;
+        border-radius: 13px;
+    }
+
+    .title h1 {
+        font-size: 19px;
+    }
+
+    .channels {
+        grid-template-columns:
+            repeat(2, 1fr);
 
         gap: 10px;
     }
 
+    .channel {
+        min-height: 155px;
+
+        padding: 12px;
+    }
+
+    .channel-logo {
+        width: 50px;
+        height: 50px;
+    }
+
+    .channel-name {
+        font-size: 13px;
+    }
 }
 
 
 /* =====================================================
-   TV
+   TV LARGE SCREEN
 ===================================================== */
 
-@media (min-width: 1000px) {
+@media (min-width: 1200px) {
+
+    .channels {
+        grid-template-columns:
+            repeat(
+                auto-fill,
+                minmax(230px, 1fr)
+            );
+    }
 
     .channel {
-
-        min-height: 175px;
-
+        min-height: 185px;
     }
-
-    .channel-name {
-
-        font-size: 16px;
-
-    }
-
 }
 
 </style>
-
 </head>
 
 
@@ -716,18 +795,13 @@ main {
 
     <div class="title">
 
-        <h1>
-            Niyati TV
-        </h1>
+        <h1>Niyati TV</h1>
 
-        <span>
-            IPTV Platform
-        </span>
+        <span>IPTV PLATFORM</span>
 
     </div>
 
 </header>
-
 
 
 <!-- =====================================================
@@ -743,9 +817,9 @@ main {
 
     <aside class="sidebar">
 
-        <h2>
+        <div class="sidebar-title">
             الباقات
-        </h2>
+        </div>
 
 
         <button
@@ -847,9 +921,7 @@ main {
 
         </button>
 
-
     </aside>
-
 
 
     <!-- =================================================
@@ -860,9 +932,16 @@ main {
 
         <div class="content-header">
 
-            <h2 id="packageTitle">
-                beIN SPORTS
-            </h2>
+            <div class="content-title">
+
+                <span class="live-dot"></span>
+
+                <h2 id="packageTitle">
+                    beIN SPORTS
+                </h2>
+
+            </div>
+
 
             <div
                 class="channel-count"
@@ -878,14 +957,11 @@ main {
         <div
             class="channels"
             id="channels">
-
         </div>
 
     </section>
 
-
 </main>
-
 
 
 <!-- =====================================================
@@ -895,7 +971,6 @@ main {
 <div
     class="player"
     id="player">
-
 
     <button
         class="close"
@@ -910,12 +985,9 @@ main {
         id="video"
         controls
         playsinline>
-
     </video>
 
-
 </div>
-
 
 
 <!-- =====================================================
@@ -932,8 +1004,8 @@ main {
 <script src="player.js"></script>
 
 
-
 <script>
+
 
 /* =====================================================
    PACKAGE NAMES
@@ -941,35 +1013,25 @@ main {
 
 const packageNames = {
 
-    bein:
-        "beIN SPORTS",
+    bein: "beIN SPORTS",
 
-    alwan:
-        "ALWAN SPORT",
+    alwan: "ALWAN SPORT",
 
-    shahid:
-        "SHAHID SPORTS",
+    shahid: "SHAHID SPORTS",
 
-    shasha:
-        "SHASHA",
+    shasha: "SHASHA",
 
-    dazn:
-        "DAZN",
+    dazn: "DAZN",
 
-    thamanya:
-        "THAMANYA",
+    thamanya: "THAMANYA",
 
-    alkass:
-        "ALKASS SPORT",
+    alkass: "ALKASS SPORT",
 
-    ad:
-        "AD SPORT",
+    ad: "AD SPORT",
 
-    dubai:
-        "DUBAI SPORT",
+    dubai: "DUBAI SPORT",
 
-    iraqia:
-        "IRAQIA SPORT"
+    iraqia: "IRAQIA SPORT"
 
 };
 
@@ -980,35 +1042,25 @@ const packageNames = {
 
 const packageKeys = {
 
-    bein:
-        "beIN SPORTS",
+    bein: "beIN SPORTS",
 
-    alwan:
-        "ALWAN SPORT",
+    alwan: "ALWAN SPORT",
 
-    shahid:
-        "SHAHID SPORTS",
+    shahid: "SHAHID SPORTS",
 
-    shasha:
-        "SHASHA",
+    shasha: "SHASHA",
 
-    dazn:
-        "DAZN",
+    dazn: "DAZN",
 
-    thamanya:
-        "THAMANYA",
+    thamanya: "THAMANYA",
 
-    alkass:
-        "ALKASS SPORT",
+    alkass: "ALKASS SPORT",
 
-    ad:
-        "AD SPORT",
+    ad: "AD SPORT",
 
-    dubai:
-        "DUBAI SPORT",
+    dubai: "DUBAI SPORT",
 
-    iraqia:
-        "IRAQIA SPORT"
+    iraqia: "IRAQIA SPORT"
 
 };
 
@@ -1046,14 +1098,11 @@ function showPackage(packageId) {
     const allChannels =
         getChannels();
 
-
     const realPackage =
         packageKeys[packageId];
 
-
     const filteredChannels =
         allChannels.filter(
-
             function(channel) {
 
                 return (
@@ -1062,7 +1111,6 @@ function showPackage(packageId) {
                 );
 
             }
-
         );
 
 
@@ -1097,7 +1145,7 @@ function showPackage(packageId) {
 
 
     /* =================================================
-       NO CHANNELS
+       EMPTY
     ================================================= */
 
     if (
@@ -1120,13 +1168,12 @@ function showPackage(packageId) {
 
 
     /* =================================================
-       CREATE CHANNEL CARDS
+       CHANNELS
     ================================================= */
 
     filteredChannels.forEach(
 
         function(channel, index) {
-
 
             const item =
                 document.createElement(
@@ -1138,7 +1185,8 @@ function showPackage(packageId) {
                 "channel";
 
 
-            item.tabIndex = 0;
+            item.tabIndex =
+                0;
 
 
             /* =========================================
@@ -1177,7 +1225,7 @@ function showPackage(packageId) {
 
 
             /* =========================================
-               QUALITY BUTTONS
+               QUALITY
             ========================================= */
 
             let qualityHTML = "";
@@ -1189,7 +1237,6 @@ function showPackage(packageId) {
                 ) &&
                 channel.qualities.length > 0
             ) {
-
 
                 if (
                     channel.qualities.length === 1
@@ -1229,7 +1276,6 @@ function showPackage(packageId) {
                             qualityIndex
                         ) {
 
-
                             qualityHTML += `
 
                                 <button
@@ -1260,7 +1306,7 @@ function showPackage(packageId) {
 
 
             /* =========================================
-               CARD HTML
+               CARD
             ========================================= */
 
             item.innerHTML = `
@@ -1287,7 +1333,7 @@ function showPackage(packageId) {
 
 
             /* =========================================
-               QUALITY BUTTON EVENTS
+               QUALITY BUTTONS
             ========================================= */
 
             const qualityButtons =
@@ -1299,7 +1345,6 @@ function showPackage(packageId) {
             qualityButtons.forEach(
 
                 function(button) {
-
 
                     button.addEventListener(
 
@@ -1329,8 +1374,7 @@ function showPackage(packageId) {
                             ) {
 
                                 openChannel(
-                                    selectedQuality
-                                        .url
+                                    selectedQuality.url
                                 );
 
                             }
@@ -1346,13 +1390,12 @@ function showPackage(packageId) {
 
                         function(event) {
 
-
                             if (
                                 event.key ===
-                                "Enter" ||
+                                    "Enter" ||
 
                                 event.key ===
-                                " "
+                                    " "
                             ) {
 
                                 event.preventDefault();
@@ -1379,8 +1422,7 @@ function showPackage(packageId) {
                                 ) {
 
                                     openChannel(
-                                        selectedQuality
-                                            .url
+                                        selectedQuality.url
                                     );
 
                                 }
@@ -1406,23 +1448,16 @@ function showPackage(packageId) {
 
                 function(event) {
 
-
                     if (
-                        event.target
-                            .closest(
-                                ".quality"
-                            )
+                        event.target.closest(
+                            ".quality"
+                        )
                     ) {
 
                         return;
 
                     }
 
-
-                    /*
-                     * إذا عندنا جودة واحدة
-                     * نشغلها مباشرة.
-                     */
 
                     if (
                         Array.isArray(
@@ -1432,8 +1467,7 @@ function showPackage(packageId) {
                     ) {
 
                         openChannel(
-                            channel.qualities[0]
-                                .url
+                            channel.qualities[0].url
                         );
 
                     }
@@ -1444,7 +1478,7 @@ function showPackage(packageId) {
 
 
             /* =========================================
-               REMOTE
+               CARD REMOTE
             ========================================= */
 
             item.addEventListener(
@@ -1453,20 +1487,10 @@ function showPackage(packageId) {
 
                 function(event) {
 
-
                     if (
-                        event.key ===
-                        "Enter" ||
-
-                        event.key ===
-                        " "
+                        event.key === "Enter" ||
+                        event.key === " "
                     ) {
-
-
-                        /*
-                         * إذا التركيز على زر جودة
-                         * لا نكرر تشغيل القناة.
-                         */
 
                         if (
                             event.target
@@ -1492,8 +1516,7 @@ function showPackage(packageId) {
                         ) {
 
                             openChannel(
-                                channel.qualities[0]
-                                    .url
+                                channel.qualities[0].url
                             );
 
                         }
@@ -1509,7 +1532,6 @@ function showPackage(packageId) {
                 item
             );
 
-
         }
 
     );
@@ -1523,9 +1545,7 @@ function showPackage(packageId) {
 
 function openChannel(url) {
 
-    if (
-        !url
-    ) {
+    if (!url) {
 
         alert(
             "رابط القناة غير موجود"
@@ -1546,10 +1566,6 @@ function openChannel(url) {
         "flex";
 
 
-    /* =================================================
-       PLAYER.JS
-    ================================================= */
-
     if (
         typeof playChannel ===
         "function"
@@ -1562,7 +1578,6 @@ function openChannel(url) {
     }
 
     else {
-
 
         const video =
             document.getElementById(
@@ -1578,7 +1593,6 @@ function openChannel(url) {
 
 
         video.play().catch(
-
             function(error) {
 
                 console.log(
@@ -1586,7 +1600,6 @@ function openChannel(url) {
                 );
 
             }
-
         );
 
     }
@@ -1625,11 +1638,9 @@ function closePlayer() {
 
         video.pause();
 
-
         video.removeAttribute(
             "src"
         );
-
 
         video.load();
 
@@ -1675,13 +1686,11 @@ document
 
         function(button) {
 
-
             button.addEventListener(
 
                 "click",
 
                 function() {
-
 
                     document
                         .querySelectorAll(
@@ -1707,15 +1716,12 @@ document
 
 
                     showPackage(
-                        this.dataset
-                            .package
+                        this.dataset.package
                     );
-
 
                 }
 
             );
-
 
         }
 
@@ -1723,7 +1729,7 @@ document
 
 
 /* =====================================================
-   TV REMOTE - BACK
+   TV REMOTE BACK
 ===================================================== */
 
 document.addEventListener(
@@ -1732,31 +1738,20 @@ document.addEventListener(
 
     function(event) {
 
-
         const playerBox =
             document.getElementById(
                 "player"
             );
 
 
-        /* =============================================
-           BACK / ESC
-        ============================================= */
-
         if (
-
-            event.key ===
-                "Escape" ||
-
-            event.key ===
-                "Backspace"
-
+            event.key === "Escape" ||
+            event.key === "Backspace"
         ) {
 
-
             if (
-                playerBox.style.display
-                === "flex"
+                playerBox.style.display ===
+                "flex"
             ) {
 
                 closePlayer();
@@ -1775,7 +1770,7 @@ document.addEventListener(
 
 
 /* =====================================================
-   START APP
+   START
 ===================================================== */
 
 document.addEventListener(
@@ -1794,7 +1789,5 @@ document.addEventListener(
 
 </script>
 
-
 </body>
-
 </html>
