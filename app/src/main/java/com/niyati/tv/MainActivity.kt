@@ -12,7 +12,6 @@ import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -37,28 +36,30 @@ class MainActivity : Activity() {
     private lateinit var topBar: LinearLayout
     private lateinit var playerContainer: FrameLayout
     private lateinit var playerView: PlayerView
-
-    private lateinit var packageScroll: HorizontalScrollView
+    private lateinit var bottomArea: LinearLayout
     private lateinit var packagesLayout: LinearLayout
-
-    private lateinit var channelScroll: ScrollView
     private lateinit var channelsLayout: LinearLayout
-
     private lateinit var nowPlaying: TextView
     private lateinit var fullscreenButton: TextView
-    private lateinit var statusText: TextView
+    private lateinit var packageScroll: ScrollView
+    private lateinit var channelScroll: ScrollView
 
     private var fullscreen = false
     private var currentGroup = ""
-    private var currentChannel: Channel? = null
 
     private val backgroundColor = Color.rgb(5, 8, 14)
-    private val surfaceColor = Color.rgb(9, 14, 22)
-    private val cardColor = Color.rgb(18, 25, 37)
-    private val cardFocusColor = Color.rgb(218, 24, 55)
-    private val accentColor = Color.rgb(238, 31, 63)
+    private val topBarColor = Color.rgb(8, 12, 20)
+    private val panelColor = Color.rgb(10, 15, 24)
+    private val cardColor = Color.rgb(20, 27, 39)
+    private val cardFocusColor = Color.rgb(34, 43, 59)
+    private val accentColor = Color.rgb(225, 28, 58)
+    private val accentDarkColor = Color.rgb(170, 15, 42)
     private val textColor = Color.WHITE
-    private val secondaryTextColor = Color.rgb(155, 165, 180)
+    private val secondaryTextColor = Color.rgb(155, 166, 182)
+
+    // ============================================================
+    // CHANNEL DATABASE
+    // ============================================================
 
     private val base =
         "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
@@ -69,127 +70,135 @@ class MainActivity : Activity() {
         id: String
     ): Channel {
         return Channel(
-            name,
-            group,
-            base + id + ".ts"
+            name = name,
+            group = group,
+            url = base + id + ".ts"
         )
     }
 
-    // ============================================================
-    // CHANNEL DATABASE
-    // ============================================================
-
     private val channels = listOf(
 
+        // ========================================================
         // BEIN TOD
-        c("beIN Tod 4K", "BEIN TOD", "460835"),
-        c("beIN Sport Tod 1", "BEIN TOD", "460836"),
-        c("beIN Sport Tod 2", "BEIN TOD", "460837"),
-        c("beIN Sport Tod 3", "BEIN TOD", "460838"),
-        c("beIN Sport Tod 4", "BEIN TOD", "460839"),
-        c("beIN Sport Tod 5", "BEIN TOD", "460840"),
-        c("beIN Sport Tod 6", "BEIN TOD", "460841"),
-        c("beIN Sport Tod 7", "BEIN TOD", "460842"),
-        c("beIN Sport Tod 8", "BEIN TOD", "460843"),
-        c("beIN Sport Tod 9", "BEIN TOD", "460844"),
-        c("beIN Sport Tod English 1", "BEIN TOD", "460845"),
-        c("beIN Sport Tod English 2", "BEIN TOD", "460846"),
-        c("beIN Sport Tod Extra 1", "BEIN TOD", "460847"),
-        c("beIN Sport Tod Extra 2", "BEIN TOD", "460848"),
-        c("beIN Sport Tod Extra 3", "BEIN TOD", "460849"),
-        c("beIN Sport Tod Extra 4", "BEIN TOD", "460850"),
-        c("beIN Sport Tod Extra 5", "BEIN TOD", "460851"),
-        c("beIN Sport Tod Extra 6", "BEIN TOD", "460852"),
-        c("beIN Sport Tod Extra 7", "BEIN TOD", "460853"),
-        c("beIN Sport Tod Extra 8", "BEIN TOD", "460854"),
-        c("beIN Sport Tod Extra 9", "BEIN TOD", "460855"),
+        // ========================================================
 
+        c("beIN Tod 4K", "beIN TOD", "460835"),
+        c("beIN Sport Tod 1", "beIN TOD", "460836"),
+        c("beIN Sport Tod 2", "beIN TOD", "460837"),
+        c("beIN Sport Tod 3", "beIN TOD", "460838"),
+        c("beIN Sport Tod 4", "beIN TOD", "460839"),
+        c("beIN Sport Tod 5", "beIN TOD", "460840"),
+        c("beIN Sport Tod 6", "beIN TOD", "460841"),
+        c("beIN Sport Tod 7", "beIN TOD", "460842"),
+        c("beIN Sport Tod 8", "beIN TOD", "460843"),
+        c("beIN Sport Tod 9", "beIN TOD", "460844"),
+        c("beIN Sport Tod English 1", "beIN TOD", "460845"),
+        c("beIN Sport Tod English 2", "beIN TOD", "460846"),
+        c("beIN Sport Tod Extra 1", "beIN TOD", "460847"),
+        c("beIN Sport Tod Extra 2", "beIN TOD", "460848"),
+        c("beIN Sport Tod Extra 3", "beIN TOD", "460849"),
+        c("beIN Sport Tod Extra 4", "beIN TOD", "460850"),
+        c("beIN Sport Tod Extra 5", "beIN TOD", "460851"),
+        c("beIN Sport Tod Extra 6", "beIN TOD", "460852"),
+        c("beIN Sport Tod Extra 7", "beIN TOD", "460853"),
+        c("beIN Sport Tod Extra 8", "beIN TOD", "460854"),
+        c("beIN Sport Tod Extra 9", "beIN TOD", "460855"),
+
+        // ========================================================
         // BEIN SPORTS
-        c("beIN Sport Global 4K", "BEIN SPORTS", "22186"),
-        c("beIN Sport News 4K", "BEIN SPORTS", "318230"),
-        c("beIN Sport 1 4K", "BEIN SPORTS", "318197"),
-        c("beIN1 H265", "BEIN SPORTS", "391094"),
-        c("beIN Sport 2 4K", "BEIN SPORTS", "318198"),
-        c("beIN2 H265", "BEIN SPORTS", "391095"),
-        c("beIN Sport 3 4K", "BEIN SPORTS", "318199"),
-        c("beIN3 H265", "BEIN SPORTS", "391096"),
-        c("beIN Sport 4 4K", "BEIN SPORTS", "440580"),
-        c("beIN4 H265", "BEIN SPORTS", "391097"),
-        c("beIN Sport 5 4K", "BEIN SPORTS", "318201"),
-        c("beIN5 H265", "BEIN SPORTS", "391098"),
-        c("beIN Sport 6 4K", "BEIN SPORTS", "318202"),
-        c("beIN6 H265", "BEIN SPORTS", "391099"),
-        c("beIN Sport 7 4K", "BEIN SPORTS", "318203"),
-        c("beIN7 H265", "BEIN SPORTS", "391100"),
-        c("beIN Sport 8 4K", "BEIN SPORTS", "318204"),
-        c("beIN8 H265", "BEIN SPORTS", "391101"),
-        c("beIN Sport 9 4K", "BEIN SPORTS", "318205"),
-        c("beIN9 H265", "BEIN SPORTS", "391102"),
-        c("beIN Sport English 1 4K", "BEIN SPORTS", "319495"),
-        c("beIN Sport English 2 4K", "BEIN SPORTS", "319496"),
-        c("beIN Sport French 1 4K", "BEIN SPORTS", "319497"),
-        c("beIN Sport French 2 4K", "BEIN SPORTS", "319498"),
-        c("beIN Sport NBA 4K", "BEIN SPORTS", "319499"),
-        c("beIN Global HD", "BEIN SPORTS", "442220"),
-        c("beIN Sport News HD", "BEIN SPORTS", "443146"),
-        c("beIN Sport 1 HD", "BEIN SPORTS", "325793"),
-        c("beIN Sport 2 HD", "BEIN SPORTS", "325794"),
-        c("beIN Sport 3 HD", "BEIN SPORTS", "325795"),
-        c("beIN Sport 4 HD", "BEIN SPORTS", "325796"),
-        c("beIN Sport 5 HD", "BEIN SPORTS", "325797"),
-        c("beIN Sport 6 HD", "BEIN SPORTS", "325798"),
-        c("beIN Sport 7 HD", "BEIN SPORTS", "325799"),
-        c("beIN Sport 8 HD", "BEIN SPORTS", "325800"),
-        c("beIN Sport 9 HD", "BEIN SPORTS", "325801"),
-        c("beIN Sport 1 HD English", "BEIN SPORTS", "318217"),
-        c("beIN Sport 2 HD English", "BEIN SPORTS", "318218"),
-        c("beIN Sport 1 HD Frensh", "BEIN SPORTS", "319437"),
-        c("beIN Sport 2 HD Frensh", "BEIN SPORTS", "319438"),
-        c("beIN Sport NBA HD", "BEIN SPORTS", "318219"),
-        c("beIN Sport 1 SD", "BEIN SPORTS", "325803"),
-        c("beIN Sport 2 SD", "BEIN SPORTS", "325804"),
-        c("beIN Sport 3 SD", "BEIN SPORTS", "325805"),
-        c("beIN Sport 4 SD", "BEIN SPORTS", "325806"),
-        c("beIN Sport 5 SD", "BEIN SPORTS", "325807"),
-        c("beIN Sport 6 SD", "BEIN SPORTS", "325808"),
-        c("beIN Sport 7 SD", "BEIN SPORTS", "325809"),
-        c("beIN Sport 8 SD", "BEIN SPORTS", "325810"),
-        c("beIN Sport 9 SD", "BEIN SPORTS", "325811"),
-        c("beIN Sport English 1 SD", "BEIN SPORTS", "319425"),
-        c("beIN Sport English 2 SD", "BEIN SPORTS", "319426"),
-        c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"),
-        c("beIN Sport French 2 SD", "BEIN SPORTS", "319428"),
+        // ========================================================
 
+        c("beIN Sport Global 4K", "beIN SPORTS", "22186"),
+        c("beIN Sport News 4K", "beIN SPORTS", "318230"),
+        c("beIN Sport 1 4K", "beIN SPORTS", "318197"),
+        c("beIN1 H265", "beIN SPORTS", "391094"),
+        c("beIN Sport 2 4K", "beIN SPORTS", "318198"),
+        c("beIN2 H265", "beIN SPORTS", "391095"),
+        c("beIN Sport 3 4K", "beIN SPORTS", "318199"),
+        c("beIN3 H265", "beIN SPORTS", "391096"),
+        c("beIN Sport 4 4K", "beIN SPORTS", "440580"),
+        c("beIN4 H265", "beIN SPORTS", "391097"),
+        c("beIN Sport 5 4K", "beIN SPORTS", "318201"),
+        c("beIN5 H265", "beIN SPORTS", "391098"),
+        c("beIN Sport 6 4K", "beIN SPORTS", "318202"),
+        c("beIN6 H265", "beIN SPORTS", "391099"),
+        c("beIN Sport 7 4K", "beIN SPORTS", "318203"),
+        c("beIN7 H265", "beIN SPORTS", "391100"),
+        c("beIN Sport 8 4K", "beIN SPORTS", "318204"),
+        c("beIN8 H265", "beIN SPORTS", "391101"),
+        c("beIN Sport 9 4K", "beIN SPORTS", "318205"),
+        c("beIN9 H265", "beIN SPORTS", "391102"),
+        c("beIN Sport English 1 4K", "beIN SPORTS", "319495"),
+        c("beIN Sport English 2 4K", "beIN SPORTS", "319496"),
+        c("beIN Sport French 1 4K", "beIN SPORTS", "319497"),
+        c("beIN Sport French 2 4K", "beIN SPORTS", "319498"),
+        c("beIN Sport NBA 4K", "beIN SPORTS", "319499"),
+        c("beIN Global HD", "beIN SPORTS", "442220"),
+        c("beIN Sport News HD", "beIN SPORTS", "443146"),
+        c("beIN Sport 1 HD", "beIN SPORTS", "325793"),
+        c("beIN Sport 2 HD", "beIN SPORTS", "325794"),
+        c("beIN Sport 3 HD", "beIN SPORTS", "325795"),
+        c("beIN Sport 4 HD", "beIN SPORTS", "325796"),
+        c("beIN Sport 5 HD", "beIN SPORTS", "325797"),
+        c("beIN Sport 6 HD", "beIN SPORTS", "325798"),
+        c("beIN Sport 7 HD", "beIN SPORTS", "325799"),
+        c("beIN Sport 8 HD", "beIN SPORTS", "325800"),
+        c("beIN Sport 9 HD", "beIN SPORTS", "325801"),
+        c("beIN Sport 1 HD English", "beIN SPORTS", "318217"),
+        c("beIN Sport 2 HD English", "beIN SPORTS", "318218"),
+        c("beIN Sport 1 HD Frensh", "beIN SPORTS", "319437"),
+        c("beIN Sport 2 HD Frensh", "beIN SPORTS", "319438"),
+        c("beIN Sport NBA HD", "beIN SPORTS", "318219"),
+        c("beIN Sport 1 SD", "beIN SPORTS", "325803"),
+        c("beIN Sport 2 SD", "beIN SPORTS", "325804"),
+        c("beIN Sport 3 SD", "beIN SPORTS", "325805"),
+        c("beIN Sport 4 SD", "beIN SPORTS", "325806"),
+        c("beIN Sport 5 SD", "beIN SPORTS", "325807"),
+        c("beIN Sport 6 SD", "beIN SPORTS", "325808"),
+        c("beIN Sport 7 SD", "beIN SPORTS", "325809"),
+        c("beIN Sport 8 SD", "beIN SPORTS", "325810"),
+        c("beIN Sport 9 SD", "beIN SPORTS", "325811"),
+        c("beIN Sport English 1 SD", "beIN SPORTS", "319425"),
+        c("beIN Sport English 2 SD", "beIN SPORTS", "319426"),
+        c("beIN Sport French 1 SD", "beIN SPORTS", "319427"),
+        c("beIN Sport French 2 SD", "beIN SPORTS", "319428"),
+
+        // ========================================================
         // BEIN XTRA
-        c("beIN Sport XTRA 1 4K", "BEIN XTRA", "325790"),
-        c("beIN Sport XTRA 2 4K", "BEIN XTRA", "319487"),
-        c("beIN Sport XTRA 3 4K", "BEIN XTRA", "319488"),
-        c("beIN Sport XTRA 4 4K", "BEIN XTRA", "440569"),
-        c("beIN Sport XTRA 5 4K", "BEIN XTRA", "440570"),
-        c("beIN Sport XTRA 6 4K", "BEIN XTRA", "440571"),
-        c("beIN Sport XTRA 7 4K", "BEIN XTRA", "447243"),
-        c("beIN Sport XTRA 8 4K", "BEIN XTRA", "447244"),
-        c("beIN Sport XTRA 9 4K", "BEIN XTRA", "447245"),
-        c("beIN Sport Xtra 1 HD", "BEIN XTRA", "325802"),
-        c("beIN Sport Xtra 2 HD", "BEIN XTRA", "319435"),
-        c("beIN Sport Xtra 3 HD", "BEIN XTRA", "319436"),
-        c("beIN Sport Xtra 4 HD", "BEIN XTRA", "440572"),
-        c("beIN Sport Xtra 5 HD", "BEIN XTRA", "440573"),
-        c("beIN Sport Xtra 6 HD", "BEIN XTRA", "440574"),
-        c("beIN Sport Xtra 7 HD", "BEIN XTRA", "447246"),
-        c("beIN Sport Xtra 8 HD", "BEIN XTRA", "447247"),
-        c("beIN Sport Xtra 9 HD", "BEIN XTRA", "447248"),
-        c("beIN Sport Xtra 1 SD", "BEIN XTRA", "325812"),
-        c("beIN Sport Xtra 2 SD", "BEIN XTRA", "319423"),
-        c("beIN Sport Xtra 3 SD", "BEIN XTRA", "319424"),
-        c("beIN Sport Xtra 4 SD", "BEIN XTRA", "440575"),
-        c("beIN Sport Xtra 5 SD", "BEIN XTRA", "440576"),
-        c("beIN Sport Xtra 6 SD", "BEIN XTRA", "440577"),
-        c("beIN Sport Xtra 7 SD", "BEIN XTRA", "447249"),
-        c("beIN Sport Xtra 8 SD", "BEIN XTRA", "447250"),
-        c("beIN Sport Xtra 9 SD", "BEIN XTRA", "447251"),
+        // ========================================================
 
+        c("beIN Sport XTRA 1 4K", "beIN XTRA", "325790"),
+        c("beIN Sport XTRA 2 4K", "beIN XTRA", "319487"),
+        c("beIN Sport XTRA 3 4K", "beIN XTRA", "319488"),
+        c("beIN Sport XTRA 4 4K", "beIN XTRA", "440569"),
+        c("beIN Sport XTRA 5 4K", "beIN XTRA", "440570"),
+        c("beIN Sport XTRA 6 4K", "beIN XTRA", "440571"),
+        c("beIN Sport XTRA 7 4K", "beIN XTRA", "447243"),
+        c("beIN Sport XTRA 8 4K", "beIN XTRA", "447244"),
+        c("beIN Sport XTRA 9 4K", "beIN XTRA", "447245"),
+        c("beIN Sport Xtra 1 HD", "beIN XTRA", "325802"),
+        c("beIN Sport Xtra 2 HD", "beIN XTRA", "319435"),
+        c("beIN Sport Xtra 3 HD", "beIN XTRA", "319436"),
+        c("beIN Sport Xtra 4 HD", "beIN XTRA", "440572"),
+        c("beIN Sport Xtra 5 HD", "beIN XTRA", "440573"),
+        c("beIN Sport Xtra 6 HD", "beIN XTRA", "440574"),
+        c("beIN Sport Xtra 7 HD", "beIN XTRA", "447246"),
+        c("beIN Sport Xtra 8 HD", "beIN XTRA", "447247"),
+        c("beIN Sport Xtra 9 HD", "beIN XTRA", "447248"),
+        c("beIN Sport Xtra 1 SD", "beIN XTRA", "325812"),
+        c("beIN Sport Xtra 2 SD", "beIN XTRA", "319423"),
+        c("beIN Sport Xtra 3 SD", "beIN XTRA", "319424"),
+        c("beIN Sport Xtra 4 SD", "beIN XTRA", "440575"),
+        c("beIN Sport Xtra 5 SD", "beIN XTRA", "440576"),
+        c("beIN Sport Xtra 6 SD", "beIN XTRA", "440577"),
+        c("beIN Sport Xtra 7 SD", "beIN XTRA", "447249"),
+        c("beIN Sport Xtra 8 SD", "beIN XTRA", "447250"),
+        c("beIN Sport Xtra 9 SD", "beIN XTRA", "447251"),
+
+        // ========================================================
         // AL RABIAA
+        // ========================================================
+
         c("AL RABIAA SPORT 1", "AL RABIAA", "371931"),
         c("AL RABIAA SPORT 1+", "AL RABIAA", "371933"),
         c("AL RABIAA SPORT 2", "AL RABIAA", "371932"),
@@ -203,7 +212,10 @@ class MainActivity : Activity() {
         c("AL RABIAA QURAN", "AL RABIAA", "371937"),
         c("AL RABIAA MUSICA", "AL RABIAA", "371938"),
 
+        // ========================================================
         // ALKASS
+        // ========================================================
+
         c("Alkass 1 HD", "ALKASS", "96214"),
         c("Alkass 2 HD", "ALKASS", "96215"),
         c("Alkass 3 HD", "ALKASS", "278068"),
@@ -215,7 +227,10 @@ class MainActivity : Activity() {
         c("Alkass 9 HD", "ALKASS", "393991"),
         c("Alkass 10 HD", "ALKASS", "393992"),
 
+        // ========================================================
         // SAUDI SPORTS
+        // ========================================================
+
         c("KSA Sport 1 4K", "SAUDI SPORTS", "97805"),
         c("KSA Sport 2 4K", "SAUDI SPORTS", "97806"),
         c("KSA Sport 3 4K", "SAUDI SPORTS", "97807"),
@@ -226,7 +241,10 @@ class MainActivity : Activity() {
         c("STC SPORT 3 HD", "SAUDI SPORTS", "420903"),
         c("STC SPORT 4 HD", "SAUDI SPORTS", "433178"),
 
-        // GULF SPORTS
+        // ========================================================
+        // GULF / ARAB SPORTS
+        // ========================================================
+
         c("Dubai Sport 1 HD", "GULF SPORTS", "97813"),
         c("Dubai Sport 2 HD", "GULF SPORTS", "97814"),
         c("Dubai Racing 1 HD", "GULF SPORTS", "97816"),
@@ -253,13 +271,19 @@ class MainActivity : Activity() {
         c("Al Ahly TV", "GULF SPORTS", "97823"),
         c("PalestineSport", "GULF SPORTS", "417306"),
 
+        // ========================================================
         // AD SPORTS
+        // ========================================================
+
         c("AD SPORTS 1 HD", "AD SPORTS", "326053"),
         c("AD SPORTS 2 HD", "AD SPORTS", "326054"),
         c("AD Sport Asia 1 HD", "AD SPORTS", "244188"),
         c("AD Sport Asia 2 HD", "AD SPORTS", "244191"),
 
+        // ========================================================
         // ALWAN SPORT
+        // ========================================================
+
         c("Alwan Sport 1 4K", "ALWAN SPORT", "418111"),
         c("Alwan Sport 1 HD", "ALWAN SPORT", "418112"),
         c("Alwan Sport 1 SD", "ALWAN SPORT", "418113"),
@@ -283,7 +307,10 @@ class MainActivity : Activity() {
         c("Alwan Sport 9 4K", "ALWAN SPORT", "433741"),
         c("Alwan Sport 10 4K", "ALWAN SPORT", "433742"),
 
+        // ========================================================
         // CRICKET
+        // ========================================================
+
         c("DS: SS Cricket HD", "CRICKET", "362434"),
         c("UK: SKY SPORTS CRICKET HD", "CRICKET", "376914"),
         c("UK: ASTRO CRICKET", "CRICKET", "376935"),
@@ -299,7 +326,10 @@ class MainActivity : Activity() {
         c("PK: Ten Sports HD", "CRICKET", "380193"),
         c("PK: PTV SPORTS", "CRICKET", "379173"),
 
+        // ========================================================
         // STAR SPORTS
+        // ========================================================
+
         c("IN: Star Sports 1 FHD", "STAR SPORTS", "387564"),
         c("IN: Star Sports 1 Hindi FHD", "STAR SPORTS", "387565"),
         c("IN: Star Sports 2 FHD", "STAR SPORTS", "387566"),
@@ -322,14 +352,20 @@ class MainActivity : Activity() {
         c("USA | Willow Cricket HD", "STAR SPORTS", "386666"),
         c("USA | Willow Cricket Extra", "STAR SPORTS", "386665"),
 
+        // ========================================================
         // FAJER TV
+        // ========================================================
+
         c("Fajer TV 1", "FAJER TV", "463532"),
         c("Fajer TV 2", "FAJER TV", "463533"),
         c("Fajer TV 3", "FAJER TV", "463534"),
         c("Fajer TV 4", "FAJER TV", "463535"),
         c("Faher TV 5", "FAJER TV", "463536"),
 
+        // ========================================================
         // KURDISTAN SPORTS
+        // ========================================================
+
         c("KU: Duhok Sport", "KURDISTAN SPORTS", "358226"),
         c("KU: LD Sport", "KURDISTAN SPORTS", "358229"),
         c("KU: See Sport 1", "KURDISTAN SPORTS", "358222"),
@@ -352,14 +388,20 @@ class MainActivity : Activity() {
         c("KU: LD SPORT CHEAK", "KURDISTAN SPORTS", "358238"),
         c("KU: Delal Sport", "KURDISTAN SPORTS", "358239"),
 
+        // ========================================================
         // SHAHID SPORT
+        // ========================================================
+
         c("Shahid Spot1 4K", "SHAHID SPORT", "430911"),
         c("Shahid Spot2 4K", "SHAHID SPORT", "430912"),
         c("Shahid Spot3 4K", "SHAHID SPORT", "430913"),
         c("Shahid Spot4 4K", "SHAHID SPORT", "430914"),
         c("Shahid Spot5 4K", "SHAHID SPORT", "430915"),
 
+        // ========================================================
         // SHASHA
+        // ========================================================
+
         c("Shasha 1 TV 4K", "SHASHA", "348400"),
         c("Shasha 2 TV 4K", "SHASHA", "244079"),
         c("Shasha 3 TV 4K", "SHASHA", "443029")
@@ -378,14 +420,11 @@ class MainActivity : Activity() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
 
-        window.statusBarColor = backgroundColor
-        window.navigationBarColor = backgroundColor
-
         buildInterface()
     }
 
     // ============================================================
-    // MAIN INTERFACE
+    // INTERFACE
     // ============================================================
 
     private fun buildInterface() {
@@ -399,69 +438,116 @@ class MainActivity : Activity() {
         // ========================================================
 
         topBar = LinearLayout(this)
+
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
 
         topBar.setPadding(
-            dp(30),
+            dp(24),
             dp(8),
-            dp(30),
+            dp(24),
             dp(8)
         )
 
-        topBar.setBackgroundColor(surfaceColor)
+        topBar.setBackgroundColor(topBarColor)
 
-        // LOGO
+        // --------------------------------------------------------
+        // NT LOGO
+        // --------------------------------------------------------
+
         val logoBox = LinearLayout(this)
-        logoBox.orientation = LinearLayout.HORIZONTAL
-        logoBox.gravity = Gravity.CENTER_VERTICAL
 
-        val logoMark = TextView(this)
-
-        logoMark.text = "NT"
-        logoMark.textSize = 22f
-        logoMark.setTextColor(Color.WHITE)
-        logoMark.gravity = Gravity.CENTER
-        logoMark.typeface = Typeface.DEFAULT_BOLD
-
-        logoMark.background = roundedBackground(
-            accentColor,
-            14
-        )
-
-        logoBox.addView(
-            logoMark,
-            LinearLayout.LayoutParams(
-                dp(50),
-                dp(42)
+        logoBox.gravity = Gravity.CENTER
+        logoBox.setBackground(
+            roundedDrawable(
+                accentColor,
+                dp(14)
             )
         )
 
         val logoText = TextView(this)
 
-        logoText.text = "NIYATI TV"
-        logoText.textSize = 22f
-        logoText.setTextColor(textColor)
-        logoText.typeface = Typeface.DEFAULT_BOLD
-        logoText.gravity = Gravity.CENTER_VERTICAL
+        logoText.text = "NT"
+        logoText.textSize = 20f
+        logoText.setTextColor(Color.WHITE)
 
-        logoText.setPadding(
-            dp(12),
-            0,
-            0,
-            0
-        )
+        logoText.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        logoText.gravity = Gravity.CENTER
 
         logoBox.addView(
             logoText,
             LinearLayout.LayoutParams(
-                -2,
-                dp(42)
+                dp(62),
+                dp(48)
             )
         )
 
         topBar.addView(
             logoBox,
+            LinearLayout.LayoutParams(
+                dp(62),
+                dp(48)
+            )
+        )
+
+        // --------------------------------------------------------
+        // TITLE
+        // --------------------------------------------------------
+
+        val titleArea = LinearLayout(this)
+
+        titleArea.orientation =
+            LinearLayout.VERTICAL
+
+        titleArea.gravity =
+            Gravity.CENTER_VERTICAL
+
+        titleArea.setPadding(
+            dp(16),
+            0,
+            0,
+            0
+        )
+
+        val title = TextView(this)
+
+        title.text = "NIYATI TV"
+        title.textSize = 22f
+        title.setTextColor(textColor)
+
+        title.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        val subtitle = TextView(this)
+
+        subtitle.text =
+            "LIVE SPORTS • PREMIUM TV"
+
+        subtitle.textSize = 10f
+        subtitle.setTextColor(
+            secondaryTextColor
+        )
+
+        titleArea.addView(title)
+
+        titleArea.addView(
+            subtitle,
+            LinearLayout.LayoutParams(
+                -2,
+                dp(20)
+            )
+        )
+
+        topBar.addView(
+            titleArea,
             LinearLayout.LayoutParams(
                 0,
                 -1,
@@ -469,61 +555,35 @@ class MainActivity : Activity() {
             )
         )
 
+        // --------------------------------------------------------
         // LIVE INDICATOR
-        val liveBox = LinearLayout(this)
+        // --------------------------------------------------------
 
-        liveBox.orientation = LinearLayout.HORIZONTAL
-        liveBox.gravity = Gravity.CENTER
-        liveBox.setPadding(
-            dp(16),
-            0,
-            dp(16),
-            0
-        )
+        val live = TextView(this)
 
-        liveBox.background = roundedBackground(
-            Color.rgb(35, 22, 28),
-            30
-        )
+        live.text = "●  LIVE"
+        live.textSize = 13f
+        live.setTextColor(Color.WHITE)
 
-        val liveDot = TextView(this)
-        liveDot.text = "●"
-        liveDot.textSize = 13f
-        liveDot.setTextColor(accentColor)
-
-        liveBox.addView(
-            liveDot,
-            LinearLayout.LayoutParams(
-                -2,
-                -2
+        live.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
             )
-        )
 
-        val liveText = TextView(this)
-        liveText.text = "LIVE"
-        liveText.textSize = 13f
-        liveText.setTextColor(textColor)
-        liveText.typeface = Typeface.DEFAULT_BOLD
+        live.gravity = Gravity.CENTER
 
-        liveText.setPadding(
-            dp(6),
-            0,
-            0,
-            0
-        )
-
-        liveBox.addView(
-            liveText,
-            LinearLayout.LayoutParams(
-                -2,
-                -1
+        live.setBackground(
+            roundedDrawable(
+                accentColor,
+                dp(20)
             )
         )
 
         topBar.addView(
-            liveBox,
+            live,
             LinearLayout.LayoutParams(
-                dp(100),
+                dp(86),
                 dp(38)
             )
         )
@@ -532,7 +592,7 @@ class MainActivity : Activity() {
             topBar,
             LinearLayout.LayoutParams(
                 -1,
-                dp(70)
+                dp(68)
             )
         )
 
@@ -541,7 +601,10 @@ class MainActivity : Activity() {
         // ========================================================
 
         playerContainer = FrameLayout(this)
-        playerContainer.setBackgroundColor(Color.BLACK)
+
+        playerContainer.setBackgroundColor(
+            Color.BLACK
+        )
 
         playerView = PlayerView(this)
 
@@ -558,86 +621,51 @@ class MainActivity : Activity() {
             )
         )
 
-        // PLAYER TITLE OVERLAY
-        statusText = TextView(this)
-
-        statusText.text = "NIYATI TV"
-        statusText.textSize = 15f
-        statusText.setTextColor(Color.WHITE)
-        statusText.typeface = Typeface.DEFAULT_BOLD
-        statusText.gravity = Gravity.CENTER_VERTICAL
-
-        statusText.setPadding(
-            dp(16),
-            0,
-            dp(16),
-            0
-        )
-
-        statusText.background = roundedBackground(
-            Color.argb(170, 0, 0, 0),
-            20
-        )
-
-        val statusParams =
-            FrameLayout.LayoutParams(
-                dp(170),
-                dp(40)
-            )
-
-        statusParams.gravity =
-            Gravity.TOP or Gravity.START
-
-        statusParams.setMargins(
-            dp(18),
-            dp(18),
-            0,
-            0
-        )
-
-        playerContainer.addView(
-            statusText,
-            statusParams
-        )
-
+        // --------------------------------------------------------
         // FULLSCREEN BUTTON
+        // --------------------------------------------------------
+
         fullscreenButton = TextView(this)
 
         fullscreenButton.text = "⛶"
-        fullscreenButton.textSize = 26f
+        fullscreenButton.textSize = 27f
         fullscreenButton.setTextColor(Color.WHITE)
+
         fullscreenButton.gravity = Gravity.CENTER
+
+        fullscreenButton.setBackground(
+            roundedDrawable(
+                Color.argb(190, 0, 0, 0),
+                dp(12)
+            )
+        )
+
         fullscreenButton.isFocusable = true
         fullscreenButton.isFocusableInTouchMode = true
-
-        fullscreenButton.background = roundedBackground(
-            Color.argb(200, 15, 15, 15),
-            18
-        )
 
         fullscreenButton.setOnClickListener {
             toggleFullscreen()
         }
 
-        val fullParams =
+        val fullscreenParams =
             FrameLayout.LayoutParams(
                 dp(58),
-                dp(58)
+                dp(52)
             )
 
-        fullParams.gravity =
+        fullscreenParams.gravity =
             Gravity.BOTTOM or Gravity.END
 
-        fullParams.setMargins(
+        fullscreenParams.setMargins(
             0,
             0,
-            dp(22),
-            dp(22)
+            dp(20),
+            dp(20)
         )
 
         playerContainer.addView(
             fullscreenButton,
-            fullParams
+            fullscreenParams
         )
 
         root.addView(
@@ -645,7 +673,7 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(
                 -1,
                 0,
-                0.52f
+                0.58f
             )
         )
 
@@ -656,12 +684,13 @@ class MainActivity : Activity() {
         nowPlaying = TextView(this)
 
         nowPlaying.text =
-            "  اختر قناة لبدء المشاهدة"
+            "●  اختر قناة لبدء المشاهدة"
 
-        nowPlaying.textSize = 16f
+        nowPlaying.textSize = 15f
         nowPlaying.setTextColor(textColor)
-        nowPlaying.typeface = Typeface.DEFAULT_BOLD
-        nowPlaying.gravity = Gravity.CENTER_VERTICAL
+
+        nowPlaying.gravity =
+            Gravity.CENTER_VERTICAL
 
         nowPlaying.setPadding(
             dp(22),
@@ -670,99 +699,65 @@ class MainActivity : Activity() {
             0
         )
 
-        nowPlaying.background = roundedBackground(
-            surfaceColor,
-            0
+        nowPlaying.setBackgroundColor(
+            panelColor
         )
 
         root.addView(
             nowPlaying,
             LinearLayout.LayoutParams(
                 -1,
-                dp(50)
+                dp(48)
             )
         )
 
         // ========================================================
-        // PACKAGE TITLE
+        // BOTTOM AREA
         // ========================================================
 
-        val packageTitle = TextView(this)
+        bottomArea = LinearLayout(this)
 
-        packageTitle.text = "  الباقات"
-        packageTitle.textSize = 17f
-        packageTitle.setTextColor(textColor)
-        packageTitle.typeface = Typeface.DEFAULT_BOLD
-        packageTitle.gravity = Gravity.CENTER_VERTICAL
+        bottomArea.orientation =
+            LinearLayout.HORIZONTAL
 
-        packageTitle.setPadding(
-            dp(20),
-            0,
-            0,
-            0
-        )
-
-        root.addView(
-            packageTitle,
-            LinearLayout.LayoutParams(
-                -1,
-                dp(42)
-            )
+        bottomArea.setBackgroundColor(
+            panelColor
         )
 
         // ========================================================
-        // PACKAGES HORIZONTAL
+        // PACKAGES
         // ========================================================
 
-        packageScroll = HorizontalScrollView(this)
+        packageScroll = ScrollView(this)
 
-        packageScroll.isHorizontalScrollBarEnabled = false
         packageScroll.isFocusable = false
 
-        packagesLayout = LinearLayout(this)
-        packagesLayout.orientation = LinearLayout.HORIZONTAL
-        packagesLayout.gravity = Gravity.CENTER_VERTICAL
+        packagesLayout =
+            LinearLayout(this)
+
+        packagesLayout.orientation =
+            LinearLayout.VERTICAL
 
         packagesLayout.setPadding(
-            dp(18),
-            dp(4),
-            dp(18),
-            dp(8)
+            dp(14),
+            dp(14),
+            dp(10),
+            dp(14)
         )
 
         packageScroll.addView(
             packagesLayout,
-            HorizontalScrollView.LayoutParams(
-                -2,
+            ScrollView.LayoutParams(
+                -1,
                 -1
             )
         )
 
-        root.addView(
+        bottomArea.addView(
             packageScroll,
             LinearLayout.LayoutParams(
-                -1,
-                dp(70)
-            )
-        )
-
-        // ========================================================
-        // CHANNEL TITLE
-        // ========================================================
-
-        val channelTitle = TextView(this)
-
-        channelTitle.text = "  القنوات"
-        channelTitle.textSize = 17f
-        channelTitle.setTextColor(textColor)
-        channelTitle.typeface = Typeface.DEFAULT_BOLD
-        channelTitle.gravity = Gravity.CENTER_VERTICAL
-
-        root.addView(
-            channelTitle,
-            LinearLayout.LayoutParams(
-                -1,
-                dp(42)
+                dp(255),
+                -1
             )
         )
 
@@ -772,34 +767,44 @@ class MainActivity : Activity() {
 
         channelScroll = ScrollView(this)
 
-        channelScroll.isVerticalScrollBarEnabled = false
+        channelScroll.isFocusable = false
 
-        channelsLayout = LinearLayout(this)
+        channelsLayout =
+            LinearLayout(this)
 
         channelsLayout.orientation =
             LinearLayout.VERTICAL
 
         channelsLayout.setPadding(
+            dp(12),
+            dp(14),
             dp(18),
-            dp(4),
-            dp(18),
-            dp(24)
+            dp(14)
         )
 
         channelScroll.addView(
             channelsLayout,
             ScrollView.LayoutParams(
                 -1,
-                -2
+                -1
+            )
+        )
+
+        bottomArea.addView(
+            channelScroll,
+            LinearLayout.LayoutParams(
+                0,
+                -1,
+                1f
             )
         )
 
         root.addView(
-            channelScroll,
+            bottomArea,
             LinearLayout.LayoutParams(
                 -1,
                 0,
-                0.48f
+                0.42f
             )
         )
 
@@ -816,6 +821,35 @@ class MainActivity : Activity() {
 
         packagesLayout.removeAllViews()
 
+        val header = TextView(this)
+
+        header.text = "الباقات"
+        header.textSize = 14f
+        header.setTextColor(
+            secondaryTextColor
+        )
+
+        header.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        header.setPadding(
+            dp(8),
+            0,
+            0,
+            dp(10)
+        )
+
+        packagesLayout.addView(
+            header,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(32)
+            )
+        )
+
         val groups =
             channels
                 .map { it.group }
@@ -825,7 +859,7 @@ class MainActivity : Activity() {
             return
         }
 
-        currentGroup = groups.first()
+        currentGroup = groups[0]
 
         groups.forEachIndexed { index, group ->
 
@@ -847,28 +881,32 @@ class MainActivity : Activity() {
             packagesLayout.addView(
                 button,
                 LinearLayout.LayoutParams(
-                    dp(175),
-                    dp(52)
+                    -1,
+                    dp(58)
                 ).apply {
                     setMargins(
-                        dp(5),
                         0,
-                        dp(5),
-                        0
+                        0,
+                        0,
+                        dp(7)
                     )
                 }
             )
         }
 
-        loadChannels(groups.first())
+        loadChannels(groups[0])
     }
+
+    // ============================================================
+    // PACKAGE SELECTION
+    // ============================================================
 
     private fun updatePackageSelection(
         selectedButton: TextView
     ) {
 
         for (
-            i in 0 until packagesLayout.childCount
+            i in 1 until packagesLayout.childCount
         ) {
 
             val child =
@@ -876,19 +914,29 @@ class MainActivity : Activity() {
 
             if (child is TextView) {
 
-                child.background =
-                    roundedBackground(
+                child.setBackground(
+                    roundedDrawable(
                         cardColor,
-                        16
+                        dp(12)
                     )
+                )
+
+                child.setTextColor(
+                    textColor
+                )
             }
         }
 
-        selectedButton.background =
-            roundedBackground(
-                cardFocusColor,
-                16
+        selectedButton.setBackground(
+            roundedDrawable(
+                accentColor,
+                dp(12)
             )
+        )
+
+        selectedButton.setTextColor(
+            Color.WHITE
+        )
     }
 
     // ============================================================
@@ -901,6 +949,36 @@ class MainActivity : Activity() {
 
         channelsLayout.removeAllViews()
 
+        val groupTitle =
+            TextView(this)
+
+        groupTitle.text =
+            group
+
+        groupTitle.textSize = 19f
+        groupTitle.setTextColor(textColor)
+
+        groupTitle.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        groupTitle.setPadding(
+            dp(8),
+            0,
+            0,
+            dp(12)
+        )
+
+        channelsLayout.addView(
+            groupTitle,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(38)
+            )
+        )
+
         val filtered =
             channels.filter {
                 it.group == group
@@ -911,14 +989,12 @@ class MainActivity : Activity() {
             val button =
                 createChannelButton(
                     channel,
-                    index == 0
+                    false
                 )
 
             button.setOnClickListener {
 
-                updateChannelSelection(
-                    button
-                )
+                selectChannelButton(button)
 
                 playChannel(channel)
             }
@@ -927,14 +1003,14 @@ class MainActivity : Activity() {
                 button,
                 LinearLayout.LayoutParams(
                     -1,
-                    dp(68)
+                    dp(58)
                 ).apply {
 
                     setMargins(
                         0,
                         0,
                         0,
-                        dp(8)
+                        dp(7)
                     )
                 }
             )
@@ -943,34 +1019,6 @@ class MainActivity : Activity() {
                 button.requestFocus()
             }
         }
-    }
-
-    private fun updateChannelSelection(
-        selectedButton: TextView
-    ) {
-
-        for (
-            i in 0 until channelsLayout.childCount
-        ) {
-
-            val child =
-                channelsLayout.getChildAt(i)
-
-            if (child is TextView) {
-
-                child.background =
-                    roundedBackground(
-                        cardColor,
-                        18
-                    )
-            }
-        }
-
-        selectedButton.background =
-            roundedBackground(
-                cardFocusColor,
-                18
-            )
     }
 
     // ============================================================
@@ -987,19 +1035,36 @@ class MainActivity : Activity() {
         button.text = name
         button.textSize = 15f
         button.setTextColor(textColor)
-        button.typeface = Typeface.DEFAULT_BOLD
-        button.gravity = Gravity.CENTER
+
+        button.gravity =
+            Gravity.CENTER_VERTICAL
+
+        button.setPadding(
+            dp(18),
+            0,
+            dp(12),
+            0
+        )
+
+        button.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        button.setBackground(
+            roundedDrawable(
+                if (selected) {
+                    accentColor
+                } else {
+                    cardColor
+                },
+                dp(12)
+            )
+        )
+
         button.isFocusable = true
         button.isFocusableInTouchMode = true
-
-        button.background =
-            roundedBackground(
-                if (selected)
-                    cardFocusColor
-                else
-                    cardColor,
-                16
-            )
 
         button.setOnFocusChangeListener {
                 view,
@@ -1007,21 +1072,35 @@ class MainActivity : Activity() {
 
             if (hasFocus) {
 
-                view.background =
-                    roundedBackground(
-                        cardFocusColor,
-                        16
+                view.setBackground(
+                    roundedDrawable(
+                        if (
+                            currentGroup ==
+                            name
+                        ) {
+                            accentColor
+                        } else {
+                            cardFocusColor
+                        },
+                        dp(12)
                     )
+                )
 
-            } else if (
-                currentGroup != name
-            ) {
+            } else {
 
-                view.background =
-                    roundedBackground(
-                        cardColor,
-                        16
+                view.setBackground(
+                    roundedDrawable(
+                        if (
+                            currentGroup ==
+                            name
+                        ) {
+                            accentColor
+                        } else {
+                            cardColor
+                        },
+                        dp(12)
                     )
+                )
             }
         }
 
@@ -1044,34 +1123,43 @@ class MainActivity : Activity() {
 
         button.text =
             String.format(
-                "%03d     %s                                      ▶",
+                "%03d    %s     ▶",
                 number,
                 channel.name
             )
 
-        button.textSize = 16f
+        button.textSize = 15f
         button.setTextColor(textColor)
-        button.typeface = Typeface.DEFAULT_BOLD
-        button.gravity = Gravity.CENTER_VERTICAL
+
+        button.gravity =
+            Gravity.CENTER_VERTICAL
 
         button.setPadding(
-            dp(22),
+            dp(18),
             0,
-            dp(22),
+            dp(18),
             0
+        )
+
+        button.typeface =
+            Typeface.create(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+            )
+
+        button.setBackground(
+            roundedDrawable(
+                if (selected) {
+                    accentColor
+                } else {
+                    cardColor
+                },
+                dp(12)
+            )
         )
 
         button.isFocusable = true
         button.isFocusableInTouchMode = true
-
-        button.background =
-            roundedBackground(
-                if (selected)
-                    cardFocusColor
-                else
-                    cardColor,
-                18
-            )
 
         button.setOnFocusChangeListener {
                 view,
@@ -1079,23 +1167,69 @@ class MainActivity : Activity() {
 
             if (hasFocus) {
 
-                view.background =
-                    roundedBackground(
-                        cardFocusColor,
-                        18
+                view.setBackground(
+                    roundedDrawable(
+                        accentColor,
+                        dp(12)
                     )
+                )
+
+                view.scaleX = 1.015f
+                view.scaleY = 1.015f
 
             } else {
 
-                view.background =
-                    roundedBackground(
+                view.setBackground(
+                    roundedDrawable(
                         cardColor,
-                        18
+                        dp(12)
                     )
+                )
+
+                view.scaleX = 1f
+                view.scaleY = 1f
             }
         }
 
         return button
+    }
+
+    // ============================================================
+    // SELECT CHANNEL BUTTON
+    // ============================================================
+
+    private fun selectChannelButton(
+        selectedButton: TextView
+    ) {
+
+        for (
+            i in 1 until channelsLayout.childCount
+        ) {
+
+            val child =
+                channelsLayout.getChildAt(i)
+
+            if (child is TextView) {
+
+                child.setBackground(
+                    roundedDrawable(
+                        if (child.hasFocus()) {
+                            accentColor
+                        } else {
+                            cardColor
+                        },
+                        dp(12)
+                    )
+                )
+            }
+        }
+
+        selectedButton.setBackground(
+            roundedDrawable(
+                accentColor,
+                dp(12)
+            )
+        )
     }
 
     // ============================================================
@@ -1106,13 +1240,8 @@ class MainActivity : Activity() {
         channel: Channel
     ) {
 
-        currentChannel = channel
-
         nowPlaying.text =
-            "  ▶  ${channel.name}"
-
-        statusText.text =
-            "  ${channel.name}"
+            "●  الآن تشاهد: ${channel.name}"
 
         try {
 
@@ -1128,32 +1257,9 @@ class MainActivity : Activity() {
                 exoPlayer?.addListener(
                     object : Player.Listener {
 
-                        override fun onPlaybackStateChanged(
-                            playbackState: Int
-                        ) {
-
-                            when (playbackState) {
-
-                                Player.STATE_BUFFERING -> {
-
-                                    statusText.text =
-                                        "  جاري تحميل ${channel.name}"
-                                }
-
-                                Player.STATE_READY -> {
-
-                                    statusText.text =
-                                        "  ${channel.name}"
-                                }
-                            }
-                        }
-
                         override fun onPlayerError(
                             error: PlaybackException
                         ) {
-
-                            statusText.text =
-                                "  تعذر تشغيل القناة"
 
                             Toast.makeText(
                                 this@MainActivity,
@@ -1209,40 +1315,31 @@ class MainActivity : Activity() {
         topBar.visibility =
             View.GONE
 
-        packageScroll.visibility =
-            View.GONE
-
-        channelsLayout.visibility =
-            View.GONE
-
         nowPlaying.visibility =
             View.GONE
 
-        fullscreenButton.visibility =
-            View.GONE
-
-        statusText.visibility =
-            View.GONE
-
-        channelScroll.visibility =
+        bottomArea.visibility =
             View.GONE
 
         val params =
             playerContainer.layoutParams
 
-        params.width =
+        params.height =
             LinearLayout.LayoutParams.MATCH_PARENT
 
-        params.height =
+        params.width =
             LinearLayout.LayoutParams.MATCH_PARENT
 
         playerContainer.layoutParams =
             params
 
+        fullscreenButton.visibility =
+            View.VISIBLE
+
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
     }
 
     private fun exitFullscreen() {
@@ -1252,34 +1349,27 @@ class MainActivity : Activity() {
         topBar.visibility =
             View.VISIBLE
 
-        packageScroll.visibility =
-            View.VISIBLE
-
-        channelsLayout.visibility =
-            View.VISIBLE
-
         nowPlaying.visibility =
             View.VISIBLE
 
-        fullscreenButton.visibility =
-            View.VISIBLE
-
-        statusText.visibility =
-            View.VISIBLE
-
-        channelScroll.visibility =
+        bottomArea.visibility =
             View.VISIBLE
 
         val params =
             playerContainer.layoutParams
 
+        params.height = 0
+
         params.width =
             LinearLayout.LayoutParams.MATCH_PARENT
 
-        params.height = 0
+        params.weight = 0.58f
 
         playerContainer.layoutParams =
             params
+
+        fullscreenButton.visibility =
+            View.VISIBLE
 
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -1295,12 +1385,17 @@ class MainActivity : Activity() {
 
         if (
             event.action ==
-            KeyEvent.ACTION_UP
+            KeyEvent.ACTION_DOWN
         ) {
 
             when (event.keyCode) {
 
                 KeyEvent.KEYCODE_BACK -> {
+
+                    // ------------------------------------------------
+                    // FIRST BACK:
+                    // EXIT FULLSCREEN
+                    // ------------------------------------------------
 
                     if (fullscreen) {
 
@@ -1309,37 +1404,36 @@ class MainActivity : Activity() {
                         return true
                     }
 
+                    // ------------------------------------------------
+                    // SECOND BACK:
+                    // STOP PLAYBACK
+                    // ------------------------------------------------
+
                     if (
-                        exoPlayer != null
+                        exoPlayer != null &&
+                        (
+                            exoPlayer?.isPlaying == true ||
+                            exoPlayer?.playbackState ==
+                            Player.STATE_READY
+                        )
                     ) {
 
                         exoPlayer?.stop()
 
-                        currentChannel = null
-
                         nowPlaying.text =
-                            "  اختر قناة لبدء المشاهدة"
-
-                        statusText.text =
-                            "NIYATI TV"
+                            "●  اختر قناة لبدء المشاهدة"
 
                         return true
                     }
+
+                    // Do not close application
+                    return true
                 }
 
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_ENTER -> {
 
-                    if (fullscreen) {
-
-                        return super.dispatchKeyEvent(
-                            event
-                        )
-                    }
-
-                    if (
-                        playerView.hasFocus()
-                    ) {
+                    if (playerView.hasFocus()) {
 
                         toggleFullscreen()
 
@@ -1353,48 +1447,34 @@ class MainActivity : Activity() {
     }
 
     // ============================================================
-    // BACKUP: TV DPAD
+    // CLEANUP
     // ============================================================
 
-    override fun onKeyDown(
-        keyCode: Int,
-        event: KeyEvent
-    ): Boolean {
+    override fun onDestroy() {
 
-        if (
-            fullscreen &&
-            keyCode == KeyEvent.KEYCODE_BACK
-        ) {
+        exoPlayer?.release()
 
-            exitFullscreen()
+        exoPlayer = null
 
-            return true
-        }
-
-        return super.onKeyDown(
-            keyCode,
-            event
-        )
+        super.onDestroy()
     }
 
     // ============================================================
     // DRAWABLE
     // ============================================================
 
-    private fun roundedBackground(
+    private fun roundedDrawable(
         color: Int,
         radius: Int
     ): GradientDrawable {
 
-        val drawable =
-            GradientDrawable()
+        return GradientDrawable().apply {
 
-        drawable.setColor(color)
+            setColor(color)
 
-        drawable.cornerRadius =
-            dp(radius).toFloat()
-
-        return drawable
+            cornerRadius =
+                radius.toFloat()
+        }
     }
 
     // ============================================================
@@ -1407,20 +1487,7 @@ class MainActivity : Activity() {
 
         return (
             value *
-                    resources.displayMetrics.density
+                resources.displayMetrics.density
             ).toInt()
-    }
-
-    // ============================================================
-    // CLEANUP
-    // ============================================================
-
-    override fun onDestroy() {
-
-        exoPlayer?.release()
-
-        exoPlayer = null
-
-        super.onDestroy()
     }
 }
