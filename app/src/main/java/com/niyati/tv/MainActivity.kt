@@ -2,6 +2,7 @@ package com.niyati.tv
 
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -36,6 +37,7 @@ class MainActivity : Activity() {
     private var currentGroup = ""
 
     private var currentChannelIndex = -1
+
     private val visibleChannels = mutableListOf<Channel>()
     private val channelButtons = mutableListOf<View>()
 
@@ -90,11 +92,30 @@ class MainActivity : Activity() {
         add(c("beIN Tod 4K", "BEIN TOD", "460835"))
 
         for (i in 1..9) {
-            add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}"))
+            add(
+                c(
+                    "beIN Sport Tod $i",
+                    "BEIN TOD",
+                    "${460835 + i}"
+                )
+            )
         }
 
-        add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
-        add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
+        add(
+            c(
+                "beIN Sport Tod English 1",
+                "BEIN TOD",
+                "460845"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport Tod English 2",
+                "BEIN TOD",
+                "460846"
+            )
+        )
 
         for (i in 1..9) {
             add(
@@ -107,16 +128,36 @@ class MainActivity : Activity() {
         }
 
         // BEIN SPORTS
-        add(c("beIN Sport Global 4K", "BEIN SPORTS", "22186"))
-        add(c("beIN Sport News 4K", "BEIN SPORTS", "318230"))
+        add(
+            c(
+                "beIN Sport Global 4K",
+                "BEIN SPORTS",
+                "22186"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport News 4K",
+                "BEIN SPORTS",
+                "318230"
+            )
+        )
 
         val bein4k = listOf(
-            318197, 318198, 318199,
-            440580, 318201, 318202,
-            318203, 318204, 318205
+            318197,
+            318198,
+            318199,
+            440580,
+            318201,
+            318202,
+            318203,
+            318204,
+            318205
         )
 
         for (i in 1..9) {
+
             add(
                 c(
                     "beIN Sport $i 4K",
@@ -134,14 +175,61 @@ class MainActivity : Activity() {
             )
         }
 
-        add(c("beIN Sport English 1 4K", "BEIN SPORTS", "319495"))
-        add(c("beIN Sport English 2 4K", "BEIN SPORTS", "319496"))
-        add(c("beIN Sport French 1 4K", "BEIN SPORTS", "319497"))
-        add(c("beIN Sport French 2 4K", "BEIN SPORTS", "319498"))
-        add(c("beIN Sport NBA 4K", "BEIN SPORTS", "319499"))
+        add(
+            c(
+                "beIN Sport English 1 4K",
+                "BEIN SPORTS",
+                "319495"
+            )
+        )
 
-        add(c("beIN Global HD", "BEIN SPORTS", "442220"))
-        add(c("beIN Sport News HD", "BEIN SPORTS", "443146"))
+        add(
+            c(
+                "beIN Sport English 2 4K",
+                "BEIN SPORTS",
+                "319496"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport French 1 4K",
+                "BEIN SPORTS",
+                "319497"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport French 2 4K",
+                "BEIN SPORTS",
+                "319498"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport NBA 4K",
+                "BEIN SPORTS",
+                "319499"
+            )
+        )
+
+        add(
+            c(
+                "beIN Global HD",
+                "BEIN SPORTS",
+                "442220"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport News HD",
+                "BEIN SPORTS",
+                "443146"
+            )
+        )
 
         for (i in 1..9) {
             add(
@@ -153,11 +241,45 @@ class MainActivity : Activity() {
             )
         }
 
-        add(c("beIN Sport 1 HD English", "BEIN SPORTS", "318217"))
-        add(c("beIN Sport 2 HD English", "BEIN SPORTS", "318218"))
-        add(c("beIN Sport 1 HD French", "BEIN SPORTS", "319437"))
-        add(c("beIN Sport 2 HD French", "BEIN SPORTS", "319438"))
-        add(c("beIN Sport NBA HD", "BEIN SPORTS", "318219"))
+        add(
+            c(
+                "beIN Sport 1 HD English",
+                "BEIN SPORTS",
+                "318217"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport 2 HD English",
+                "BEIN SPORTS",
+                "318218"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport 1 HD French",
+                "BEIN SPORTS",
+                "319437"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport 2 HD French",
+                "BEIN SPORTS",
+                "319438"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport NBA HD",
+                "BEIN SPORTS",
+                "318219"
+            )
+        )
 
         for (i in 1..9) {
             add(
@@ -169,31 +291,77 @@ class MainActivity : Activity() {
             )
         }
 
-        add(c("beIN Sport English 1 SD", "BEIN SPORTS", "319425"))
-        add(c("beIN Sport English 2 SD", "BEIN SPORTS", "319426"))
-        add(c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"))
-        add(c("beIN Sport French 2 SD", "BEIN SPORTS", "319428"))
+        add(
+            c(
+                "beIN Sport English 1 SD",
+                "BEIN SPORTS",
+                "319425"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport English 2 SD",
+                "BEIN SPORTS",
+                "319426"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport French 1 SD",
+                "BEIN SPORTS",
+                "319427"
+            )
+        )
+
+        add(
+            c(
+                "beIN Sport French 2 SD",
+                "BEIN SPORTS",
+                "319428"
+            )
+        )
 
         // BEIN XTRA
         val xtra4k = listOf(
-            325790, 319487, 319488,
-            440569, 440570, 440571,
-            447243, 447244, 447245
+            325790,
+            319487,
+            319488,
+            440569,
+            440570,
+            440571,
+            447243,
+            447244,
+            447245
         )
 
         val xtraHd = listOf(
-            325802, 319435, 319436,
-            440572, 440573, 440574,
-            447246, 447247, 447248
+            325802,
+            319435,
+            319436,
+            440572,
+            440573,
+            440574,
+            447246,
+            447247,
+            447248
         )
 
         val xtraSd = listOf(
-            325812, 319423, 319424,
-            440575, 440576, 440577,
-            447249, 447250, 447251
+            325812,
+            319423,
+            319424,
+            440575,
+            440576,
+            440577,
+            447249,
+            447250,
+            447251
         )
 
         for (i in 1..9) {
+
             add(
                 c(
                     "beIN Sport XTRA $i 4K",
@@ -234,13 +402,27 @@ class MainActivity : Activity() {
             "AL RABIAA QURAN" to "371937",
             "AL RABIAA MUSICA" to "371938"
         ).forEach {
-            add(c(it.first, "AL RABIAA", it.second))
+            add(
+                c(
+                    it.first,
+                    "AL RABIAA",
+                    it.second
+                )
+            )
         }
 
         // ALKASS
         val alkassIds = listOf(
-            96214, 96215, 278068, 96216, 96217,
-            211523, 379828, 379829, 393991, 393992
+            96214,
+            96215,
+            278068,
+            96216,
+            96217,
+            211523,
+            379828,
+            379829,
+            393991,
+            393992
         )
 
         for (i in 1..10) {
@@ -265,7 +447,13 @@ class MainActivity : Activity() {
             "STC SPORT 3 HD" to "420903",
             "STC SPORT 4 HD" to "433178"
         ).forEach {
-            add(c(it.first, "SAUDI SPORTS", it.second))
+            add(
+                c(
+                    it.first,
+                    "SAUDI SPORTS",
+                    it.second
+                )
+            )
         }
 
         // GULF SPORTS
@@ -296,7 +484,13 @@ class MainActivity : Activity() {
             "Al Ahly TV" to "97823",
             "PalestineSport" to "417306"
         ).forEach {
-            add(c(it.first, "GULF SPORTS", it.second))
+            add(
+                c(
+                    it.first,
+                    "GULF SPORTS",
+                    it.second
+                )
+            )
         }
 
         // AD SPORTS
@@ -306,17 +500,35 @@ class MainActivity : Activity() {
             "AD Sport Asia 1 HD" to "244188",
             "AD Sport Asia 2 HD" to "244191"
         ).forEach {
-            add(c(it.first, "AD SPORTS", it.second))
+            add(
+                c(
+                    it.first,
+                    "AD SPORTS",
+                    it.second
+                )
+            )
         }
 
         // ALWAN SPORT
         val alwan = listOf(
-            418111, 418112, 418113,
-            418114, 418115, 418116,
-            418117, 418118, 418119,
-            418120, 418121, 418122,
-            418123, 418124, 418125,
-            418126, 418127, 418128
+            418111,
+            418112,
+            418113,
+            418114,
+            418115,
+            418116,
+            418117,
+            418118,
+            418119,
+            418120,
+            418121,
+            418122,
+            418123,
+            418124,
+            418125,
+            418126,
+            418127,
+            418128
         )
 
         for (i in 1..6) {
@@ -354,7 +566,13 @@ class MainActivity : Activity() {
             "Alwan Sport 9 4K" to "433741",
             "Alwan Sport 10 4K" to "433742"
         ).forEach {
-            add(c(it.first, "ALWAN SPORT", it.second))
+            add(
+                c(
+                    it.first,
+                    "ALWAN SPORT",
+                    it.second
+                )
+            )
         }
 
         // CRICKET
@@ -374,7 +592,13 @@ class MainActivity : Activity() {
             "PK: Ten Sports HD" to "380193",
             "PK: PTV SPORTS" to "379173"
         ).forEach {
-            add(c(it.first, "CRICKET", it.second))
+            add(
+                c(
+                    it.first,
+                    "CRICKET",
+                    it.second
+                )
+            )
         }
 
         // STAR SPORTS
@@ -401,7 +625,13 @@ class MainActivity : Activity() {
             "USA | Willow Cricket HD" to "386666",
             "USA | Willow Cricket Extra" to "386665"
         ).forEach {
-            add(c(it.first, "STAR SPORTS", it.second))
+            add(
+                c(
+                    it.first,
+                    "STAR SPORTS",
+                    it.second
+                )
+            )
         }
 
         // FAJER TV
@@ -412,7 +642,13 @@ class MainActivity : Activity() {
             "Fajer TV 4" to "463535",
             "Fajer TV 5" to "463536"
         ).forEach {
-            add(c(it.first, "FAJER TV", it.second))
+            add(
+                c(
+                    it.first,
+                    "FAJER TV",
+                    it.second
+                )
+            )
         }
 
         // KURDISTAN SPORTS
@@ -439,7 +675,13 @@ class MainActivity : Activity() {
             "KU: LD SPORT CHEAK" to "358238",
             "KU: Delal Sport" to "358239"
         ).forEach {
-            add(c(it.first, "KURDISTAN SPORTS", it.second))
+            add(
+                c(
+                    it.first,
+                    "KURDISTAN SPORTS",
+                    it.second
+                )
+            )
         }
 
         // SHAHID SPORT
@@ -459,7 +701,13 @@ class MainActivity : Activity() {
             "Shasha 2 TV 4K" to "244079",
             "Shasha 3 TV 4K" to "443029"
         ).forEach {
-            add(c(it.first, "SHASHA", it.second))
+            add(
+                c(
+                    it.first,
+                    "SHASHA",
+                    it.second
+                )
+            )
         }
     }
 
@@ -518,24 +766,30 @@ class MainActivity : Activity() {
         topBar = LinearLayout(this)
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
+
         topBar.setPadding(
             dp(24),
             dp(8),
             dp(24),
             dp(8)
         )
+
         topBar.setBackgroundColor(topColor)
 
         val logoBox = FrameLayout(this)
 
         logoBox.background = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(accent, accentDark)
+            intArrayOf(
+                accent,
+                accentDark
+            )
         ).apply {
             cornerRadius = dp(14).toFloat()
         }
 
         val logo = TextView(this)
+
         logo.text = "NT"
         logo.textSize = 20f
         logo.setTextColor(white)
@@ -559,11 +813,18 @@ class MainActivity : Activity() {
         )
 
         val brand = LinearLayout(this)
+
         brand.orientation = LinearLayout.VERTICAL
         brand.gravity = Gravity.CENTER_VERTICAL
-        brand.setPadding(dp(14), 0, 0, 0)
+        brand.setPadding(
+            dp(14),
+            0,
+            0,
+            0
+        )
 
         val brandTitle = TextView(this)
+
         brandTitle.text = "NIYATI TV"
         brandTitle.textSize = 22f
         brandTitle.setTextColor(white)
@@ -578,6 +839,7 @@ class MainActivity : Activity() {
         )
 
         val brandSub = TextView(this)
+
         brandSub.text = "PREMIUM LIVE TELEVISION"
         brandSub.textSize = 9f
         brandSub.setTextColor(gray)
@@ -601,9 +863,16 @@ class MainActivity : Activity() {
         )
 
         val liveBox = LinearLayout(this)
+
         liveBox.orientation = LinearLayout.HORIZONTAL
         liveBox.gravity = Gravity.CENTER
-        liveBox.setPadding(dp(16), 0, dp(16), 0)
+
+        liveBox.setPadding(
+            dp(16),
+            0,
+            dp(16),
+            0
+        )
 
         liveBox.background = GradientDrawable().apply {
             setColor(Color.rgb(18, 27, 38))
@@ -611,6 +880,7 @@ class MainActivity : Activity() {
         }
 
         val liveDot = TextView(this)
+
         liveDot.text = "●"
         liveDot.textSize = 11f
         liveDot.setTextColor(green)
@@ -625,6 +895,7 @@ class MainActivity : Activity() {
         )
 
         val liveText = TextView(this)
+
         liveText.text = " LIVE"
         liveText.textSize = 12f
         liveText.setTextColor(white)
@@ -665,9 +936,11 @@ class MainActivity : Activity() {
     private fun createPlayer() {
 
         playerContainer = FrameLayout(this)
+
         playerContainer.setBackgroundColor(Color.BLACK)
 
         playerView = PlayerView(this)
+
         playerView.useController = false
         playerView.setBackgroundColor(Color.BLACK)
         playerView.isFocusable = true
@@ -682,8 +955,10 @@ class MainActivity : Activity() {
         )
 
         val playerBrand = LinearLayout(this)
+
         playerBrand.orientation = LinearLayout.HORIZONTAL
         playerBrand.gravity = Gravity.CENTER_VERTICAL
+
         playerBrand.setPadding(
             dp(12),
             0,
@@ -697,6 +972,7 @@ class MainActivity : Activity() {
         }
 
         val smallLogo = TextView(this)
+
         smallLogo.text = "NT"
         smallLogo.textSize = 12f
         smallLogo.setTextColor(white)
@@ -717,6 +993,7 @@ class MainActivity : Activity() {
         )
 
         val playerBrandText = TextView(this)
+
         playerBrandText.text = "  NIYATI TV"
         playerBrandText.textSize = 12f
         playerBrandText.setTextColor(white)
@@ -752,11 +1029,13 @@ class MainActivity : Activity() {
         )
 
         fullscreenButton = TextView(this)
+
         fullscreenButton.text = "⛶"
         fullscreenButton.textSize = 27f
         fullscreenButton.setTextColor(white)
         fullscreenButton.gravity = Gravity.CENTER
         fullscreenButton.setTypeface(null, Typeface.BOLD)
+
         fullscreenButton.isFocusable = true
         fullscreenButton.isFocusableInTouchMode = true
 
@@ -791,6 +1070,7 @@ class MainActivity : Activity() {
         )
 
         val liveInfo = TextView(this)
+
         liveInfo.text = "LIVE"
         liveInfo.textSize = 11f
         liveInfo.setTextColor(white)
@@ -874,10 +1154,14 @@ class MainActivity : Activity() {
     private fun createPackageArea() {
 
         packageArea = LinearLayout(this)
-        packageArea.orientation = LinearLayout.VERTICAL
+
+        packageArea.orientation =
+            LinearLayout.VERTICAL
+
         packageArea.setBackgroundColor(panelColor)
 
         val title = TextView(this)
+
         title.text = "  الباقات"
         title.textSize = 15f
         title.setTextColor(white)
@@ -898,6 +1182,7 @@ class MainActivity : Activity() {
         packageScroll.isFocusable = false
 
         packagesLayout = LinearLayout(this)
+
         packagesLayout.orientation =
             LinearLayout.HORIZONTAL
 
@@ -942,6 +1227,7 @@ class MainActivity : Activity() {
     private fun createChannelArea() {
 
         channelArea = LinearLayout(this)
+
         channelArea.orientation =
             LinearLayout.VERTICAL
 
@@ -969,6 +1255,7 @@ class MainActivity : Activity() {
         channelScroll.isFocusable = false
 
         channelsLayout = LinearLayout(this)
+
         channelsLayout.orientation =
             LinearLayout.VERTICAL
 
@@ -1046,11 +1333,14 @@ class MainActivity : Activity() {
 
                 view.background =
                     if (hasFocus) {
+
                         createCardBackground(
                             cardFocus,
                             true
                         )
+
                     } else {
+
                         createCardBackground(
                             if (currentGroup == group) {
                                 accent
@@ -1109,7 +1399,11 @@ class MainActivity : Activity() {
 
         card.background =
             createCardBackground(
-                if (selected) accent else cardColor,
+                if (selected) {
+                    accent
+                } else {
+                    cardColor
+                },
                 selected
             )
 
@@ -1124,21 +1418,37 @@ class MainActivity : Activity() {
     ): String {
 
         return when (name) {
+
             "BEIN TOD" -> "beIN TOD"
+
             "BEIN SPORTS" -> "beIN SPORTS"
+
             "BEIN XTRA" -> "beIN XTRA"
+
             "AL RABIAA" -> "AL RABIAA"
+
             "ALKASS" -> "ALKASS"
+
             "SAUDI SPORTS" -> "SAUDI SPORTS"
+
             "GULF SPORTS" -> "GULF SPORTS"
+
             "AD SPORTS" -> "AD SPORTS"
+
             "ALWAN SPORT" -> "ALWAN SPORT"
+
             "CRICKET" -> "CRICKET"
+
             "STAR SPORTS" -> "STAR SPORTS"
+
             "FAJER TV" -> "FAJER TV"
+
             "KURDISTAN SPORTS" -> "KURDISTAN SPORTS"
+
             "SHAHID SPORT" -> "SHAHID SPORT"
+
             "SHASHA" -> "SHASHA"
+
             else -> name
         }
     }
@@ -1181,7 +1491,9 @@ class MainActivity : Activity() {
      * =========================================================
      */
 
-    private fun loadChannels(group: String) {
+    private fun loadChannels(
+        group: String
+    ) {
 
         channelsLayout.removeAllViews()
 
@@ -1240,9 +1552,9 @@ class MainActivity : Activity() {
 
             button.setOnFocusChangeListener {
                     view,
-                    focus ->
+                    hasFocus ->
 
-                if (focus) {
+                if (hasFocus) {
 
                     view.background =
                         createChannelBackground(
@@ -1254,8 +1566,14 @@ class MainActivity : Activity() {
 
                     view.background =
                         createChannelBackground(
-                            cardColor,
-                            false
+                            if (
+                                currentChannelIndex == index
+                            ) {
+                                accent
+                            } else {
+                                cardColor
+                            },
+                            currentChannelIndex == index
                         )
                 }
             }
@@ -1280,7 +1598,6 @@ class MainActivity : Activity() {
             if (index == 0) {
 
                 button.post {
-
                     button.requestFocus()
                 }
             }
@@ -1453,29 +1770,44 @@ class MainActivity : Activity() {
     /*
      * =========================================================
      * REMOTE CHANNEL NAVIGATION
+     *
+     * UP   = previous channel
+     * DOWN = next channel
      * =========================================================
      */
 
-    private fun moveChannel(direction: Int) {
+    private fun moveChannel(
+        direction: Int
+    ) {
 
         if (visibleChannels.isEmpty()) {
             return
         }
 
         if (currentChannelIndex < 0) {
-            currentChannelIndex = 0
+
+            currentChannelIndex =
+                if (direction > 0) {
+                    0
+                } else {
+                    visibleChannels.lastIndex
+                }
+
         } else {
 
             currentChannelIndex += direction
 
             if (currentChannelIndex < 0) {
+
                 currentChannelIndex =
                     visibleChannels.lastIndex
             }
 
-            if (currentChannelIndex >
+            if (
+                currentChannelIndex >
                 visibleChannels.lastIndex
             ) {
+
                 currentChannelIndex = 0
             }
         }
@@ -1495,8 +1827,9 @@ class MainActivity : Activity() {
             button.requestFocus()
 
             button.post {
+
                 button.requestRectangleOnScreen(
-                    android.graphics.Rect(
+                    Rect(
                         0,
                         0,
                         button.width,
@@ -1616,8 +1949,15 @@ class MainActivity : Activity() {
 
             exoPlayer?.prepare()
 
-            exoPlayer?.playWhenReady = true
+            exoPlayer?.playWhenReady =
+                true
 
+            /*
+             * مهم:
+             * نخلي التركيز على المشغل حتى
+             * Up / Down يبقون تحت سيطرة
+             * dispatchKeyEvent.
+             */
             playerView.requestFocus()
 
         } catch (e: Exception) {
@@ -1653,10 +1993,17 @@ class MainActivity : Activity() {
 
         fullscreen = true
 
-        topBar.visibility = View.GONE
-        nowPlaying.visibility = View.GONE
-        packageArea.visibility = View.GONE
-        channelArea.visibility = View.GONE
+        topBar.visibility =
+            View.GONE
+
+        nowPlaying.visibility =
+            View.GONE
+
+        packageArea.visibility =
+            View.GONE
+
+        channelArea.visibility =
+            View.GONE
 
         val params =
             playerContainer.layoutParams
@@ -1692,10 +2039,17 @@ class MainActivity : Activity() {
 
         fullscreen = false
 
-        topBar.visibility = View.VISIBLE
-        nowPlaying.visibility = View.VISIBLE
-        packageArea.visibility = View.VISIBLE
-        channelArea.visibility = View.VISIBLE
+        topBar.visibility =
+            View.VISIBLE
+
+        nowPlaying.visibility =
+            View.VISIBLE
+
+        packageArea.visibility =
+            View.VISIBLE
+
+        channelArea.visibility =
+            View.VISIBLE
 
         val params =
             playerContainer.layoutParams
@@ -1723,6 +2077,9 @@ class MainActivity : Activity() {
             channelButtons
                 .getOrNull(currentChannelIndex)
                 ?.requestFocus()
+        } else {
+
+            playerView.requestFocus()
         }
     }
 
@@ -1736,19 +2093,24 @@ class MainActivity : Activity() {
         event: KeyEvent
     ): Boolean {
 
-        if (event.action ==
+        if (
+            event.action ==
             KeyEvent.ACTION_DOWN
         ) {
 
             when (event.keyCode) {
 
                 /*
+                 * =============================================
                  * UP
                  * القناة السابقة
+                 * =============================================
                  */
                 KeyEvent.KEYCODE_DPAD_UP -> {
 
-                    if (visibleChannels.isNotEmpty()) {
+                    if (
+                        visibleChannels.isNotEmpty()
+                    ) {
 
                         moveChannel(-1)
 
@@ -1757,12 +2119,16 @@ class MainActivity : Activity() {
                 }
 
                 /*
+                 * =============================================
                  * DOWN
                  * القناة التالية
+                 * =============================================
                  */
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
 
-                    if (visibleChannels.isNotEmpty()) {
+                    if (
+                        visibleChannels.isNotEmpty()
+                    ) {
 
                         moveChannel(1)
 
@@ -1771,7 +2137,9 @@ class MainActivity : Activity() {
                 }
 
                 /*
+                 * =============================================
                  * BACK
+                 * =============================================
                  */
                 KeyEvent.KEYCODE_BACK -> {
 
@@ -1794,7 +2162,9 @@ class MainActivity : Activity() {
                 }
 
                 /*
+                 * =============================================
                  * OK / ENTER
+                 * =============================================
                  */
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_ENTER -> {
