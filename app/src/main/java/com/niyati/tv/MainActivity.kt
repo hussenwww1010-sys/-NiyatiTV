@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -55,7 +56,7 @@ class MainActivity : Activity() {
     private lateinit var channelsLayout: LinearLayout
     private lateinit var fullscreenButton: TextView
 
-    private val background = Color.rgb(5, 8, 15)
+    private val backgroundColor = Color.rgb(5, 8, 15)
     private val topColor = Color.rgb(8, 12, 21)
     private val panelColor = Color.rgb(10, 15, 25)
     private val cardColor = Color.rgb(18, 25, 38)
@@ -329,15 +330,15 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        window.statusBarColor = backgroundColor
+        window.navigationBarColor = backgroundColor
         buildInterface()
     }
 
     private fun buildInterface() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(background)
+            setBackgroundColor(backgroundColor)
         }
 
         createTopBar()
@@ -359,10 +360,11 @@ class MainActivity : Activity() {
         }
 
         val logoBox = FrameLayout(this).apply {
-            background = GradientDrawable(
+            val draw: Drawable = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(accent, accentDark)
             ).apply { cornerRadius = dp(14).toFloat() }
+            background = draw
         }
 
         val logo = TextView(this).apply {
@@ -405,10 +407,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(16), 0, dp(16), 0)
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(Color.rgb(18, 27, 38))
                 cornerRadius = dp(18).toFloat()
             }
+            background = draw
         }
 
         val liveDot = TextView(this).apply {
@@ -452,10 +455,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), 0, dp(14), 0)
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(Color.argb(180, 5, 8, 15))
                 cornerRadius = dp(12).toFloat()
             }
+            background = draw
         }
 
         val smallLogo = TextView(this).apply {
@@ -464,10 +468,11 @@ class MainActivity : Activity() {
             setTextColor(white)
             gravity = Gravity.CENTER
             setTypeface(null, Typeface.BOLD)
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(accent)
                 cornerRadius = dp(7).toFloat()
             }
+            background = draw
         }
 
         playerBrand.addView(smallLogo, LinearLayout.LayoutParams(dp(30), dp(30)))
@@ -498,10 +503,11 @@ class MainActivity : Activity() {
             isFocusable = true
             isFocusableInTouchMode = true
 
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(Color.argb(190, 0, 0, 0))
                 cornerRadius = dp(12).toFloat()
             }
+            background = draw
 
             setOnClickListener { toggleFullscreen() }
         }
@@ -518,10 +524,11 @@ class MainActivity : Activity() {
             textSize = 11f
             setTextColor(white)
             gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(accent)
                 cornerRadius = dp(8).toFloat()
             }
+            background = draw
         }
 
         val liveParams = FrameLayout.LayoutParams(dp(54), dp(28)).apply {
@@ -582,7 +589,7 @@ class MainActivity : Activity() {
     private fun createChannelArea() {
         channelArea = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(background)
+            setBackgroundColor(backgroundColor)
         }
 
         val title = TextView(this).apply {
@@ -628,7 +635,7 @@ class MainActivity : Activity() {
             }
 
             card.setOnFocusChangeListener { view, hasFocus ->
-                val bgDrawable = if (hasFocus) {
+                val bgDrawable: Drawable = if (hasFocus) {
                     createCardBackground(cardFocus, true)
                 } else {
                     createCardBackground(
@@ -659,10 +666,11 @@ class MainActivity : Activity() {
             setTypeface(null, Typeface.BOLD)
             setPadding(dp(10), 0, dp(10), 0)
 
-            background = createCardBackground(
+            val draw: Drawable = createCardBackground(
                 if (selected) accent else cardColor,
                 selected
             )
+            background = draw
 
             isFocusable = true
             isFocusableInTouchMode = true
@@ -697,10 +705,11 @@ class MainActivity : Activity() {
             val child = packagesLayout.getChildAt(i)
             val group = groups.getOrNull(i)
 
-            child.background = createCardBackground(
+            val bgDrawable: Drawable = createCardBackground(
                 if (group == currentGroup) accent else cardColor,
                 group == currentGroup
             )
+            child.background = bgDrawable
         }
     }
 
@@ -740,7 +749,7 @@ class MainActivity : Activity() {
             }
 
             button.setOnFocusChangeListener { view, hasFocus ->
-                val bgDrawable = if (hasFocus) {
+                val bgDrawable: Drawable = if (hasFocus) {
                     createChannelBackground(cardFocus, true)
                 } else {
                     createChannelBackground(
@@ -771,7 +780,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), 0, dp(12), 0)
-            background = createChannelBackground(cardColor, false)
+            val draw: Drawable = createChannelBackground(cardColor, false)
+            background = draw
             isFocusable = true
             isFocusableInTouchMode = true
         }
@@ -782,10 +792,11 @@ class MainActivity : Activity() {
             setTextColor(white)
             gravity = Gravity.CENTER
             setTypeface(null, Typeface.BOLD)
-            background = GradientDrawable().apply {
+            val draw: Drawable = GradientDrawable().apply {
                 setColor(accentDark)
                 cornerRadius = dp(8).toFloat()
             }
+            background = draw
         }
 
         card.addView(icon, LinearLayout.LayoutParams(dp(38), dp(38)))
@@ -830,9 +841,11 @@ class MainActivity : Activity() {
 
     private fun updateChannelSelection(selected: View) {
         for (button in channelButtons) {
-            button.background = createChannelBackground(cardColor, false)
+            val bgDrawable: Drawable = createChannelBackground(cardColor, false)
+            button.background = bgDrawable
         }
-        selected.background = createChannelBackground(accent, true)
+        val bgDrawable: Drawable = createChannelBackground(accent, true)
+        selected.background = bgDrawable
     }
 
     private fun moveChannel(direction: Int) {
