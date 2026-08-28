@@ -1,4 +1,4 @@
-package com.niyati.tv
+Package com.niyati.tv
 
 import android.app.Activity
 import android.graphics.Color
@@ -25,6 +25,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
 data class Channel(
@@ -47,6 +48,7 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var topBar: LinearLayout
     private lateinit var mainContent: LinearLayout
+    private lateinit var playerColumn: LinearLayout
     private lateinit var playerContainer: FrameLayout
     private lateinit var playerView: PlayerView
     private lateinit var epgContainer: LinearLayout
@@ -415,7 +417,7 @@ class MainActivity : Activity() {
     // =========================
 
     private fun createPlayerColumn() {
-        val col = LinearLayout(this).apply {
+        playerColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(15), dp(20), dp(20))
             setBackgroundColor(bgPrimary)
@@ -434,14 +436,19 @@ class MainActivity : Activity() {
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
+            // خاصية تمديد البث لمنع ظهور الحواف السوداء
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             isFocusable = true
             isFocusableInTouchMode = true
+            isClickable = true
 
             setOnFocusChangeListener { _, hasFocus ->
-                playerContainer.background = GradientDrawable().apply {
-                    setColor(Color.BLACK)
-                    cornerRadius = dp(14).toFloat()
-                    setStroke(dp(2), if (hasFocus) accentColor else strokeColor)
+                if (!fullscreen) {
+                    playerContainer.background = GradientDrawable().apply {
+                        setColor(Color.BLACK)
+                        cornerRadius = dp(14).toFloat()
+                        setStroke(dp(2), if (hasFocus) accentColor else strokeColor)
+                    }
                 }
             }
 
@@ -470,7 +477,7 @@ class MainActivity : Activity() {
         }
         playerContainer.addView(watermark, wmParams)
 
-        col.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.6f))
+        playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.6f))
 
         // EPG Program Info Area
         epgContainer = LinearLayout(this).apply {
@@ -506,11 +513,11 @@ class MainActivity : Activity() {
         }
         epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
 
-        col.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.4f).apply {
+        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.4f).apply {
             topMargin = dp(15)
         })
 
-        mainContent.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        mainContent.addView(playerColumn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
     }
 
     private fun createColumnHeader(title: String): TextView {
@@ -799,6 +806,12 @@ class MainActivity : Activity() {
         mainContent.getChildAt(1).visibility = View.GONE
         epgContainer.visibility = View.GONE
 
+        // Remove padding from main column
+        playerColumn.setPadding(0, 0, 0, 0)
+
+        // Reset corner rounding & stroke for full window feel
+        playerContainer.background = null
+
         val params = playerContainer.layoutParams as LinearLayout.LayoutParams
         params.height = LinearLayout.LayoutParams.MATCH_PARENT
         params.weight = 1f
@@ -830,6 +843,16 @@ class MainActivity : Activity() {
         mainContent.getChildAt(0).visibility = View.VISIBLE
         mainContent.getChildAt(1).visibility = View.VISIBLE
         epgContainer.visibility = View.VISIBLE
+
+        // Restore padding
+        playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
+
+        // Restore original borders
+        playerContainer.background = GradientDrawable().apply {
+            setColor(Color.BLACK)
+            cornerRadius = dp(14).toFloat()
+            setStroke(dp(1), strokeColor)
+        }
 
         val params = playerContainer.layoutParams as LinearLayout.LayoutParams
         params.height = 0
