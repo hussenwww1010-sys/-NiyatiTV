@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -87,7 +88,10 @@ class MainActivity : Activity() {
 
     private val channels = mutableListOf<Channel>().apply {
 
+        // =====================================================
         // BEIN TOD
+        // =====================================================
+
         add(c("beIN Tod 4K", "BEIN TOD", "460835"))
 
         for (i in 1..9) {
@@ -100,21 +104,8 @@ class MainActivity : Activity() {
             )
         }
 
-        add(
-            c(
-                "beIN Sport Tod English 1",
-                "BEIN TOD",
-                "460845"
-            )
-        )
-
-        add(
-            c(
-                "beIN Sport Tod English 2",
-                "BEIN TOD",
-                "460846"
-            )
-        )
+        add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
+        add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
 
         for (i in 1..9) {
             add(
@@ -126,22 +117,12 @@ class MainActivity : Activity() {
             )
         }
 
+        // =====================================================
         // BEIN SPORTS
-        add(
-            c(
-                "beIN Sport Global 4K",
-                "BEIN SPORTS",
-                "22186"
-            )
-        )
+        // =====================================================
 
-        add(
-            c(
-                "beIN Sport News 4K",
-                "BEIN SPORTS",
-                "318230"
-            )
-        )
+        add(c("beIN Sport Global 4K", "BEIN SPORTS", "22186"))
+        add(c("beIN Sport News 4K", "BEIN SPORTS", "318230"))
 
         val bein4k = listOf(
             318197,
@@ -178,6 +159,7 @@ class MainActivity : Activity() {
         add(c("beIN Sport French 1 4K", "BEIN SPORTS", "319497"))
         add(c("beIN Sport French 2 4K", "BEIN SPORTS", "319498"))
         add(c("beIN Sport NBA 4K", "BEIN SPORTS", "319499"))
+
         add(c("beIN Global HD", "BEIN SPORTS", "442220"))
         add(c("beIN Sport News HD", "BEIN SPORTS", "443146"))
 
@@ -212,7 +194,10 @@ class MainActivity : Activity() {
         add(c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"))
         add(c("beIN Sport French 2 SD", "BEIN SPORTS", "319428"))
 
+        // =====================================================
         // BEIN XTRA
+        // =====================================================
+
         val xtra4k = listOf(
             325790,
             319487,
@@ -275,7 +260,10 @@ class MainActivity : Activity() {
             )
         }
 
+        // =====================================================
         // AL RABIAA
+        // =====================================================
+
         listOf(
             "AL RABIAA SPORT 1" to "371931",
             "AL RABIAA SPORT 1+" to "371933",
@@ -293,7 +281,10 @@ class MainActivity : Activity() {
             add(c(it.first, "AL RABIAA", it.second))
         }
 
+        // =====================================================
         // ALKASS
+        // =====================================================
+
         val alkassIds = listOf(
             96214,
             96215,
@@ -317,7 +308,10 @@ class MainActivity : Activity() {
             )
         }
 
+        // =====================================================
         // SAUDI SPORTS
+        // =====================================================
+
         listOf(
             "KSA Sport 1 4K" to "97805",
             "KSA Sport 2 4K" to "97806",
@@ -332,7 +326,10 @@ class MainActivity : Activity() {
             add(c(it.first, "SAUDI SPORTS", it.second))
         }
 
+        // =====================================================
         // GULF SPORTS
+        // =====================================================
+
         listOf(
             "Dubai Sport 1 HD" to "97813",
             "Dubai Sport 2 HD" to "97814",
@@ -363,7 +360,10 @@ class MainActivity : Activity() {
             add(c(it.first, "GULF SPORTS", it.second))
         }
 
+        // =====================================================
         // AD SPORTS
+        // =====================================================
+
         listOf(
             "AD SPORTS 1 HD" to "326053",
             "AD SPORTS 2 HD" to "326054",
@@ -373,7 +373,10 @@ class MainActivity : Activity() {
             add(c(it.first, "AD SPORTS", it.second))
         }
 
+        // =====================================================
         // ALWAN SPORT
+        // =====================================================
+
         val alwan = listOf(
             418111,
             418112,
@@ -398,9 +401,29 @@ class MainActivity : Activity() {
         for (i in 1..6) {
             val x = (i - 1) * 3
 
-            add(c("Alwan Sport $i 4K", "ALWAN SPORT", alwan[x].toString()))
-            add(c("Alwan Sport $i HD", "ALWAN SPORT", alwan[x + 1].toString()))
-            add(c("Alwan Sport $i SD", "ALWAN SPORT", alwan[x + 2].toString()))
+            add(
+                c(
+                    "Alwan Sport $i 4K",
+                    "ALWAN SPORT",
+                    alwan[x].toString()
+                )
+            )
+
+            add(
+                c(
+                    "Alwan Sport $i HD",
+                    "ALWAN SPORT",
+                    alwan[x + 1].toString()
+                )
+            )
+
+            add(
+                c(
+                    "Alwan Sport $i SD",
+                    "ALWAN SPORT",
+                    alwan[x + 2].toString()
+                )
+            )
         }
 
         listOf(
@@ -412,7 +435,10 @@ class MainActivity : Activity() {
             add(c(it.first, "ALWAN SPORT", it.second))
         }
 
+        // =====================================================
         // CRICKET
+        // =====================================================
+
         listOf(
             "DS: SS Cricket HD" to "362434",
             "UK: SKY SPORTS CRICKET HD" to "376914",
@@ -432,7 +458,10 @@ class MainActivity : Activity() {
             add(c(it.first, "CRICKET", it.second))
         }
 
+        // =====================================================
         // STAR SPORTS
+        // =====================================================
+
         listOf(
             "IN: Star Sports 1 FHD" to "387564",
             "IN: Star Sports 1 Hindi FHD" to "387565",
@@ -459,7 +488,10 @@ class MainActivity : Activity() {
             add(c(it.first, "STAR SPORTS", it.second))
         }
 
+        // =====================================================
         // FAJER TV
+        // =====================================================
+
         listOf(
             "Fajer TV 1" to "463532",
             "Fajer TV 2" to "463533",
@@ -470,7 +502,10 @@ class MainActivity : Activity() {
             add(c(it.first, "FAJER TV", it.second))
         }
 
+        // =====================================================
         // KURDISTAN SPORTS
+        // =====================================================
+
         listOf(
             "KU: Duhok Sport" to "358226",
             "KU: LD Sport" to "358229",
@@ -497,7 +532,10 @@ class MainActivity : Activity() {
             add(c(it.first, "KURDISTAN SPORTS", it.second))
         }
 
+        // =====================================================
         // SHAHID SPORT
+        // =====================================================
+
         for (i in 1..5) {
             add(
                 c(
@@ -508,7 +546,10 @@ class MainActivity : Activity() {
             )
         }
 
+        // =====================================================
         // SHASHA
+        // =====================================================
+
         listOf(
             "Shasha 1 TV 4K" to "348400",
             "Shasha 2 TV 4K" to "244079",
@@ -518,11 +559,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * CREATE
-     * =========================================================
-     */
+    // =========================================================
+    // ACTIVITY
+    // =========================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -539,17 +578,15 @@ class MainActivity : Activity() {
         buildInterface()
     }
 
-    /*
-     * =========================================================
-     * INTERFACE
-     * =========================================================
-     */
+    // =========================================================
+    // INTERFACE
+    // =========================================================
 
     private fun buildInterface() {
-
-        root = LinearLayout(this)
-        root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(background)
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(background)
+        }
 
         createTopBar()
         createPlayer()
@@ -562,43 +599,40 @@ class MainActivity : Activity() {
         loadPackages()
     }
 
-    /*
-     * =========================================================
-     * TOP BAR
-     * =========================================================
-     */
+    // =========================================================
+    // TOP BAR
+    // =========================================================
 
     private fun createTopBar() {
 
-        topBar = LinearLayout(this)
-        topBar.orientation = LinearLayout.HORIZONTAL
-        topBar.gravity = Gravity.CENTER_VERTICAL
-
-        topBar.setPadding(
-            dp(24),
-            dp(8),
-            dp(24),
-            dp(8)
-        )
-
-        topBar.setBackgroundColor(topColor)
-
-        val logoBox = FrameLayout(this)
-
-        logoBox.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(accent, accentDark)
-        ).apply {
-            cornerRadius = dp(14).toFloat()
+        topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                dp(24),
+                dp(8),
+                dp(24),
+                dp(8)
+            )
+            setBackgroundColor(topColor)
         }
 
-        val logo = TextView(this)
+        val logoBox = FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(accent, accentDark)
+            ).apply {
+                cornerRadius = dp(14).toFloat()
+            }
+        }
 
-        logo.text = "NT"
-        logo.textSize = 20f
-        logo.setTextColor(white)
-        logo.gravity = Gravity.CENTER
-        logo.setTypeface(null, Typeface.BOLD)
+        val logo = TextView(this).apply {
+            text = "NT"
+            textSize = 20f
+            setTextColor(white)
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+        }
 
         logoBox.addView(
             logo,
@@ -616,18 +650,18 @@ class MainActivity : Activity() {
             )
         )
 
-        val brand = LinearLayout(this)
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+        }
 
-        brand.orientation = LinearLayout.VERTICAL
-        brand.gravity = Gravity.CENTER_VERTICAL
-        brand.setPadding(dp(14), 0, 0, 0)
-
-        val brandTitle = TextView(this)
-
-        brandTitle.text = "NIYATI TV"
-        brandTitle.textSize = 22f
-        brandTitle.setTextColor(white)
-        brandTitle.setTypeface(null, Typeface.BOLD)
+        val brandTitle = TextView(this).apply {
+            text = "NIYATI TV"
+            textSize = 22f
+            setTextColor(white)
+            setTypeface(null, Typeface.BOLD)
+        }
 
         brand.addView(
             brandTitle,
@@ -637,12 +671,12 @@ class MainActivity : Activity() {
             )
         )
 
-        val brandSub = TextView(this)
-
-        brandSub.text = "PREMIUM LIVE TELEVISION"
-        brandSub.textSize = 9f
-        brandSub.setTextColor(gray)
-        brandSub.setTypeface(null, Typeface.BOLD)
+        val brandSub = TextView(this).apply {
+            text = "PREMIUM LIVE TELEVISION"
+            textSize = 9f
+            setTextColor(gray)
+            setTypeface(null, Typeface.BOLD)
+        }
 
         brand.addView(
             brandSub,
@@ -661,29 +695,27 @@ class MainActivity : Activity() {
             )
         )
 
-        val liveBox = LinearLayout(this)
-
-        liveBox.orientation = LinearLayout.HORIZONTAL
-        liveBox.gravity = Gravity.CENTER
-
-        liveBox.setPadding(
-            dp(16),
-            0,
-            dp(16),
-            0
-        )
-
-        liveBox.background = GradientDrawable().apply {
-            setColor(Color.rgb(18, 27, 38))
-            cornerRadius = dp(18).toFloat()
+        val liveBox = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(
+                dp(16),
+                0,
+                dp(16),
+                0
+            )
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(18, 27, 38))
+                cornerRadius = dp(18).toFloat()
+            }
         }
 
-        val liveDot = TextView(this)
-
-        liveDot.text = "●"
-        liveDot.textSize = 11f
-        liveDot.setTextColor(green)
-        liveDot.gravity = Gravity.CENTER
+        val liveDot = TextView(this).apply {
+            text = "●"
+            textSize = 11f
+            setTextColor(green)
+            gravity = Gravity.CENTER
+        }
 
         liveBox.addView(
             liveDot,
@@ -693,13 +725,13 @@ class MainActivity : Activity() {
             )
         )
 
-        val liveText = TextView(this)
-
-        liveText.text = " LIVE"
-        liveText.textSize = 12f
-        liveText.setTextColor(white)
-        liveText.gravity = Gravity.CENTER_VERTICAL
-        liveText.setTypeface(null, Typeface.BOLD)
+        val liveText = TextView(this).apply {
+            text = " LIVE"
+            textSize = 12f
+            setTextColor(white)
+            gravity = Gravity.CENTER_VERTICAL
+            setTypeface(null, Typeface.BOLD)
+        }
 
         liveBox.addView(
             liveText,
@@ -726,23 +758,22 @@ class MainActivity : Activity() {
         )
     }
 
-    /*
-     * =========================================================
-     * PLAYER
-     * =========================================================
-     */
+    // =========================================================
+    // PLAYER
+    // =========================================================
 
     private fun createPlayer() {
 
-        playerContainer = FrameLayout(this)
-        playerContainer.setBackgroundColor(Color.BLACK)
+        playerContainer = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
 
-        playerView = PlayerView(this)
-
-        playerView.useController = false
-        playerView.setBackgroundColor(Color.BLACK)
-        playerView.isFocusable = true
-        playerView.isFocusableInTouchMode = true
+        playerView = PlayerView(this).apply {
+            useController = false
+            setBackgroundColor(Color.BLACK)
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
 
         playerContainer.addView(
             playerView,
@@ -752,34 +783,32 @@ class MainActivity : Activity() {
             )
         )
 
-        val playerBrand = LinearLayout(this)
-
-        playerBrand.orientation = LinearLayout.HORIZONTAL
-        playerBrand.gravity = Gravity.CENTER_VERTICAL
-
-        playerBrand.setPadding(
-            dp(12),
-            0,
-            dp(14),
-            0
-        )
-
-        playerBrand.background = GradientDrawable().apply {
-            setColor(Color.argb(180, 5, 8, 15))
-            cornerRadius = dp(12).toFloat()
+        val playerBrand = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                dp(12),
+                0,
+                dp(14),
+                0
+            )
+            background = GradientDrawable().apply {
+                setColor(Color.argb(180, 5, 8, 15))
+                cornerRadius = dp(12).toFloat()
+            }
         }
 
-        val smallLogo = TextView(this)
+        val smallLogo = TextView(this).apply {
+            text = "NT"
+            textSize = 12f
+            setTextColor(white)
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
 
-        smallLogo.text = "NT"
-        smallLogo.textSize = 12f
-        smallLogo.setTextColor(white)
-        smallLogo.gravity = Gravity.CENTER
-        smallLogo.setTypeface(null, Typeface.BOLD)
-
-        smallLogo.background = GradientDrawable().apply {
-            setColor(accent)
-            cornerRadius = dp(7).toFloat()
+            background = GradientDrawable().apply {
+                setColor(accent)
+                cornerRadius = dp(7).toFloat()
+            }
         }
 
         playerBrand.addView(
@@ -790,13 +819,13 @@ class MainActivity : Activity() {
             )
         )
 
-        val playerBrandText = TextView(this)
-
-        playerBrandText.text = "  NIYATI TV"
-        playerBrandText.textSize = 12f
-        playerBrandText.setTextColor(white)
-        playerBrandText.gravity = Gravity.CENTER_VERTICAL
-        playerBrandText.setTypeface(null, Typeface.BOLD)
+        val playerBrandText = TextView(this).apply {
+            text = "  NIYATI TV"
+            textSize = 12f
+            setTextColor(white)
+            gravity = Gravity.CENTER_VERTICAL
+            setTypeface(null, Typeface.BOLD)
+        }
 
         playerBrand.addView(
             playerBrandText,
@@ -806,10 +835,11 @@ class MainActivity : Activity() {
             )
         )
 
-        val brandParams = FrameLayout.LayoutParams(
-            dp(145),
-            dp(40)
-        )
+        val brandParams =
+            FrameLayout.LayoutParams(
+                dp(145),
+                dp(40)
+            )
 
         brandParams.gravity =
             Gravity.TOP or Gravity.START
@@ -826,30 +856,31 @@ class MainActivity : Activity() {
             brandParams
         )
 
-        fullscreenButton = TextView(this)
+        fullscreenButton = TextView(this).apply {
+            text = "⛶"
+            textSize = 27f
+            setTextColor(white)
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
 
-        fullscreenButton.text = "⛶"
-        fullscreenButton.textSize = 27f
-        fullscreenButton.setTextColor(white)
-        fullscreenButton.gravity = Gravity.CENTER
-        fullscreenButton.setTypeface(null, Typeface.BOLD)
+            isFocusable = true
+            isFocusableInTouchMode = true
 
-        fullscreenButton.isFocusable = true
-        fullscreenButton.isFocusableInTouchMode = true
+            background = GradientDrawable().apply {
+                setColor(Color.argb(190, 0, 0, 0))
+                cornerRadius = dp(12).toFloat()
+            }
 
-        fullscreenButton.background = GradientDrawable().apply {
-            setColor(Color.argb(190, 0, 0, 0))
-            cornerRadius = dp(12).toFloat()
+            setOnClickListener {
+                toggleFullscreen()
+            }
         }
 
-        fullscreenButton.setOnClickListener {
-            toggleFullscreen()
-        }
-
-        val fullscreenParams = FrameLayout.LayoutParams(
-            dp(58),
-            dp(58)
-        )
+        val fullscreenParams =
+            FrameLayout.LayoutParams(
+                dp(58),
+                dp(58)
+            )
 
         fullscreenParams.gravity =
             Gravity.BOTTOM or Gravity.END
@@ -866,22 +897,23 @@ class MainActivity : Activity() {
             fullscreenParams
         )
 
-        val liveInfo = TextView(this)
+        val liveInfo = TextView(this).apply {
+            text = "LIVE"
+            textSize = 11f
+            setTextColor(white)
+            gravity = Gravity.CENTER
 
-        liveInfo.text = "LIVE"
-        liveInfo.textSize = 11f
-        liveInfo.setTextColor(white)
-        liveInfo.gravity = Gravity.CENTER
-
-        liveInfo.background = GradientDrawable().apply {
-            setColor(accent)
-            cornerRadius = dp(8).toFloat()
+            background = GradientDrawable().apply {
+                setColor(accent)
+                cornerRadius = dp(8).toFloat()
+            }
         }
 
-        val liveParams = FrameLayout.LayoutParams(
-            dp(54),
-            dp(28)
-        )
+        val liveParams =
+            FrameLayout.LayoutParams(
+                dp(54),
+                dp(28)
+            )
 
         liveParams.gravity =
             Gravity.TOP or Gravity.END
@@ -907,31 +939,27 @@ class MainActivity : Activity() {
         )
     }
 
-    /*
-     * =========================================================
-     * NOW PLAYING
-     * =========================================================
-     */
+    // =========================================================
+    // NOW PLAYING
+    // =========================================================
 
     private fun createNowPlaying() {
 
-        nowPlaying = TextView(this)
+        nowPlaying = TextView(this).apply {
+            text = "●   اختر قناة لبدء المشاهدة"
+            textSize = 14f
+            setTextColor(white)
+            gravity = Gravity.CENTER_VERTICAL
 
-        nowPlaying.text =
-            "●   اختر قناة لبدء المشاهدة"
+            setPadding(
+                dp(24),
+                0,
+                dp(24),
+                0
+            )
 
-        nowPlaying.textSize = 14f
-        nowPlaying.setTextColor(white)
-        nowPlaying.gravity = Gravity.CENTER_VERTICAL
-
-        nowPlaying.setPadding(
-            dp(24),
-            0,
-            dp(24),
-            0
-        )
-
-        nowPlaying.setBackgroundColor(panelColor)
+            setBackgroundColor(panelColor)
+        }
 
         root.addView(
             nowPlaying,
@@ -942,28 +970,24 @@ class MainActivity : Activity() {
         )
     }
 
-    /*
-     * =========================================================
-     * PACKAGES
-     * =========================================================
-     */
+    // =========================================================
+    // PACKAGE AREA
+    // =========================================================
 
     private fun createPackageArea() {
 
-        packageArea = LinearLayout(this)
+        packageArea = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(panelColor)
+        }
 
-        packageArea.orientation =
-            LinearLayout.VERTICAL
-
-        packageArea.setBackgroundColor(panelColor)
-
-        val title = TextView(this)
-
-        title.text = "  الباقات"
-        title.textSize = 15f
-        title.setTextColor(white)
-        title.setTypeface(null, Typeface.BOLD)
-        title.gravity = Gravity.CENTER_VERTICAL
+        val title = TextView(this).apply {
+            text = "  الباقات"
+            textSize = 15f
+            setTextColor(white)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_VERTICAL
+        }
 
         packageArea.addView(
             title,
@@ -973,28 +997,27 @@ class MainActivity : Activity() {
             )
         )
 
-        val packageScroll = HorizontalScrollView(this)
+        val packageScroll =
+            HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                isFocusable = false
+            }
 
-        packageScroll.isHorizontalScrollBarEnabled = false
-        packageScroll.isFocusable = false
-
-        packagesLayout = LinearLayout(this)
-
-        packagesLayout.orientation =
-            LinearLayout.HORIZONTAL
-
-        packagesLayout.setPadding(
-            dp(14),
-            dp(2),
-            dp(14),
-            dp(8)
-        )
+        packagesLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(
+                dp(14),
+                dp(2),
+                dp(14),
+                dp(8)
+            )
+        }
 
         packageScroll.addView(
             packagesLayout,
-            HorizontalScrollView.LayoutParams(
-                HorizontalScrollView.LayoutParams.WRAP_CONTENT,
-                HorizontalScrollView.LayoutParams.MATCH_PARENT
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
 
@@ -1015,28 +1038,24 @@ class MainActivity : Activity() {
         )
     }
 
-    /*
-     * =========================================================
-     * CHANNEL AREA
-     * =========================================================
-     */
+    // =========================================================
+    // CHANNEL AREA
+    // =========================================================
 
     private fun createChannelArea() {
 
-        channelArea = LinearLayout(this)
+        channelArea = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(background)
+        }
 
-        channelArea.orientation =
-            LinearLayout.VERTICAL
-
-        channelArea.setBackgroundColor(background)
-
-        val title = TextView(this)
-
-        title.text = "  القنوات"
-        title.textSize = 15f
-        title.setTextColor(white)
-        title.setTypeface(null, Typeface.BOLD)
-        title.gravity = Gravity.CENTER_VERTICAL
+        val title = TextView(this).apply {
+            text = "  القنوات"
+            textSize = 15f
+            setTextColor(white)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER_VERTICAL
+        }
 
         channelArea.addView(
             title,
@@ -1046,28 +1065,27 @@ class MainActivity : Activity() {
             )
         )
 
-        val channelScroll = ScrollView(this)
+        val channelScroll =
+            ScrollView(this).apply {
+                isVerticalScrollBarEnabled = false
+                isFocusable = false
+            }
 
-        channelScroll.isVerticalScrollBarEnabled = false
-        channelScroll.isFocusable = false
-
-        channelsLayout = LinearLayout(this)
-
-        channelsLayout.orientation =
-            LinearLayout.VERTICAL
-
-        channelsLayout.setPadding(
-            dp(14),
-            dp(4),
-            dp(14),
-            dp(30)
-        )
+        channelsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dp(14),
+                dp(4),
+                dp(14),
+                dp(30)
+            )
+        }
 
         channelScroll.addView(
             channelsLayout,
-            ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
 
@@ -1090,19 +1108,18 @@ class MainActivity : Activity() {
         )
     }
 
-    /*
-     * =========================================================
-     * LOAD PACKAGES
-     * =========================================================
-     */
+    // =========================================================
+    // LOAD PACKAGES
+    // =========================================================
 
     private fun loadPackages() {
 
         packagesLayout.removeAllViews()
 
-        val groups = channels
-            .map { it.group }
-            .distinct()
+        val groups =
+            channels
+                .map { it.group }
+                .distinct()
 
         if (groups.isEmpty()) {
             return
@@ -1112,10 +1129,11 @@ class MainActivity : Activity() {
 
         groups.forEachIndexed { index, group ->
 
-            val card = createPackageCard(
-                group,
-                index == 0
-            )
+            val card =
+                createPackageCard(
+                    group,
+                    index == 0
+                )
 
             card.setOnClickListener {
 
@@ -1126,7 +1144,9 @@ class MainActivity : Activity() {
                 loadChannels(group)
             }
 
-            card.setOnFocusChangeListener { view, hasFocus ->
+            card.setOnFocusChangeListener {
+                    view,
+                    hasFocus ->
 
                 view.background =
                     if (hasFocus) {
@@ -1165,46 +1185,43 @@ class MainActivity : Activity() {
         loadChannels(groups.first())
     }
 
-    /*
-     * =========================================================
-     * PACKAGE CARD
-     * =========================================================
-     */
+    // =========================================================
+    // PACKAGE CARD
+    // =========================================================
 
     private fun createPackageCard(
         name: String,
         selected: Boolean
     ): TextView {
 
-        val card = TextView(this)
+        return TextView(this).apply {
 
-        card.text = packageDisplayName(name)
-        card.textSize = 13f
-        card.setTextColor(white)
-        card.gravity = Gravity.CENTER
-        card.setTypeface(null, Typeface.BOLD)
+            text = packageDisplayName(name)
+            textSize = 13f
+            setTextColor(white)
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
 
-        card.setPadding(
-            dp(10),
-            0,
-            dp(10),
-            0
-        )
-
-        card.background =
-            createCardBackground(
-                if (selected) {
-                    accent
-                } else {
-                    cardColor
-                },
-                selected
+            setPadding(
+                dp(10),
+                0,
+                dp(10),
+                0
             )
 
-        card.isFocusable = true
-        card.isFocusableInTouchMode = true
+            background =
+                createCardBackground(
+                    if (selected) {
+                        accent
+                    } else {
+                        cardColor
+                    },
+                    selected
+                )
 
-        return card
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
     }
 
     private fun packageDisplayName(
@@ -1231,17 +1248,16 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * PACKAGE SELECTION
-     * =========================================================
-     */
+    // =========================================================
+    // PACKAGE SELECTION
+    // =========================================================
 
     private fun updatePackageSelection() {
 
-        val groups = channels
-            .map { it.group }
-            .distinct()
+        val groups =
+            channels
+                .map { it.group }
+                .distinct()
 
         for (i in 0 until packagesLayout.childCount) {
 
@@ -1263,11 +1279,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * LOAD CHANNELS
-     * =========================================================
-     */
+    // =========================================================
+    // LOAD CHANNELS
+    // =========================================================
 
     private fun loadChannels(
         group: String
@@ -1280,9 +1294,10 @@ class MainActivity : Activity() {
 
         currentChannelIndex = -1
 
-        val filtered = channels.filter {
-            it.group == group
-        }
+        val filtered =
+            channels.filter {
+                it.group == group
+            }
 
         visibleChannels.addAll(filtered)
 
@@ -1292,13 +1307,13 @@ class MainActivity : Activity() {
 
             if (index % 4 == 0) {
 
-                row = LinearLayout(this)
+                row = LinearLayout(this).apply {
+                    orientation =
+                        LinearLayout.HORIZONTAL
 
-                row?.orientation =
-                    LinearLayout.HORIZONTAL
-
-                row?.gravity =
-                    Gravity.CENTER_VERTICAL
+                    gravity =
+                        Gravity.CENTER_VERTICAL
+                }
 
                 channelsLayout.addView(
                     row,
@@ -1374,7 +1389,6 @@ class MainActivity : Activity() {
             channelButtons.add(button)
 
             if (index == 0) {
-
                 button.post {
                     button.requestFocus()
                 }
@@ -1382,52 +1396,55 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * CHANNEL CARD
-     * =========================================================
-     */
+    // =========================================================
+    // CHANNEL CARD
+    // =========================================================
 
     private fun createChannelCard(
         channel: Channel
     ): LinearLayout {
 
-        val card = LinearLayout(this)
+        val card =
+            LinearLayout(this).apply {
 
-        card.orientation =
-            LinearLayout.HORIZONTAL
+                orientation =
+                    LinearLayout.HORIZONTAL
 
-        card.gravity =
-            Gravity.CENTER_VERTICAL
+                gravity =
+                    Gravity.CENTER_VERTICAL
 
-        card.setPadding(
-            dp(12),
-            0,
-            dp(12),
-            0
-        )
+                setPadding(
+                    dp(12),
+                    0,
+                    dp(12),
+                    0
+                )
 
-        card.background =
-            createChannelBackground(
-                cardColor,
-                false
-            )
+                background =
+                    createChannelBackground(
+                        cardColor,
+                        false
+                    )
 
-        card.isFocusable = true
-        card.isFocusableInTouchMode = true
+                isFocusable = true
+                isFocusableInTouchMode = true
+            }
 
-        val icon = TextView(this)
+        val icon =
+            TextView(this).apply {
 
-        icon.text = "NT"
-        icon.textSize = 11f
-        icon.setTextColor(white)
-        icon.gravity = Gravity.CENTER
-        icon.setTypeface(null, Typeface.BOLD)
+                text = "NT"
+                textSize = 11f
+                setTextColor(white)
+                gravity = Gravity.CENTER
+                setTypeface(null, Typeface.BOLD)
 
-        icon.background =
-            GradientDrawable().apply {
-                setColor(accentDark)
-                cornerRadius = dp(8).toFloat()
+                background =
+                    GradientDrawable().apply {
+                        setColor(accentDark)
+                        cornerRadius =
+                            dp(8).toFloat()
+                    }
             }
 
         card.addView(
@@ -1438,35 +1455,39 @@ class MainActivity : Activity() {
             )
         )
 
-        val textArea = LinearLayout(this)
+        val textArea =
+            LinearLayout(this).apply {
 
-        textArea.orientation =
-            LinearLayout.VERTICAL
+                orientation =
+                    LinearLayout.VERTICAL
 
-        textArea.gravity =
-            Gravity.CENTER_VERTICAL
+                gravity =
+                    Gravity.CENTER_VERTICAL
 
-        textArea.setPadding(
-            dp(10),
-            0,
-            0,
-            0
-        )
+                setPadding(
+                    dp(10),
+                    0,
+                    0,
+                    0
+                )
+            }
 
         val position =
             channels.indexOf(channel) + 1
 
-        val number = TextView(this)
+        val number =
+            TextView(this).apply {
 
-        number.text =
-            String.format(
-                "%03d",
-                position
-            )
+                text =
+                    String.format(
+                        "%03d",
+                        position
+                    )
 
-        number.textSize = 9f
-        number.setTextColor(gray)
-        number.setTypeface(null, Typeface.BOLD)
+                textSize = 9f
+                setTextColor(gray)
+                setTypeface(null, Typeface.BOLD)
+            }
 
         textArea.addView(
             number,
@@ -1476,13 +1497,15 @@ class MainActivity : Activity() {
             )
         )
 
-        val name = TextView(this)
+        val name =
+            TextView(this).apply {
 
-        name.text = channel.name
-        name.textSize = 12f
-        name.setTextColor(white)
-        name.setTypeface(null, Typeface.BOLD)
-        name.maxLines = 1
+                text = channel.name
+                textSize = 12f
+                setTextColor(white)
+                setTypeface(null, Typeface.BOLD)
+                maxLines = 1
+            }
 
         textArea.addView(
             name,
@@ -1501,12 +1524,14 @@ class MainActivity : Activity() {
             )
         )
 
-        val status = TextView(this)
+        val status =
+            TextView(this).apply {
 
-        status.text = "●"
-        status.textSize = 9f
-        status.setTextColor(green)
-        status.gravity = Gravity.CENTER
+                text = "●"
+                textSize = 9f
+                setTextColor(green)
+                gravity = Gravity.CENTER
+            }
 
         card.addView(
             status,
@@ -1519,11 +1544,9 @@ class MainActivity : Activity() {
         return card
     }
 
-    /*
-     * =========================================================
-     * CHANNEL SELECTION
-     * =========================================================
-     */
+    // =========================================================
+    // CHANNEL SELECTION
+    // =========================================================
 
     private fun updateChannelSelection(
         selected: View
@@ -1545,14 +1568,9 @@ class MainActivity : Activity() {
             )
     }
 
-    /*
-     * =========================================================
-     * REMOTE CHANNEL NAVIGATION
-     *
-     * UP   = previous channel
-     * DOWN = next channel
-     * =========================================================
-     */
+    // =========================================================
+    // CHANNEL NAVIGATION
+    // =========================================================
 
     private fun moveChannel(
         direction: Int
@@ -1619,33 +1637,30 @@ class MainActivity : Activity() {
         playChannel(channel)
     }
 
-    /*
-     * =========================================================
-     * BACKGROUNDS
-     * =========================================================
-     */
+    // =========================================================
+    // BACKGROUNDS
+    // =========================================================
 
     private fun createCardBackground(
         color: Int,
         selected: Boolean
     ): GradientDrawable {
 
-        val drawable =
-            GradientDrawable()
+        return GradientDrawable().apply {
 
-        drawable.setColor(color)
+            setColor(color)
 
-        drawable.cornerRadius =
-            dp(12).toFloat()
+            cornerRadius =
+                dp(12).toFloat()
 
-        if (selected) {
-            drawable.setStroke(
-                dp(2),
-                accent
-            )
+            if (selected) {
+
+                setStroke(
+                    dp(2),
+                    accent
+                )
+            }
         }
-
-        return drawable
     }
 
     private fun createChannelBackground(
@@ -1653,29 +1668,26 @@ class MainActivity : Activity() {
         selected: Boolean
     ): GradientDrawable {
 
-        val drawable =
-            GradientDrawable()
+        return GradientDrawable().apply {
 
-        drawable.setColor(color)
+            setColor(color)
 
-        drawable.cornerRadius =
-            dp(12).toFloat()
+            cornerRadius =
+                dp(12).toFloat()
 
-        if (selected) {
-            drawable.setStroke(
-                dp(2),
-                accent
-            )
+            if (selected) {
+
+                setStroke(
+                    dp(2),
+                    accent
+                )
+            }
         }
-
-        return drawable
     }
 
-    /*
-     * =========================================================
-     * PLAY CHANNEL
-     * =========================================================
-     */
+    // =========================================================
+    // PLAY CHANNEL
+    // =========================================================
 
     private fun playChannel(
         channel: Channel
@@ -1738,11 +1750,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * FULLSCREEN
-     * =========================================================
-     */
+    // =========================================================
+    // FULLSCREEN
+    // =========================================================
 
     private fun toggleFullscreen() {
 
@@ -1767,12 +1777,13 @@ class MainActivity : Activity() {
         channelArea.visibility = View.GONE
 
         /*
-         * مهم:
-         * playerContainer موجود داخل root وهو LinearLayout.
-         * لذلك نستخدم LinearLayout.LayoutParams صراحة.
+         * استخدام LinearLayout.LayoutParams بشكل صريح
+         * حتى لا يحدث Unresolved reference: LayoutParams
          */
+
         val params =
-            playerContainer.layoutParams as? LinearLayout.LayoutParams
+            playerContainer.layoutParams
+                as? LinearLayout.LayoutParams
                 ?: LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.MATCH_PARENT
@@ -1814,10 +1825,12 @@ class MainActivity : Activity() {
         channelArea.visibility = View.VISIBLE
 
         /*
-         * نستخدم LinearLayout.LayoutParams بشكل صريح.
+         * استخدام LinearLayout.LayoutParams بشكل صريح
          */
+
         val params =
-            playerContainer.layoutParams as? LinearLayout.LayoutParams
+            playerContainer.layoutParams
+                as? LinearLayout.LayoutParams
                 ?: LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     dp(330)
@@ -1852,11 +1865,9 @@ class MainActivity : Activity() {
         }
     }
 
-    /*
-     * =========================================================
-     * REMOTE CONTROL
-     * =========================================================
-     */
+    // =========================================================
+    // REMOTE CONTROL
+    // =========================================================
 
     override fun dispatchKeyEvent(
         event: KeyEvent
@@ -1871,7 +1882,9 @@ class MainActivity : Activity() {
 
                 KeyEvent.KEYCODE_DPAD_UP -> {
 
-                    if (visibleChannels.isNotEmpty()) {
+                    if (
+                        visibleChannels.isNotEmpty()
+                    ) {
 
                         moveChannel(-1)
 
@@ -1881,7 +1894,9 @@ class MainActivity : Activity() {
 
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
 
-                    if (visibleChannels.isNotEmpty()) {
+                    if (
+                        visibleChannels.isNotEmpty()
+                    ) {
 
                         moveChannel(1)
 
@@ -1905,16 +1920,6 @@ class MainActivity : Activity() {
                         nowPlaying.text =
                             "●   اختر قناة لبدء المشاهدة"
 
-                        currentChannelIndex = -1
-
-                        for (button in channelButtons) {
-                            button.background =
-                                createChannelBackground(
-                                    cardColor,
-                                    false
-                                )
-                        }
-
                         return true
                     }
                 }
@@ -1935,11 +1940,17 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    /*
-     * =========================================================
-     * DESTROY
-     * =========================================================
-     */
+    // =========================================================
+    // LIFECYCLE
+    // =========================================================
+
+    override fun onStop() {
+        super.onStop()
+
+        if (!isChangingConfigurations && !fullscreen) {
+            exoPlayer?.pause()
+        }
+    }
 
     override fun onDestroy() {
 
@@ -1952,11 +1963,9 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    /*
-     * =========================================================
-     * DP
-     * =========================================================
-     */
+    // =========================================================
+    // DP
+    // =========================================================
 
     private fun dp(
         value: Int
