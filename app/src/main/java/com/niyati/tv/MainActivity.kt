@@ -2,7 +2,6 @@ package com.niyati.tv
 
 import android.app.Activity
 import android.graphics.Color
-import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -69,7 +68,7 @@ class MainActivity : Activity() {
     private val textWhite = Color.WHITE
     private val textMuted = Color.parseColor("#8C9BA5")
     private val statusGreen = Color.parseColor("#00E676")
-    private val border strokeColor = Color.parseColor("#14FFFFFF")
+    private val strokeColor = Color.parseColor("#14FFFFFF")
 
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
