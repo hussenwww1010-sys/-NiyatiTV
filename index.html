@@ -7,6 +7,9 @@
 
 <title>Niyati TV</title>
 
+<!-- مكتبة HLS.js لتشغيل روابط البث المباشر (m3u8) -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
 <style>
 *{
     box-sizing:border-box;
@@ -432,6 +435,8 @@ video{
             rgba(231,180,90,.07),
             transparent 45%
         );
+
+    z-index: 3;
 }
 
 .empty div{
@@ -499,6 +504,7 @@ video{
             rgba(0,0,0,.65),
             transparent 35%
         );
+    z-index: 1;
 }
 
 .now{
@@ -1000,6 +1006,7 @@ video{
 
                 <video
                     id="video"
+                    controls
                     playsinline
                 ></video>
 
@@ -1112,6 +1119,69 @@ video{
 
 <script>
 
+/* 
+ * محرك تشغيل الفيديو الذكي لدعم HLS.js
+ */
+let globalHls = null;
+
+function playChannel(url) {
+    const video = document.getElementById("video");
+    const playerEmpty = document.getElementById("playerEmpty");
+
+    if (!video || !url) return;
+
+    if (playerEmpty) {
+        playerEmpty.style.display = "none";
+    }
+
+    // تنظيف أي بث مباشر شغال حالياً
+    if (globalHls) {
+        globalHls.destroy();
+        globalHls = null;
+    }
+
+    if (Hls.isSupported()) {
+        globalHls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true
+        });
+        globalHls.loadSource(url);
+        globalHls.attachMedia(video);
+        globalHls.on(Hls.Events.MANIFEST_PARSED, function () {
+            video.play().catch(function(e){
+                console.log("Auto-play blocked, user interaction needed", e);
+            });
+        });
+
+        // التعامل مع أخطاء البث المباشر والتغطية التلقائية
+        globalHls.on(Hls.Events.ERROR, function(event, data) {
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        globalHls.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        globalHls.recoverMediaError();
+                        break;
+                    default:
+                        globalHls.destroy();
+                        break;
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // تشغيل مباشر لأجهزة Safari و iOS
+        video.src = url;
+        video.addEventListener('loadedmetadata', function() {
+            video.play();
+        });
+    } else {
+        video.src = url;
+        video.play().catch(function(){});
+    }
+}
+
+
 (function(){
 
     const packagesLayout =
@@ -1178,7 +1248,7 @@ video{
 
             '<div class="empty-list">' +
 
-            'تعذر تحميل قائمة القنوات.' +
+            'تعذر تحميل قائمة القنوات. تأكد من ملف channels.js' +
 
             '</div>';
 
@@ -1458,13 +1528,15 @@ video{
                         .map(
                             function(quality){
 
-                                return
+                                return (
 
                                     '<span class="quality">' +
 
                                     quality.name +
 
-                                    '</span>';
+                                    '</span>'
+
+                                );
 
                             }
                         )
@@ -1655,8 +1727,9 @@ video{
             );
 
 
-        playerEmpty.style.display =
-            "none";
+        if (playerEmpty) {
+            playerEmpty.style.display = "none";
+        }
 
 
         channelsLayout
@@ -1674,19 +1747,9 @@ video{
 
 
         /*
-         * استعمال مشغل المشروع الحالي
+         * تشغيل القناة بواسطة دالة HLS المعدلة
          */
-
-        if(
-            typeof playChannel ===
-            "function"
-        ){
-
-            playChannel(
-                quality.url
-            );
-
-        }
+        playChannel(quality.url);
 
     }
 
@@ -1739,8 +1802,9 @@ video{
         "play",
         function(){
 
-            playerEmpty.style.display =
-                "none";
+            if (playerEmpty) {
+                playerEmpty.style.display = "none";
+            }
 
         }
     );
