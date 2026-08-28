@@ -437,7 +437,7 @@ class MainActivity : Activity() {
             isFocusable = true
             isFocusableInTouchMode = true
 
-            setOnFocusChangeListener { view, hasFocus ->
+            setOnFocusChangeListener { _, hasFocus ->
                 playerContainer.background = GradientDrawable().apply {
                     setColor(Color.BLACK)
                     cornerRadius = dp(14).toFloat()
@@ -539,7 +539,7 @@ class MainActivity : Activity() {
 
         currentGroup = groups.first()
 
-        groups.forEachIndexed { index, group ->
+        groups.forEachIndexed { _, group ->
             val count = channels.count { it.group == group }
             val card = createPackageCard(group, count, group == currentGroup)
 
@@ -643,7 +643,7 @@ class MainActivity : Activity() {
         visibleChannels.addAll(filtered)
 
         filtered.forEachIndexed { index, channel ->
-            val card = createChannelCard(channel, index)
+            val card = createChannelCard(channel)
 
             card.setOnClickListener {
                 currentChannelIndex = index
@@ -667,7 +667,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun createChannelCard(channel: Channel, index: Int): LinearLayout {
+    private fun createChannelCard(channel: Channel): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
