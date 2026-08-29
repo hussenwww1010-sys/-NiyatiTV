@@ -20,6 +20,8 @@
     <application
         android:allowBackup="true"
         android:label="Niyati TV"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.NiyatiTV"
         android:usesCleartextTraffic="true">
 
