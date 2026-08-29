@@ -20,8 +20,8 @@
     <application
         android:allowBackup="true"
         android:label="Niyati TV"
-        android:icon="@drawable/logo.png"
-        android:roundIcon="@drawable/logo.png"
+        android:icon="@drawable/logo"
+        android:roundIcon="@drawable/logo"
         android:theme="@style/Theme.NiyatiTV"
         android:usesCleartextTraffic="true">
 
