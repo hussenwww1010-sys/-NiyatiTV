@@ -58,16 +58,17 @@ class MainActivity : Activity() {
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
 
-    private val bgPrimary = Color.parseColor("#0A0D14")
-    private val bgSecondary = Color.parseColor("#121824")
-    private val bgCard = Color.parseColor("#1A2232")
-    private val accentColor = Color.parseColor("#00E5FF")
-    private val accentHover = Color.parseColor("#252F43")
+    // الألوان الجديدة الحديثة
+    private val bgPrimary = Color.parseColor("#090C10")
+    private val bgSecondary = Color.parseColor("#0D1117")
+    private val bgCard = Color.parseColor("#161B22")
+    private val accentColor = Color.parseColor("#00E5FF") // الفيروزي المضيء
+    private val accentHover = Color.parseColor("#1F2937")
 
     private val textWhite = Color.WHITE
-    private val textMuted = Color.parseColor("#8C9BA5")
+    private val textMuted = Color.parseColor("#8B949E")
     private val statusGreen = Color.parseColor("#00E676")
-    private val strokeColor = Color.parseColor("#14FFFFFF")
+    private val strokeColor = Color.parseColor("#21262D")
 
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
@@ -288,7 +289,7 @@ class MainActivity : Activity() {
         val logoBox = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(accentColor)
-                cornerRadius = dp(8).toFloat()
+                cornerRadius = dp(12).toFloat()
             }
         }
 
@@ -301,12 +302,12 @@ class MainActivity : Activity() {
         }
 
         logoBox.addView(logoText, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        topBar.addView(logoBox, LinearLayout.LayoutParams(dp(38), dp(38)))
+        topBar.addView(logoBox, LinearLayout.LayoutParams(dp(40), dp(40)))
 
         val brandText = TextView(this).apply {
             text = "  NIYATI TV"
             textSize = 18f
-            setTextColor(accentColor)
+            setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
         topBar.addView(brandText)
@@ -317,7 +318,7 @@ class MainActivity : Activity() {
         val liveBadge = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(5), dp(12), dp(5))
+            setPadding(dp(14), dp(6), dp(14), dp(6))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#1A00E676"))
                 cornerRadius = dp(20).toFloat()
@@ -403,7 +404,7 @@ class MainActivity : Activity() {
         playerContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
-                cornerRadius = dp(14).toFloat()
+                cornerRadius = dp(20).toFloat()
                 setStroke(dp(1), strokeColor)
             }
             clipToOutline = true
@@ -421,7 +422,7 @@ class MainActivity : Activity() {
                 if (!fullscreen) {
                     playerContainer.background = GradientDrawable().apply {
                         setColor(Color.BLACK)
-                        cornerRadius = dp(14).toFloat()
+                        cornerRadius = dp(20).toFloat()
                         setStroke(dp(2), if (hasFocus) accentColor else strokeColor)
                     }
                 }
@@ -435,36 +436,36 @@ class MainActivity : Activity() {
         val watermark = TextView(this).apply {
             text = "NIYATI TV"
             textSize = 10f
-            setTextColor(Color.parseColor("#60FFFFFF"))
+            setTextColor(Color.parseColor("#80FFFFFF"))
             setTypeface(Typeface.DEFAULT_BOLD)
-            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setPadding(dp(10), dp(5), dp(10), dp(5))
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#40000000"))
-                cornerRadius = dp(6).toFloat()
+                cornerRadius = dp(8).toFloat()
             }
         }
 
         val wmParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.TOP or Gravity.START
-            setMargins(dp(10), dp(10), 0, 0)
+            setMargins(dp(12), dp(12), 0, 0)
         }
 
         playerContainer.addView(watermark, wmParams)
-        playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.6f))
+        playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f))
 
         epgContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(15), dp(18), dp(15))
+            setPadding(dp(20), dp(16), dp(20), dp(16))
             background = GradientDrawable().apply {
                 setColor(bgSecondary)
-                cornerRadius = dp(14).toFloat()
+                cornerRadius = dp(20).toFloat()
                 setStroke(dp(1), strokeColor)
             }
         }
 
         epgTitle = TextView(this).apply {
             text = "اختر قناة لبدء العرض"
-            textSize = 15f
+            textSize = 16f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
@@ -474,7 +475,7 @@ class MainActivity : Activity() {
             text = "البث المباشر جاهز"
             textSize = 12f
             setTextColor(textMuted)
-            setPadding(0, dp(4), 0, dp(10))
+            setPadding(0, dp(4), 0, dp(12))
         }
         epgContainer.addView(epgSub)
 
@@ -484,7 +485,7 @@ class MainActivity : Activity() {
         }
 
         epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
-        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.4f).apply {
+        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.35f).apply {
             topMargin = dp(15)
         })
 
@@ -497,7 +498,7 @@ class MainActivity : Activity() {
             textSize = 13f
             setTextColor(textMuted)
             setTypeface(Typeface.DEFAULT_BOLD)
-            setPadding(dp(20), dp(15), dp(20), dp(15))
+            setPadding(dp(20), dp(18), dp(20), dp(12))
             background = GradientDrawable().apply { setColor(bgSecondary) }
         }
     }
@@ -525,7 +526,7 @@ class MainActivity : Activity() {
                 view.background = createCardDrawable(hasFocus, currentGroup == group)
             }
 
-            packagesLayout.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(46)).apply {
+            packagesLayout.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply {
                 bottomMargin = dp(8)
             })
 
@@ -539,7 +540,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(15), 0, dp(15), 0)
+            setPadding(dp(16), 0, dp(16), 0)
             background = createCardDrawable(false, isSelected)
             isFocusable = true
             isFocusableInTouchMode = true
@@ -548,7 +549,7 @@ class MainActivity : Activity() {
         val nameTv = TextView(this).apply {
             text = packageDisplayName(name)
             textSize = 13f
-            setTextColor(if (isSelected) accentColor else textWhite)
+            setTextColor(if (isSelected) textWhite else textMuted)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
 
@@ -557,11 +558,11 @@ class MainActivity : Activity() {
         val badge = TextView(this).apply {
             text = count.toString()
             textSize = 10f
-            setTextColor(textMuted)
-            setPadding(dp(6), dp(2), dp(6), dp(2))
+            setTextColor(if (isSelected) textWhite else textMuted)
+            setPadding(dp(8), dp(3), dp(8), dp(3))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#10FFFFFF"))
-                cornerRadius = dp(6).toFloat()
+                setColor(if (isSelected) Color.parseColor("#33FFFFFF") else Color.parseColor("#15FFFFFF"))
+                cornerRadius = dp(12).toFloat()
             }
         }
 
@@ -597,7 +598,14 @@ class MainActivity : Activity() {
             child.background = createCardDrawable(child.hasFocus(), isSelected)
 
             val tv = child.getChildAt(0) as? TextView
-            tv?.setTextColor(if (isSelected) accentColor else textWhite)
+            tv?.setTextColor(if (isSelected) textWhite else textMuted)
+
+            val badge = child.getChildAt(1) as? TextView
+            badge?.setTextColor(if (isSelected) textWhite else textMuted)
+            badge?.background = GradientDrawable().apply {
+                setColor(if (isSelected) Color.parseColor("#33FFFFFF") else Color.parseColor("#15FFFFFF"))
+                cornerRadius = dp(12).toFloat()
+            }
         }
     }
 
@@ -611,7 +619,7 @@ class MainActivity : Activity() {
         visibleChannels.addAll(filtered)
 
         filtered.forEachIndexed { index, channel ->
-            val card = createChannelCard(channel)
+            val card = createChannelCard(channel, index == currentChannelIndex)
 
             card.setOnClickListener {
                 currentChannelIndex = index
@@ -623,7 +631,7 @@ class MainActivity : Activity() {
                 view.background = createCardDrawable(hasFocus, currentChannelIndex == index)
             }
 
-            channelsLayout.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply {
+            channelsLayout.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)).apply {
                 bottomMargin = dp(8)
             })
 
@@ -631,12 +639,12 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun createChannelCard(channel: Channel): LinearLayout {
+    private fun createChannelCard(channel: Channel, isSelected: Boolean): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), 0, dp(12), 0)
-            background = createCardDrawable(false, false)
+            background = createCardDrawable(false, isSelected)
             isFocusable = true
             isFocusableInTouchMode = true
         }
@@ -644,12 +652,12 @@ class MainActivity : Activity() {
         val iconBox = TextView(this).apply {
             text = "TV"
             textSize = 9f
-            setTextColor(accentColor)
+            setTextColor(if (isSelected) bgPrimary else accentColor)
             gravity = Gravity.CENTER
             setTypeface(Typeface.DEFAULT_BOLD)
             background = GradientDrawable().apply {
-                setColor(bgPrimary)
-                cornerRadius = dp(6).toFloat()
+                setColor(if (isSelected) textWhite else bgPrimary)
+                cornerRadius = dp(12).toFloat()
             }
         }
 
@@ -673,11 +681,11 @@ class MainActivity : Activity() {
                 else -> "SD"
             }
             textSize = 8f
-            setTextColor(accentColor)
-            setPadding(dp(6), dp(2), dp(6), dp(2))
+            setTextColor(if (isSelected) bgPrimary else accentColor)
+            setPadding(dp(8), dp(3), dp(8), dp(3))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#1500E5FF"))
-                cornerRadius = dp(4).toFloat()
+                setColor(if (isSelected) textWhite else Color.parseColor("#1500E5FF"))
+                cornerRadius = dp(8).toFloat()
             }
         }
 
@@ -686,21 +694,37 @@ class MainActivity : Activity() {
     }
 
     private fun updateChannelSelection(selected: View) {
-        for (button in channelButtons) {
-            button.background = createCardDrawable(button.hasFocus(), false)
+        for ((index, button) in channelButtons.withIndex()) {
+            val isSelected = index == currentChannelIndex
+            button.background = createCardDrawable(button.hasFocus(), isSelected)
+
+            val layout = button as? LinearLayout ?: continue
+            val iconBox = layout.getChildAt(0) as? TextView
+            iconBox?.setTextColor(if (isSelected) bgPrimary else accentColor)
+            iconBox?.background = GradientDrawable().apply {
+                setColor(if (isSelected) textWhite else bgPrimary)
+                cornerRadius = dp(12).toFloat()
+            }
+
+            val quality = layout.getChildAt(2) as? TextView
+            quality?.setTextColor(if (isSelected) bgPrimary else accentColor)
+            quality?.background = GradientDrawable().apply {
+                setColor(if (isSelected) textWhite else Color.parseColor("#1500E5FF"))
+                cornerRadius = dp(8).toFloat()
+            }
         }
-        selected.background = createCardDrawable(selected.hasFocus(), true)
     }
 
+    // بناء الأزرار الكبسولية الشفافة والبارزة
     private fun createCardDrawable(hasFocus: Boolean, isSelected: Boolean): GradientDrawable {
         return GradientDrawable().apply {
-            cornerRadius = dp(8).toFloat()
+            cornerRadius = dp(24).toFloat() // تصميم كبسولة دائري بالكامل
             if (hasFocus) {
                 setColor(accentHover)
                 setStroke(dp(2), accentColor)
             } else if (isSelected) {
-                setColor(bgCard)
-                setStroke(dp(1), accentColor)
+                setColor(accentColor) // لون فيروزي ملفت عند الاختيار
+                setStroke(dp(0), Color.TRANSPARENT)
             } else {
                 setColor(bgCard)
                 setStroke(dp(1), Color.TRANSPARENT)
@@ -787,13 +811,13 @@ class MainActivity : Activity() {
         playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
         playerContainer.background = GradientDrawable().apply {
             setColor(Color.BLACK)
-            cornerRadius = dp(14).toFloat()
+            cornerRadius = dp(20).toFloat()
             setStroke(dp(1), strokeColor)
         }
 
         val params = playerContainer.layoutParams as LinearLayout.LayoutParams
         params.height = 0
-        params.weight = 0.6f
+        params.weight = 0.65f
         playerContainer.layoutParams = params
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
