@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private var fullscreen = false
     private var currentGroup = ""
     private var currentChannelIndex = -1
+    private var currentSelectedChannel: Channel? = null
 
     private val visibleChannels = mutableListOf<Channel>()
     private val channelButtons = mutableListOf<View>()
@@ -57,10 +58,6 @@ class MainActivity : Activity() {
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
 
-    // =========================
-    // COLOR PALETTE (DARK IPTV UI)
-    // =========================
-
     private val bgPrimary = Color.parseColor("#0A0D14")
     private val bgSecondary = Color.parseColor("#121824")
     private val bgCard = Color.parseColor("#1A2232")
@@ -75,48 +72,52 @@ class MainActivity : Activity() {
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
     private fun c(name: String, group: String, id: String): Channel {
-        return Channel(
-            name = name,
-            group = group,
-            url = "$base$id.ts"
-        )
+        return Channel(name = name, group = group, url = "$base$id.ts")
     }
 
-    // =========================
-    // CHANNELS DATA
-    // =========================
+    private fun customChannel(name: String, group: String, url: String): Channel {
+        return Channel(name = name, group = group, url = url)
+    }
 
     private val channels = mutableListOf<Channel>().apply {
-
         // BEIN TOD
         add(c("beIN Tod 4K", "BEIN TOD", "460835"))
-        for (i in 1..9) { add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}")) }
+        for (i in 1..9) add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}"))
         add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
         add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
-        for (i in 1..9) { add(c("beIN Sport Tod Extra $i", "BEIN TOD", "${460846 + i}")) }
+        for (i in 1..9) add(c("beIN Sport Tod Extra $i", "BEIN TOD", "${460846 + i}"))
 
         // BEIN SPORTS
         add(c("beIN Sport Global 4K", "BEIN SPORTS", "22186"))
         add(c("beIN Sport News 4K", "BEIN SPORTS", "318230"))
+
         val bein4k = listOf(318197, 318198, 318199, 440580, 318201, 318202, 318203, 318204, 318205)
         for (i in 1..9) {
-            bein4k.getOrNull(i - 1)?.let { id -> add(c("beIN Sport $i 4K", "BEIN SPORTS", id.toString())) }
+            bein4k.getOrNull(i - 1)?.let { id ->
+                add(c("beIN Sport $i 4K", "BEIN SPORTS", id.toString()))
+            }
             add(c("beIN$i H265", "BEIN SPORTS", "${391093 + i}"))
         }
+
         add(c("beIN Sport English 1 4K", "BEIN SPORTS", "319495"))
         add(c("beIN Sport English 2 4K", "BEIN SPORTS", "319496"))
         add(c("beIN Sport French 1 4K", "BEIN SPORTS", "319497"))
         add(c("beIN Sport French 2 4K", "BEIN SPORTS", "319498"))
         add(c("beIN Sport NBA 4K", "BEIN SPORTS", "319499"))
+
         add(c("beIN Global HD", "BEIN SPORTS", "442220"))
         add(c("beIN Sport News HD", "BEIN SPORTS", "443146"))
-        for (i in 1..9) { add(c("beIN Sport $i HD", "BEIN SPORTS", "${325792 + i}")) }
+
+        for (i in 1..9) add(c("beIN Sport $i HD", "BEIN SPORTS", "${325792 + i}"))
+
         add(c("beIN Sport 1 HD English", "BEIN SPORTS", "318217"))
         add(c("beIN Sport 2 HD English", "BEIN SPORTS", "318218"))
         add(c("beIN Sport 1 HD French", "BEIN SPORTS", "319437"))
         add(c("beIN Sport 2 HD French", "BEIN SPORTS", "319438"))
         add(c("beIN Sport NBA HD", "BEIN SPORTS", "318219"))
-        for (i in 1..9) { add(c("beIN Sport $i SD", "BEIN SPORTS", "${325802 + i}")) }
+
+        for (i in 1..9) add(c("beIN Sport $i SD", "BEIN SPORTS", "${325802 + i}"))
+
         add(c("beIN Sport English 1 SD", "BEIN SPORTS", "319425"))
         add(c("beIN Sport English 2 SD", "BEIN SPORTS", "319426"))
         add(c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"))
@@ -124,8 +125,9 @@ class MainActivity : Activity() {
 
         // BEIN XTRA
         val xtra4k = listOf(325790, 319487, 319488, 440569, 440570, 440571, 447243, 447244, 447245)
-        val xtraHd = listOf(325802, 319435, 319436, 440572, 440573, 440574, 447246, 447247, 447248)
-        val xtraSd = listOf(325812, 319423, 319424, 440575, 440576, 440577, 447249, 447250, 447251)
+        val xtraHd = listOf(325812, 319435, 319436, 440572, 440573, 440574, 447246, 447247, 447248)
+        val xtraSd = listOf(325822, 319423, 319424, 440575, 440576, 440577, 447249, 447250, 447251)
+
         for (i in 1..9) {
             xtra4k.getOrNull(i - 1)?.let { add(c("beIN Sport XTRA $i 4K", "BEIN XTRA", it.toString())) }
             xtraHd.getOrNull(i - 1)?.let { add(c("beIN Sport XTRA $i HD", "BEIN XTRA", it.toString())) }
@@ -144,7 +146,9 @@ class MainActivity : Activity() {
 
         // ALKASS
         val alkassIds = listOf(96214, 96215, 278068, 96216, 96217, 211523, 379828, 379829, 393991, 393992)
-        for (i in 1..10) { alkassIds.getOrNull(i - 1)?.let { add(c("Alkass $i HD", "ALKASS", it.toString())) } }
+        for (i in 1..10) {
+            alkassIds.getOrNull(i - 1)?.let { add(c("Alkass $i HD", "ALKASS", it.toString())) }
+        }
 
         // SAUDI SPORTS
         listOf(
@@ -168,7 +172,8 @@ class MainActivity : Activity() {
             "Iraqia Sport" to "107038", "ufm radio" to "267050",
             "Sharjah Sport HD" to "141797", "Libya Sport 1 TV" to "97818",
             "Jordan Sport TV" to "109699", "Zamalik" to "97822",
-            "Nile Sport" to "97824", "Al Ahly TV" to "97823", "PalestineSport" to "417306"
+            "Nile Sport" to "97824", "Al Ahly TV" to "97823",
+            "PalestineSport" to "417306"
         ).forEach { add(c(it.first, "GULF SPORTS", it.second)) }
 
         // AD SPORTS
@@ -185,53 +190,57 @@ class MainActivity : Activity() {
             alwan.getOrNull(x + 1)?.let { add(c("Alwan Sport $i HD", "ALWAN SPORT", it.toString())) }
             alwan.getOrNull(x + 2)?.let { add(c("Alwan Sport $i SD", "ALWAN SPORT", it.toString())) }
         }
-        listOf("Alwan Sport 7 4K" to "433739", "Alwan Sport 8 4K" to "433740", "Alwan Sport 9 4K" to "433741", "Alwan Sport 10 4K" to "433742").forEach { add(c(it.first, "ALWAN SPORT", it.second)) }
-
-        // CRICKET
         listOf(
-            "DS: SS Cricket HD" to "362434", "UK: SKY SPORTS CRICKET HD" to "376914",
-            "UK: ASTRO CRICKET" to "376935", "UK: CRICKET LIVE 3HD" to "376934",
-            "UK: CRICKET LIVE 2HD" to "376933", "UK: CRICKET LIVE 1HD" to "376932",
-            "VIP UK: SkySport Cricket HD" to "376852", "UK: HUB SPORTS 4" to "377011",
-            "UK: HUB SPORTS 3" to "377010", "BD: T SPORTS HD" to "397831",
-            "PK: FAST SPORTS FHD" to "380185", "PK: PTV SPORTS HD" to "380189",
-            "PK: Ten Sports HD" to "380193", "PK: PTV SPORTS" to "379173"
-        ).forEach { add(c(it.first, "CRICKET", it.second)) }
-
-        // STAR SPORTS
-        listOf(
-            "IN: Star Sports 1 FHD" to "387564", "IN: Star Sports 1 Hindi FHD" to "387565",
-            "IN: Star Sports 2 FHD" to "387566", "IN: Star Sports Select 1 FHD" to "387568",
-            "IN: Star Sports Select 2 FHD" to "387569", "IN: Star Sports 1 Eng HD" to "387722",
-            "IN: Star Sports 2 Eng HD" to "387723", "IN: Star Sports 3 Eng HD" to "387724",
-            "IN: Star Sports Select 1 Eng HD" to "387725", "IN: Star Sports Select 2 Eng HD" to "387726",
-            "IN: Willow Cricket HD" to "387766", "IN: Ten Sports" to "387788",
-            "IN: Star Sports 1 Hindi HD" to "387909", "IN: STAR SPORTS SELECT 2" to "364779",
-            "IN: STAR SPORTS SELECT 1" to "364780", "IN: STAR SPORTS 3" to "364781",
-            "IN: STAR SPORTS 2" to "364782", "IN: STAR SPORTS 1" to "364783",
-            "IN: STAR SPORTS 1 TAMIL" to "364864", "USA | Willow Cricket HD" to "386666",
-            "USA | Willow Cricket Extra" to "386665"
-        ).forEach { add(c(it.first, "STAR SPORTS", it.second)) }
+            "Alwan Sport 7 4K" to "433739", "Alwan Sport 8 4K" to "433740",
+            "Alwan Sport 9 4K" to "433741", "Alwan Sport 10 4K" to "433742"
+        ).forEach { add(c(it.first, "ALWAN SPORT", it.second)) }
 
         // FAJER TV
-        listOf("Fajer TV 1" to "463532", "Fajer TV 2" to "463533", "Fajer TV 3" to "463534", "Fajer TV 4" to "463535", "Fajer TV 5" to "463536").forEach { add(c(it.first, "FAJER TV", it.second)) }
+        listOf(
+            "Fajer TV 1" to "463532", "Fajer TV 2" to "463533",
+            "Fajer TV 3" to "463534", "Fajer TV 4" to "463535",
+            "Fajer TV 5" to "463536"
+        ).forEach { add(c(it.first, "FAJER TV", it.second)) }
 
         // KURDISTAN SPORTS
         listOf(
-            "KU: Duhok Sport" to "358226", "KU: LD Sport" to "358229", "KU: See Sport 1" to "358222",
-            "KU: See Sport 2" to "358223", "KU: See Sport 3" to "358224", "KU: Ava Sport" to "358221",
-            "KU: Aro Sport" to "358225", "KU: 4 Sport" to "358227", "KU: Astera Sport" to "358228",
-            "KU: NRT Sport" to "358220", "KU: Kurdistan Sport" to "358219", "KU: Dasinya Sport" to "358230",
-            "KU: MTV Sport" to "358231", "KU: Aso Sport" to "358232", "KU: Newline Sport" to "358233",
-            "KU: MMN SPORT" to "358234", "KU: NUBAR SPORT" to "358235", "KU: SIMA SPORT" to "358236",
-            "KU: Zaxo Sport" to "358237", "KU: LD SPORT CHEAK" to "358238", "KU: Delal Sport" to "358239"
+            "KU: Duhok Sport" to "358226", "KU: LD Sport" to "358229",
+            "KU: See Sport 1" to "358222", "KU: See Sport 2" to "358223",
+            "KU: See Sport 3" to "358224", "KU: Ava Sport" to "358221",
+            "KU: Aro Sport" to "358225", "KU: 4 Sport" to "358227",
+            "KU: Astera Sport" to "358228", "KU: NRT Sport" to "358220",
+            "KU: Kurdistan Sport" to "358219", "KU: Dasinya Sport" to "358230",
+            "KU: MTV Sport" to "358231", "KU: Aso Sport" to "358232",
+            "KU: Newline Sport" to "358233", "KU: MMN SPORT" to "358234",
+            "KU: NUBAR SPORT" to "358235", "KU: SIMA SPORT" to "358236",
+            "KU: Zaxo Sport" to "358237", "KU: LD SPORT CHEAK" to "358238",
+            "KU: Delal Sport" to "358239"
         ).forEach { add(c(it.first, "KURDISTAN SPORTS", it.second)) }
 
         // SHAHID SPORT
-        for (i in 1..5) { add(c("Shahid Sport $i 4K", "SHAHID SPORT", "${430910 + i}")) }
+        for (i in 1..5) add(c("Shahid Sport $i 4K", "SHAHID SPORT", "${430910 + i}"))
 
         // SHASHA
-        listOf("Shasha 1 TV 4K" to "348400", "Shasha 2 TV 4K" to "244079", "Shasha 3 TV 4K" to "443029").forEach { add(c(it.first, "SHASHA", it.second)) }
+        listOf(
+            "Shasha 1 TV 4K" to "348400", "Shasha 2 TV 4K" to "244079",
+            "Shasha 3 TV 4K" to "443029"
+        ).forEach { add(c(it.first, "SHASHA", it.second)) }
+
+        // DRAMA & MBC
+        listOf(
+            "دراما" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316966&extension=ts",
+            "مرايا" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316957&extension=ts",
+            "MBC 1" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120314&extension=ts",
+            "MBC 2" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120313&extension=ts",
+            "MBC 3" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120312&extension=ts",
+            "MBC 4" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120311&extension=ts",
+            "MBC ACTION" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120308&extension=ts",
+            "MBC MAX FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=23077&extension=ts",
+            "MBC DRAMA" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120306&extension=ts",
+            "MBC MASR 1 FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120303&extension=ts",
+            "MBC MASR 2 FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120302&extension=ts",
+            "MBC IRAQ FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=84196&extension=ts"
+        ).forEach { add(customChannel(it.first, "DRAMA & MBC", it.second)) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -244,10 +253,6 @@ class MainActivity : Activity() {
         buildInterface()
     }
 
-    // =========================
-    // UI LAYOUT STRUCTURE
-    // =========================
-
     private fun buildInterface() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -257,7 +262,6 @@ class MainActivity : Activity() {
 
         createTopBar()
 
-        // 3 Column App Container
         mainContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(bgPrimary)
@@ -267,22 +271,11 @@ class MainActivity : Activity() {
         createChannelColumn()
         createPlayerColumn()
 
-        root.addView(
-            mainContent,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
+        root.addView(mainContent, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
+
         loadPackages()
     }
-
-    // =========================
-    // 1. TOP HEADER BAR
-    // =========================
 
     private fun createTopBar() {
         topBar = LinearLayout(this).apply {
@@ -292,7 +285,6 @@ class MainActivity : Activity() {
             setBackgroundColor(bgSecondary)
         }
 
-        // Logo NT Box
         val logoBox = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -307,11 +299,10 @@ class MainActivity : Activity() {
             setTextColor(bgPrimary)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
-        logoBox.addView(logoText, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
+        logoBox.addView(logoText, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         topBar.addView(logoBox, LinearLayout.LayoutParams(dp(38), dp(38)))
 
-        // Brand Title
         val brandText = TextView(this).apply {
             text = "  NIYATI TV"
             textSize = 18f
@@ -323,7 +314,6 @@ class MainActivity : Activity() {
         val spacer = View(this)
         topBar.addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
 
-        // Live Indicator Badge
         val liveBadge = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -340,23 +330,20 @@ class MainActivity : Activity() {
             textSize = 10f
             setTextColor(statusGreen)
         }
+
         val liveText = TextView(this).apply {
             text = "مباشر"
             textSize = 11f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
+
         liveBadge.addView(liveDot)
         liveBadge.addView(liveText)
-
         topBar.addView(liveBadge)
 
         root.addView(topBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)))
     }
-
-    // =========================
-    // 2. PACKAGES COLUMN (RIGHT)
-    // =========================
 
     private fun createPackageColumn() {
         val col = LinearLayout(this).apply {
@@ -364,8 +351,7 @@ class MainActivity : Activity() {
             setBackgroundColor(bgSecondary)
         }
 
-        val header = createColumnHeader("الباقات")
-        col.addView(header)
+        col.addView(createColumnHeader("الباقات"))
 
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -383,18 +369,13 @@ class MainActivity : Activity() {
         mainContent.addView(col, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.MATCH_PARENT))
     }
 
-    // =========================
-    // 3. CHANNELS COLUMN (MIDDLE)
-    // =========================
-
     private fun createChannelColumn() {
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgSecondary)
         }
 
-        val header = createColumnHeader("القنوات المتاحة")
-        col.addView(header)
+        col.addView(createColumnHeader("القنوات المتاحة"))
 
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -412,10 +393,6 @@ class MainActivity : Activity() {
         mainContent.addView(col, LinearLayout.LayoutParams(dp(280), LinearLayout.LayoutParams.MATCH_PARENT))
     }
 
-    // =========================
-    // 4. PLAYER & EPG SECTION (LEFT)
-    // =========================
-
     private fun createPlayerColumn() {
         playerColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -423,7 +400,6 @@ class MainActivity : Activity() {
             setBackgroundColor(bgPrimary)
         }
 
-        // Video Player Container
         playerContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
@@ -436,7 +412,6 @@ class MainActivity : Activity() {
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
-            // خاصية تمديد البث لمنع ظهور الحواف السوداء
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             isFocusable = true
             isFocusableInTouchMode = true
@@ -452,14 +427,11 @@ class MainActivity : Activity() {
                 }
             }
 
-            setOnClickListener {
-                toggleFullscreen()
-            }
+            setOnClickListener { toggleFullscreen() }
         }
 
         playerContainer.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        // Watermark Overlay
         val watermark = TextView(this).apply {
             text = "NIYATI TV"
             textSize = 10f
@@ -471,15 +443,15 @@ class MainActivity : Activity() {
                 cornerRadius = dp(6).toFloat()
             }
         }
+
         val wmParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.TOP or Gravity.START
             setMargins(dp(10), dp(10), 0, 0)
         }
-        playerContainer.addView(watermark, wmParams)
 
+        playerContainer.addView(watermark, wmParams)
         playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.6f))
 
-        // EPG Program Info Area
         epgContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(15), dp(18), dp(15))
@@ -506,13 +478,12 @@ class MainActivity : Activity() {
         }
         epgContainer.addView(epgSub)
 
-        // Progress Bar Simulation for EPG
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             progress = 65
             progressDrawable.setTint(accentColor)
         }
-        epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
 
+        epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
         playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.4f).apply {
             topMargin = dp(15)
         })
@@ -527,15 +498,9 @@ class MainActivity : Activity() {
             setTextColor(textMuted)
             setTypeface(Typeface.DEFAULT_BOLD)
             setPadding(dp(20), dp(15), dp(20), dp(15))
-            background = GradientDrawable().apply {
-                setColor(bgSecondary)
-            }
+            background = GradientDrawable().apply { setColor(bgSecondary) }
         }
     }
-
-    // =========================
-    // LOAD PACKAGES & ITEMS
-    // =========================
 
     private fun loadPackages() {
         packagesLayout.removeAllViews()
@@ -546,7 +511,7 @@ class MainActivity : Activity() {
 
         currentGroup = groups.first()
 
-        groups.forEachIndexed { _, group ->
+        groups.forEach { group ->
             val count = channels.count { it.group == group }
             val card = createPackageCard(group, count, group == currentGroup)
 
@@ -586,6 +551,7 @@ class MainActivity : Activity() {
             setTextColor(if (isSelected) accentColor else textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
+
         layout.addView(nameTv, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
         val badge = TextView(this).apply {
@@ -598,8 +564,8 @@ class MainActivity : Activity() {
                 cornerRadius = dp(6).toFloat()
             }
         }
-        layout.addView(badge)
 
+        layout.addView(badge)
         return layout
     }
 
@@ -614,12 +580,11 @@ class MainActivity : Activity() {
             "GULF SPORTS" -> "قنوات الخليج"
             "AD SPORTS" -> "أبوظبي الرياضية"
             "ALWAN SPORT" -> "ألوان سبورت"
-            "CRICKET" -> "الكريكت"
-            "STAR SPORTS" -> "Star Sports"
             "FAJER TV" -> "الفجر TV"
             "KURDISTAN SPORTS" -> "كوردستان سبورت"
             "SHAHID SPORT" -> "شاهد رياضة"
             "SHASHA" -> "شاشة"
+            "DRAMA & MBC" -> "دراما و MBC 🎬"
             else -> name
         }
     }
@@ -635,10 +600,6 @@ class MainActivity : Activity() {
             tv?.setTextColor(if (isSelected) accentColor else textWhite)
         }
     }
-
-    // =========================
-    // LOAD CHANNELS LIST
-    // =========================
 
     private fun loadChannels(group: String) {
         channelsLayout.removeAllViews()
@@ -667,10 +628,6 @@ class MainActivity : Activity() {
             })
 
             channelButtons.add(card)
-
-            if (index == 0) {
-                card.post { card.requestFocus() }
-            }
         }
     }
 
@@ -684,7 +641,6 @@ class MainActivity : Activity() {
             isFocusableInTouchMode = true
         }
 
-        // Icon Box
         val iconBox = TextView(this).apply {
             text = "TV"
             textSize = 9f
@@ -696,9 +652,9 @@ class MainActivity : Activity() {
                 cornerRadius = dp(6).toFloat()
             }
         }
+
         card.addView(iconBox, LinearLayout.LayoutParams(dp(32), dp(32)))
 
-        // Channel Name
         val name = TextView(this).apply {
             text = "  ${channel.name}"
             textSize = 12f
@@ -706,9 +662,9 @@ class MainActivity : Activity() {
             setTypeface(Typeface.DEFAULT_BOLD)
             maxLines = 1
         }
+
         card.addView(name, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        // Quality Badge
         val quality = TextView(this).apply {
             text = when {
                 channel.name.contains("4K", true) -> "4K"
@@ -724,8 +680,8 @@ class MainActivity : Activity() {
                 cornerRadius = dp(4).toFloat()
             }
         }
-        card.addView(quality)
 
+        card.addView(quality)
         return card
     }
 
@@ -736,14 +692,9 @@ class MainActivity : Activity() {
         selected.background = createCardDrawable(selected.hasFocus(), true)
     }
 
-    // =========================
-    // DRAWABLE STYLING
-    // =========================
-
     private fun createCardDrawable(hasFocus: Boolean, isSelected: Boolean): GradientDrawable {
         return GradientDrawable().apply {
             cornerRadius = dp(8).toFloat()
-
             if (hasFocus) {
                 setColor(accentHover)
                 setStroke(dp(2), accentColor)
@@ -757,25 +708,26 @@ class MainActivity : Activity() {
         }
     }
 
-    // =========================
-    // EXOPLAYER MEDIA STREAMING
-    // =========================
-
-    private fun playChannel(channel: Channel) {
-        epgTitle.text = channel.name
-        epgSub.text = "يُعرض الآن: بث مباشر للقناة"
-
-        try {
-            if (exoPlayer == null) {
-                exoPlayer = ExoPlayer.Builder(this).build()
-                playerView.player = exoPlayer
-
-                exoPlayer?.addListener(object : Player.Listener {
+    private fun initExoPlayer() {
+        if (exoPlayer == null) {
+            exoPlayer = ExoPlayer.Builder(this).build().apply {
+                addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
                         Toast.makeText(this@MainActivity, "تعذر تشغيل هذه القناة حالياً", Toast.LENGTH_SHORT).show()
                     }
                 })
             }
+            playerView.player = exoPlayer
+        }
+    }
+
+    private fun playChannel(channel: Channel) {
+        currentSelectedChannel = channel
+        epgTitle.text = channel.name
+        epgSub.text = "يُعرض الآن: بث مباشر للقناة"
+
+        try {
+            initExoPlayer()
 
             val mediaItem = MediaItem.fromUri(Uri.parse(channel.url))
             exoPlayer?.setMediaItem(mediaItem)
@@ -787,10 +739,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // =========================
-    // FULLSCREEN TOGGLE
-    // =========================
-
     private fun toggleFullscreen() {
         if (fullscreen) exitFullscreen() else enterFullscreen()
     }
@@ -800,16 +748,11 @@ class MainActivity : Activity() {
         fullscreen = true
 
         topBar.visibility = View.GONE
-
-        // Hide list panels
         mainContent.getChildAt(0).visibility = View.GONE
         mainContent.getChildAt(1).visibility = View.GONE
         epgContainer.visibility = View.GONE
 
-        // Remove padding from main column
         playerColumn.setPadding(0, 0, 0, 0)
-
-        // Reset corner rounding & stroke for full window feel
         playerContainer.background = null
 
         val params = playerContainer.layoutParams as LinearLayout.LayoutParams
@@ -824,11 +767,9 @@ class MainActivity : Activity() {
             }
         } else {
             @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         }
 
         playerView.requestFocus()
@@ -839,15 +780,11 @@ class MainActivity : Activity() {
         fullscreen = false
 
         topBar.visibility = View.VISIBLE
-
         mainContent.getChildAt(0).visibility = View.VISIBLE
         mainContent.getChildAt(1).visibility = View.VISIBLE
         epgContainer.visibility = View.VISIBLE
 
-        // Restore padding
         playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
-
-        // Restore original borders
         playerContainer.background = GradientDrawable().apply {
             setColor(Color.BLACK)
             cornerRadius = dp(14).toFloat()
@@ -873,10 +810,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // =========================
-    // REMOTE DPAD KEY EVENTS
-    // =========================
-
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
@@ -895,6 +828,11 @@ class MainActivity : Activity() {
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        currentSelectedChannel?.let { playChannel(it) }
     }
 
     override fun onStop() {
