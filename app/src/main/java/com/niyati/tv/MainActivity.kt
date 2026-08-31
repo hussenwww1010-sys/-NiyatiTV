@@ -1,4 +1,4 @@
-package com.niyati.tv
+Package com.niyati.tv
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -269,17 +269,107 @@ class MainActivity : Activity() {
     }
 
     private fun showWelcomeDialog() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("أهلاً بك في تطبيق NAITI TV 📺")
-        builder.setMessage("استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\nيمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني.")
-        builder.setPositiveButton("ابدأ المشاهدة") { dialog, _ ->
+        val dialogView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(24), dp(28), dp(24), dp(24))
+            background = GradientDrawable().apply {
+                setColor(bgCard)
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), strokeColor)
+            }
+        }
+
+        val iconContainer = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1A00E676"))
+                shape = GradientDrawable.OVAL
+                setStroke(dp(2), statusGreen)
+            }
+        }
+
+        val iconText = TextView(this).apply {
+            text = "📺"
+            textSize = 28f
+            gravity = Gravity.CENTER
+        }
+        iconContainer.addView(iconText, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        val iconParams = LinearLayout.LayoutParams(dp(64), dp(64)).apply {
+            bottomMargin = dp(16)
+        }
+        dialogView.addView(iconContainer, iconParams)
+
+        val titleText = TextView(this).apply {
+            text = "مرحباً بك في NAITI TV"
+            textSize = 20f
+            setTextColor(textWhite)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            gravity = Gravity.CENTER
+        }
+        dialogView.addView(titleText)
+
+        val subTitleText = TextView(this).apply {
+            text = "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!"
+            textSize = 13f
+            setTextColor(textMuted)
+            gravity = Gravity.CENTER
+            setLineSpacing(0f, 1.2f)
+        }
+        val subParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(0, dp(10), 0, dp(24))
+        }
+        dialogView.addView(subTitleText, subParams)
+
+        val startBtn = TextView(this).apply {
+            text = "ابدأ المشاهدة الآن"
+            textSize = 14f
+            setTextColor(bgPrimary)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            background = GradientDrawable().apply {
+                setColor(accentColor)
+                cornerRadius = dp(16).toFloat()
+            }
+        }
+        val btnParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply {
+            bottomMargin = dp(10)
+        }
+        dialogView.addView(startBtn, btnParams)
+
+        val telegramBtn = TextView(this).apply {
+            text = "الانضمام لقناة التليجرام ✈"
+            textSize = 13f
+            setTextColor(textWhite)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            background = GradientDrawable().apply {
+                setColor(bgSecondary)
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(1), Color.parseColor("#363B42"))
+            }
+        }
+        dialogView.addView(telegramBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
+
+        startBtn.setOnClickListener {
             dialog.dismiss()
         }
-        builder.setNeutralButton("قناة التليجرام") { _, _ ->
+
+        telegramBtn.setOnClickListener {
             openTelegramChannel()
+            dialog.dismiss()
         }
-        val dialog = builder.create()
-        dialog.show()
     }
 
     private fun buildInterface() {
