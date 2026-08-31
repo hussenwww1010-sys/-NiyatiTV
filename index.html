@@ -23,8 +23,8 @@
 :root{
     --bg:#070a10;
     --panel:#101722;
-    --card:#151e2b;
-    --card2:#0c121b;
+    --card:rgba(21, 30, 43, 0.85);
+    --card2:rgba(12, 18, 27, 0.85);
     --line:rgba(255,255,255,.07);
     --text:#f7f9fc;
     --muted:#8994a6;
@@ -42,18 +42,12 @@ body{
 }
 
 body{
-    background:
-        radial-gradient(
-            circle at 80% 0,
-            rgba(231,180,90,.09),
-            transparent 30%
-        ),
-        radial-gradient(
-            circle at 10% 90%,
-            rgba(45,80,120,.12),
-            transparent 35%
-        ),
-        var(--bg);
+    background-image: url('https://raw.githubusercontent.com/hussenwww1010-sys/-NiyatiTV/refs/heads/main/app/src/main/res/drawable/bg_main.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-color: var(--bg);
 }
 
 button{
@@ -80,7 +74,7 @@ header{
     align-items:center;
     padding:0 28px;
 
-    background:rgba(7,10,16,.94);
+    background:rgba(7,10,16,.85);
 
     border-bottom:
         1px solid var(--line);
@@ -219,9 +213,11 @@ header{
     background:
         linear-gradient(
             180deg,
-            #121923,
-            #0a0f16
+            rgba(18, 25, 35, 0.85),
+            rgba(10, 15, 22, 0.85)
         );
+
+    backdrop-filter: blur(10px);
 
     box-shadow:
         0 24px 70px
@@ -691,6 +687,8 @@ video{
             var(--card2)
         );
 
+    backdrop-filter: blur(8px);
+
     cursor:pointer;
 
     transition:.15s;
@@ -722,8 +720,8 @@ video{
     background:
         linear-gradient(
             135deg,
-            #2c251a,
-            #101720
+            rgba(44, 37, 26, 0.9),
+            rgba(16, 23, 32, 0.9)
         );
 }
 
