@@ -94,14 +94,7 @@ class MainActivity : Activity() {
     }
 
     private val channels = mutableListOf<Channel>().apply {
-        // BEIN TOD
-        add(c("beIN Tod 4K", "BEIN TOD", "460835"))
-        for (i in 1..9) add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}"))
-        add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
-        add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
-        for (i in 1..9) add(c("beIN Sport Tod Extra $i", "BEIN TOD", "${460846 + i}"))
-
-        // BEIN SPORTS
+        // 1. BEIN SPORTS (الباقة الأولى)
         add(c("beIN Sport Global 4K", "BEIN SPORTS", "22186"))
         add(c("beIN Sport News 4K", "BEIN SPORTS", "318230"))
 
@@ -137,7 +130,27 @@ class MainActivity : Activity() {
         add(c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"))
         add(c("beIN Sport French 2 SD", "BEIN SPORTS", "319428"))
 
-        // BEIN XTRA
+        // 2. BEIN TOD (الباقة الثانية)
+        add(c("beIN Tod 4K", "BEIN TOD", "460835"))
+        for (i in 1..9) add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}"))
+        add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
+        add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
+        for (i in 1..9) add(c("beIN Sport Tod Extra $i", "BEIN TOD", "${460846 + i}"))
+
+        // 3. ALWAN SPORT (الباقة الثالثة)
+        val alwan = listOf(418111, 418112, 418113, 418114, 418115, 418116, 418117, 418118, 418119, 418120, 418121, 418122, 418123, 418124, 418125, 418126, 418127, 418128)
+        for (i in 1..6) {
+            val x = (i - 1) * 3
+            alwan.getOrNull(x)?.let { add(c("Alwan Sport $i 4K", "ALWAN SPORT", it.toString())) }
+            alwan.getOrNull(x + 1)?.let { add(c("Alwan Sport $i HD", "ALWAN SPORT", it.toString())) }
+            alwan.getOrNull(x + 2)?.let { add(c("Alwan Sport $i SD", "ALWAN SPORT", it.toString())) }
+        }
+        listOf(
+            "Alwan Sport 7 4K" to "433739", "Alwan Sport 8 4K" to "433740",
+            "Alwan Sport 9 4K" to "433741", "Alwan Sport 10 4K" to "433742"
+        ).forEach { add(c(it.first, "ALWAN SPORT", it.second)) }
+
+        // 4. BEIN XTRA
         val xtra4k = listOf(325790, 319487, 319488, 440569, 440570, 440571, 447243, 447244, 447245)
         val xtraHd = listOf(325812, 319435, 319436, 440572, 440573, 440574, 447246, 447247, 447248)
         val xtraSd = listOf(325822, 319423, 319424, 440575, 440576, 440577, 447249, 447250, 447251)
@@ -148,7 +161,7 @@ class MainActivity : Activity() {
             xtraSd.getOrNull(i - 1)?.let { add(c("beIN Sport XTRA $i SD", "BEIN XTRA", it.toString())) }
         }
 
-        // AL RABIAA
+        // 5. AL RABIAA
         listOf(
             "AL RABIAA SPORT 1" to "371931", "AL RABIAA SPORT 1+" to "371933",
             "AL RABIAA SPORT 2" to "371932", "Rabiaa Sport +2" to "434565",
@@ -158,13 +171,13 @@ class MainActivity : Activity() {
             "AL RABIAA QURAN" to "371937", "AL RABIAA MUSICA" to "371938"
         ).forEach { add(c(it.first, "AL RABIAA", it.second)) }
 
-        // ALKASS
+        // 6. ALKASS
         val alkassIds = listOf(96214, 96215, 278068, 96216, 96217, 211523, 379828, 379829, 393991, 393992)
         for (i in 1..10) {
             alkassIds.getOrNull(i - 1)?.let { add(c("Alkass $i HD", "ALKASS", it.toString())) }
         }
 
-        // SAUDI SPORTS
+        // 7. SAUDI SPORTS
         listOf(
             "KSA Sport 1 4K" to "97805", "KSA Sport 2 4K" to "97806",
             "KSA Sport 3 4K" to "97807", "SAUDUA NOW" to "97808",
@@ -173,7 +186,13 @@ class MainActivity : Activity() {
             "STC SPORT 4 HD" to "433178"
         ).forEach { add(c(it.first, "SAUDI SPORTS", it.second)) }
 
-        // GULF SPORTS
+        // 8. AD SPORTS
+        listOf(
+            "AD SPORTS 1 HD" to "326053", "AD SPORTS 2 HD" to "326054",
+            "AD Sport Asia 1 HD" to "244188", "AD Sport Asia 2 HD" to "244191"
+        ).forEach { add(c(it.first, "AD SPORTS", it.second)) }
+
+        // 9. GULF SPORTS
         listOf(
             "Dubai Sport 1 HD" to "97813", "Dubai Sport 2 HD" to "97814",
             "Dubai Racing 1 HD" to "97816", "On Sport HD 1" to "97820",
@@ -190,33 +209,17 @@ class MainActivity : Activity() {
             "PalestineSport" to "417306"
         ).forEach { add(c(it.first, "GULF SPORTS", it.second)) }
 
-        // AD SPORTS
-        listOf(
-            "AD SPORTS 1 HD" to "326053", "AD SPORTS 2 HD" to "326054",
-            "AD Sport Asia 1 HD" to "244188", "AD Sport Asia 2 HD" to "244191"
-        ).forEach { add(c(it.first, "AD SPORTS", it.second)) }
+        // 10. SHAHID SPORT
+        for (i in 1..5) add(c("Shahid Sport $i 4K", "SHAHID SPORT", "${430910 + i}"))
 
-        // ALWAN SPORT
-        val alwan = listOf(418111, 418112, 418113, 418114, 418115, 418116, 418117, 418118, 418119, 418120, 418121, 418122, 418123, 418124, 418125, 418126, 418127, 418128)
-        for (i in 1..6) {
-            val x = (i - 1) * 3
-            alwan.getOrNull(x)?.let { add(c("Alwan Sport $i 4K", "ALWAN SPORT", it.toString())) }
-            alwan.getOrNull(x + 1)?.let { add(c("Alwan Sport $i HD", "ALWAN SPORT", it.toString())) }
-            alwan.getOrNull(x + 2)?.let { add(c("Alwan Sport $i SD", "ALWAN SPORT", it.toString())) }
-        }
-        listOf(
-            "Alwan Sport 7 4K" to "433739", "Alwan Sport 8 4K" to "433740",
-            "Alwan Sport 9 4K" to "433741", "Alwan Sport 10 4K" to "433742"
-        ).forEach { add(c(it.first, "ALWAN SPORT", it.second)) }
-
-        // FAJER TV
+        // 11. FAJER TV
         listOf(
             "Fajer TV 1" to "463532", "Fajer TV 2" to "463533",
             "Fajer TV 3" to "463534", "Fajer TV 4" to "463535",
             "Fajer TV 5" to "463536"
         ).forEach { add(c(it.first, "FAJER TV", it.second)) }
 
-        // KURDISTAN SPORTS
+        // 12. KURDISTAN SPORTS
         listOf(
             "KU: Duhok Sport" to "358226", "KU: LD Sport" to "358229",
             "KU: See Sport 1" to "358222", "KU: See Sport 2" to "358223",
@@ -231,16 +234,13 @@ class MainActivity : Activity() {
             "KU: Delal Sport" to "358239"
         ).forEach { add(c(it.first, "KURDISTAN SPORTS", it.second)) }
 
-        // SHAHID SPORT
-        for (i in 1..5) add(c("Shahid Sport $i 4K", "SHAHID SPORT", "${430910 + i}"))
-
-        // SHASHA
+        // 13. SHASHA
         listOf(
             "Shasha 1 TV 4K" to "348400", "Shasha 2 TV 4K" to "244079",
             "Shasha 3 TV 4K" to "443029"
         ).forEach { add(c(it.first, "SHASHA", it.second)) }
 
-        // DRAMA & MBC
+        // 14. DRAMA & MBC
         listOf(
             "Drama TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316966&extension=ts",
             "Maraya TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316957&extension=ts",
@@ -536,10 +536,10 @@ class MainActivity : Activity() {
         }
 
         playerContainer.addView(watermark, wmParams)
-        
+
         val playerHeight = if (isTvDevice()) 0 else dp(210)
         val playerWeight = if (isTvDevice()) 0.65f else 0f
-        
+
         playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, playerHeight, playerWeight))
 
         epgContainer = LinearLayout(this).apply {
@@ -574,10 +574,10 @@ class MainActivity : Activity() {
         }
 
         epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)))
-        
+
         val epgHeight = if (isTvDevice()) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
         val epgWeight = if (isTvDevice()) 0.35f else 0f
-        
+
         playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, epgHeight, epgWeight).apply {
             topMargin = dp(10)
         })
@@ -669,18 +669,18 @@ class MainActivity : Activity() {
 
     private fun packageDisplayName(name: String): String {
         return when (name) {
-            "BEIN TOD" -> "beIN TOD ⚽"
             "BEIN SPORTS" -> "beIN SPORTS 🏆"
+            "BEIN TOD" -> "beIN TOD ⚽"
+            "ALWAN SPORT" -> "Alwan Sport 🎨"
             "BEIN XTRA" -> "beIN XTRA 🔥"
             "AL RABIAA" -> "Al Rabiaa Sport"
             "ALKASS" -> "Alkass Qatar"
             "SAUDI SPORTS" -> "Saudi Sports"
-            "GULF SPORTS" -> "Gulf Sports"
             "AD SPORTS" -> "Abu Dhabi Sports"
-            "ALWAN SPORT" -> "Alwan Sport"
+            "GULF SPORTS" -> "Gulf Sports"
+            "SHAHID SPORT" -> "Shahid Sport"
             "FAJER TV" -> "Fajer TV"
             "KURDISTAN SPORTS" -> "Kurdistan Sports"
-            "SHAHID SPORT" -> "Shahid Sport"
             "SHASHA" -> "Shasha TV"
             "DRAMA & MBC" -> "Drama & MBC 🎬"
             else -> name
@@ -868,7 +868,7 @@ class MainActivity : Activity() {
         fullscreen = true
 
         topBar.visibility = View.GONE
-        
+
         if (isTvDevice()) {
             mainContent.getChildAt(0).visibility = View.GONE
             mainContent.getChildAt(1).visibility = View.GONE
@@ -876,7 +876,7 @@ class MainActivity : Activity() {
             mainContent.getChildAt(1).visibility = View.GONE
             mainContent.getChildAt(2).visibility = View.GONE
         }
-        
+
         epgContainer.visibility = View.GONE
 
         playerColumn.setPadding(0, 0, 0, 0)
@@ -907,7 +907,7 @@ class MainActivity : Activity() {
         fullscreen = false
 
         topBar.visibility = View.VISIBLE
-        
+
         if (isTvDevice()) {
             mainContent.getChildAt(0).visibility = View.VISIBLE
             mainContent.getChildAt(1).visibility = View.VISIBLE
@@ -915,7 +915,7 @@ class MainActivity : Activity() {
             mainContent.getChildAt(1).visibility = View.VISIBLE
             mainContent.getChildAt(2).visibility = View.VISIBLE
         }
-        
+
         epgContainer.visibility = View.VISIBLE
 
         playerColumn.setPadding(dp(15), dp(10), dp(15), dp(10))
