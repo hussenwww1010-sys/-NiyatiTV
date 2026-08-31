@@ -2,7 +2,10 @@ package com.niyati.tv
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.UiModeManager
+import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -76,6 +79,11 @@ class MainActivity : Activity() {
     private val telegramUrl = "https://t.me/NAITI_Tv"
 
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
+
+    private fun isTvDevice(): Boolean {
+        val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+        return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+    }
 
     private fun c(name: String, group: String, id: String): Channel {
         return Channel(name = name, group = group, url = "$base$id.ts")
@@ -278,19 +286,25 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgPrimary)
-            layoutDirection = View.LAYOUT_DIRECTION_LTR // LTR Layout for English Interface
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
 
         createTopBar()
 
         mainContent = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = if (isTvDevice()) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             setBackgroundColor(bgPrimary)
         }
 
-        createPackageColumn()
-        createChannelColumn()
-        createPlayerColumn()
+        if (isTvDevice()) {
+            createPackageColumn()
+            createChannelColumn()
+            createPlayerColumn()
+        } else {
+            createPlayerColumn()
+            createPackageColumn()
+            createChannelColumn()
+        }
 
         root.addView(mainContent, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
@@ -432,7 +446,9 @@ class MainActivity : Activity() {
         scroll.addView(packagesLayout, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        mainContent.addView(col, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.MATCH_PARENT))
+        val width = if (isTvDevice()) dp(220) else LinearLayout.LayoutParams.MATCH_PARENT
+        val height = if (isTvDevice()) LinearLayout.LayoutParams.MATCH_PARENT else dp(130)
+        mainContent.addView(col, LinearLayout.LayoutParams(width, height))
     }
 
     private fun createChannelColumn() {
@@ -456,13 +472,17 @@ class MainActivity : Activity() {
         scroll.addView(channelsLayout, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        mainContent.addView(col, LinearLayout.LayoutParams(dp(280), LinearLayout.LayoutParams.MATCH_PARENT))
+        val width = if (isTvDevice()) dp(280) else LinearLayout.LayoutParams.MATCH_PARENT
+        val height = if (isTvDevice()) LinearLayout.LayoutParams.MATCH_PARENT else 0
+        val weight = if (isTvDevice()) 0f else 1f
+
+        mainContent.addView(col, LinearLayout.LayoutParams(width, height, weight))
     }
 
     private fun createPlayerColumn() {
         playerColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(15), dp(20), dp(20))
+            setPadding(dp(15), dp(10), dp(15), dp(10))
             setBackgroundColor(bgPrimary)
         }
 
@@ -516,11 +536,15 @@ class MainActivity : Activity() {
         }
 
         playerContainer.addView(watermark, wmParams)
-        playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f))
+        
+        val playerHeight = if (isTvDevice()) 0 else dp(210)
+        val playerWeight = if (isTvDevice()) 0.65f else 0f
+        
+        playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, playerHeight, playerWeight))
 
         epgContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(16))
+            setPadding(dp(15), dp(10), dp(15), dp(10))
             background = GradientDrawable().apply {
                 setColor(bgSecondary)
                 cornerRadius = dp(20).toFloat()
@@ -530,7 +554,7 @@ class MainActivity : Activity() {
 
         epgTitle = TextView(this).apply {
             text = "Select a channel to play"
-            textSize = 16f
+            textSize = 15f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
         }
@@ -538,9 +562,9 @@ class MainActivity : Activity() {
 
         epgSub = TextView(this).apply {
             text = "Live Stream Ready"
-            textSize = 12f
+            textSize = 11f
             setTextColor(textMuted)
-            setPadding(0, dp(4), 0, dp(12))
+            setPadding(0, dp(2), 0, dp(8))
         }
         epgContainer.addView(epgSub)
 
@@ -549,12 +573,20 @@ class MainActivity : Activity() {
             progressDrawable.setTint(accentColor)
         }
 
-        epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
-        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.35f).apply {
-            topMargin = dp(15)
+        epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(4)))
+        
+        val epgHeight = if (isTvDevice()) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+        val epgWeight = if (isTvDevice()) 0.35f else 0f
+        
+        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, epgHeight, epgWeight).apply {
+            topMargin = dp(10)
         })
 
-        mainContent.addView(playerColumn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+        val mainPlayerWidth = if (isTvDevice()) 0 else LinearLayout.LayoutParams.MATCH_PARENT
+        val mainPlayerHeight = if (isTvDevice()) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT
+        val mainPlayerWeight = if (isTvDevice()) 1f else 0f
+
+        mainContent.addView(playerColumn, LinearLayout.LayoutParams(mainPlayerWidth, mainPlayerHeight, mainPlayerWeight))
     }
 
     private fun createColumnHeader(title: String): TextView {
@@ -563,7 +595,7 @@ class MainActivity : Activity() {
             textSize = 13f
             setTextColor(textMuted)
             setTypeface(Typeface.DEFAULT_BOLD)
-            setPadding(dp(20), dp(18), dp(20), dp(12))
+            setPadding(dp(20), dp(14), dp(20), dp(10))
             background = GradientDrawable().apply { setColor(bgSecondary) }
         }
     }
@@ -836,8 +868,15 @@ class MainActivity : Activity() {
         fullscreen = true
 
         topBar.visibility = View.GONE
-        mainContent.getChildAt(0).visibility = View.GONE
-        mainContent.getChildAt(1).visibility = View.GONE
+        
+        if (isTvDevice()) {
+            mainContent.getChildAt(0).visibility = View.GONE
+            mainContent.getChildAt(1).visibility = View.GONE
+        } else {
+            mainContent.getChildAt(1).visibility = View.GONE
+            mainContent.getChildAt(2).visibility = View.GONE
+        }
+        
         epgContainer.visibility = View.GONE
 
         playerColumn.setPadding(0, 0, 0, 0)
@@ -868,11 +907,18 @@ class MainActivity : Activity() {
         fullscreen = false
 
         topBar.visibility = View.VISIBLE
-        mainContent.getChildAt(0).visibility = View.VISIBLE
-        mainContent.getChildAt(1).visibility = View.VISIBLE
+        
+        if (isTvDevice()) {
+            mainContent.getChildAt(0).visibility = View.VISIBLE
+            mainContent.getChildAt(1).visibility = View.VISIBLE
+        } else {
+            mainContent.getChildAt(1).visibility = View.VISIBLE
+            mainContent.getChildAt(2).visibility = View.VISIBLE
+        }
+        
         epgContainer.visibility = View.VISIBLE
 
-        playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
+        playerColumn.setPadding(dp(15), dp(10), dp(15), dp(10))
         playerContainer.background = GradientDrawable().apply {
             setColor(Color.BLACK)
             cornerRadius = dp(20).toFloat()
@@ -880,8 +926,8 @@ class MainActivity : Activity() {
         }
 
         val params = playerContainer.layoutParams as LinearLayout.LayoutParams
-        params.height = 0
-        params.weight = 0.65f
+        params.height = if (isTvDevice()) 0 else dp(210)
+        params.weight = if (isTvDevice()) 0.65f else 0f
         playerContainer.layoutParams = params
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
