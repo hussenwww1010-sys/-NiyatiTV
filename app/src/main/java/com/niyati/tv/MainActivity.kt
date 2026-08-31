@@ -1,6 +1,8 @@
 package com.niyati.tv
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -58,17 +60,20 @@ class MainActivity : Activity() {
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
 
-    // الألوان الجديدة الحديثة
+    // UI Colors
     private val bgPrimary = Color.parseColor("#090C10")
     private val bgSecondary = Color.parseColor("#0D1117")
     private val bgCard = Color.parseColor("#161B22")
-    private val accentColor = Color.parseColor("#00E5FF") // الفيروزي المضيء
+    private val accentColor = Color.parseColor("#00E5FF") // Turquoise Accent
     private val accentHover = Color.parseColor("#1F2937")
+    private val telegramBlue = Color.parseColor("#24A1DE") // Official Telegram Color
 
     private val textWhite = Color.WHITE
     private val textMuted = Color.parseColor("#8B949E")
     private val statusGreen = Color.parseColor("#00E676")
     private val strokeColor = Color.parseColor("#21262D")
+
+    private val telegramUrl = "https://t.me/NAITI_Tv"
 
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
@@ -229,8 +234,8 @@ class MainActivity : Activity() {
 
         // DRAMA & MBC
         listOf(
-            "دراما" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316966&extension=ts",
-            "مرايا" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316957&extension=ts",
+            "Drama TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316966&extension=ts",
+            "Maraya TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316957&extension=ts",
             "MBC 1" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120314&extension=ts",
             "MBC 2" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120313&extension=ts",
             "MBC 3" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120312&extension=ts",
@@ -252,13 +257,28 @@ class MainActivity : Activity() {
         window.navigationBarColor = bgPrimary
 
         buildInterface()
+        showWelcomeDialog()
+    }
+
+    private fun showWelcomeDialog() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("أهلاً بك في تطبيق NAITI TV 📺")
+        builder.setMessage("استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\nيمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني.")
+        builder.setPositiveButton("ابدأ المشاهدة") { dialog, _ ->
+            dialog.dismiss()
+        }
+        builder.setNeutralButton("قناة التليجرام") { _, _ ->
+            openTelegramChannel()
+        }
+        val dialog = builder.create()
+        dialog.show()
     }
 
     private fun buildInterface() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgPrimary)
-            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            layoutDirection = View.LAYOUT_DIRECTION_LTR // LTR Layout for English Interface
         }
 
         createTopBar()
@@ -305,7 +325,7 @@ class MainActivity : Activity() {
         topBar.addView(logoBox, LinearLayout.LayoutParams(dp(40), dp(40)))
 
         val brandText = TextView(this).apply {
-            text = "  NIYATI TV"
+            text = "  NAITI TV"
             textSize = 18f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
@@ -315,6 +335,42 @@ class MainActivity : Activity() {
         val spacer = View(this)
         topBar.addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
 
+        // Telegram Button
+        val telegramBtn = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            isFocusable = true
+            isFocusableInTouchMode = true
+            background = GradientDrawable().apply {
+                setColor(telegramBlue)
+                cornerRadius = dp(20).toFloat()
+            }
+            setOnClickListener { openTelegramChannel() }
+        }
+
+        val tgIcon = TextView(this).apply {
+            text = "✈ "
+            textSize = 12f
+            setTextColor(textWhite)
+        }
+
+        val tgText = TextView(this).apply {
+            text = "Telegram"
+            textSize = 11f
+            setTextColor(textWhite)
+            setTypeface(Typeface.DEFAULT_BOLD)
+        }
+
+        telegramBtn.addView(tgIcon)
+        telegramBtn.addView(tgText)
+
+        val tgParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(0, 0, dp(12), 0)
+        }
+        topBar.addView(telegramBtn, tgParams)
+
+        // Live Badge
         val liveBadge = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -333,7 +389,7 @@ class MainActivity : Activity() {
         }
 
         val liveText = TextView(this).apply {
-            text = "مباشر"
+            text = "LIVE"
             textSize = 11f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
@@ -346,13 +402,22 @@ class MainActivity : Activity() {
         root.addView(topBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)))
     }
 
+    private fun openTelegramChannel() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "تعذر فتح رابط التليجرام", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun createPackageColumn() {
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgSecondary)
         }
 
-        col.addView(createColumnHeader("الباقات"))
+        col.addView(createColumnHeader("PACKAGES"))
 
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -376,7 +441,7 @@ class MainActivity : Activity() {
             setBackgroundColor(bgSecondary)
         }
 
-        col.addView(createColumnHeader("القنوات المتاحة"))
+        col.addView(createColumnHeader("AVAILABLE CHANNELS"))
 
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -434,7 +499,7 @@ class MainActivity : Activity() {
         playerContainer.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         val watermark = TextView(this).apply {
-            text = "NIYATI TV"
+            text = "NAITI TV"
             textSize = 10f
             setTextColor(Color.parseColor("#80FFFFFF"))
             setTypeface(Typeface.DEFAULT_BOLD)
@@ -464,7 +529,7 @@ class MainActivity : Activity() {
         }
 
         epgTitle = TextView(this).apply {
-            text = "اختر قناة لبدء العرض"
+            text = "Select a channel to play"
             textSize = 16f
             setTextColor(textWhite)
             setTypeface(Typeface.DEFAULT_BOLD)
@@ -472,7 +537,7 @@ class MainActivity : Activity() {
         epgContainer.addView(epgTitle)
 
         epgSub = TextView(this).apply {
-            text = "البث المباشر جاهز"
+            text = "Live Stream Ready"
             textSize = 12f
             setTextColor(textMuted)
             setPadding(0, dp(4), 0, dp(12))
@@ -480,7 +545,7 @@ class MainActivity : Activity() {
         epgContainer.addView(epgSub)
 
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            progress = 65
+            progress = 100
             progressDrawable.setTint(accentColor)
         }
 
@@ -575,17 +640,17 @@ class MainActivity : Activity() {
             "BEIN TOD" -> "beIN TOD ⚽"
             "BEIN SPORTS" -> "beIN SPORTS 🏆"
             "BEIN XTRA" -> "beIN XTRA 🔥"
-            "AL RABIAA" -> "الرابعة الرياضية"
-            "ALKASS" -> "الكأس QATAR"
-            "SAUDI SPORTS" -> "السعودية الرياضية"
-            "GULF SPORTS" -> "قنوات الخليج"
-            "AD SPORTS" -> "أبوظبي الرياضية"
-            "ALWAN SPORT" -> "ألوان سبورت"
-            "FAJER TV" -> "الفجر TV"
-            "KURDISTAN SPORTS" -> "كوردستان سبورت"
-            "SHAHID SPORT" -> "شاهد رياضة"
-            "SHASHA" -> "شاشة"
-            "DRAMA & MBC" -> "دراما و MBC 🎬"
+            "AL RABIAA" -> "Al Rabiaa Sport"
+            "ALKASS" -> "Alkass Qatar"
+            "SAUDI SPORTS" -> "Saudi Sports"
+            "GULF SPORTS" -> "Gulf Sports"
+            "AD SPORTS" -> "Abu Dhabi Sports"
+            "ALWAN SPORT" -> "Alwan Sport"
+            "FAJER TV" -> "Fajer TV"
+            "KURDISTAN SPORTS" -> "Kurdistan Sports"
+            "SHAHID SPORT" -> "Shahid Sport"
+            "SHASHA" -> "Shasha TV"
+            "DRAMA & MBC" -> "Drama & MBC 🎬"
             else -> name
         }
     }
@@ -693,20 +758,20 @@ class MainActivity : Activity() {
         return card
     }
 
-    private fun updateChannelSelection(selected: View) {
-        for ((index, button) in channelButtons.withIndex()) {
-            val isSelected = index == currentChannelIndex
-            button.background = createCardDrawable(button.hasFocus(), isSelected)
+    private fun updateChannelSelection(selectedView: View) {
+        for (i in 0 until channelsLayout.childCount) {
+            val child = channelsLayout.getChildAt(i) as? LinearLayout ?: continue
+            val isSelected = (i == currentChannelIndex)
+            child.background = createCardDrawable(child.hasFocus(), isSelected)
 
-            val layout = button as? LinearLayout ?: continue
-            val iconBox = layout.getChildAt(0) as? TextView
+            val iconBox = child.getChildAt(0) as? TextView
             iconBox?.setTextColor(if (isSelected) bgPrimary else accentColor)
             iconBox?.background = GradientDrawable().apply {
                 setColor(if (isSelected) textWhite else bgPrimary)
                 cornerRadius = dp(12).toFloat()
             }
 
-            val quality = layout.getChildAt(2) as? TextView
+            val quality = child.getChildAt(2) as? TextView
             quality?.setTextColor(if (isSelected) bgPrimary else accentColor)
             quality?.background = GradientDrawable().apply {
                 setColor(if (isSelected) textWhite else Color.parseColor("#1500E5FF"))
@@ -715,15 +780,14 @@ class MainActivity : Activity() {
         }
     }
 
-    // بناء الأزرار الكبسولية الشفافة والبارزة
     private fun createCardDrawable(hasFocus: Boolean, isSelected: Boolean): GradientDrawable {
         return GradientDrawable().apply {
-            cornerRadius = dp(24).toFloat() // تصميم كبسولة دائري بالكامل
+            cornerRadius = dp(24).toFloat()
             if (hasFocus) {
                 setColor(accentHover)
                 setStroke(dp(2), accentColor)
             } else if (isSelected) {
-                setColor(accentColor) // لون فيروزي ملفت عند الاختيار
+                setColor(accentColor)
                 setStroke(dp(0), Color.TRANSPARENT)
             } else {
                 setColor(bgCard)
@@ -748,7 +812,7 @@ class MainActivity : Activity() {
     private fun playChannel(channel: Channel) {
         currentSelectedChannel = channel
         epgTitle.text = channel.name
-        epgSub.text = "يُعرض الآن: بث مباشر للقناة"
+        epgSub.text = "Now Playing: Live Broadcast"
 
         try {
             initExoPlayer()
