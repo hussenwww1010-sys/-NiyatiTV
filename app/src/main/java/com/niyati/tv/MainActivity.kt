@@ -232,21 +232,41 @@ class MainActivity : Activity() {
             "Shasha 3 TV 4K" to "443029"
         ).forEach { add(c(it.first, "SHASHA", it.second)) }
 
-        // DRAMA & MBC
+        // SHAHID VIP
         listOf(
-            "Drama TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316966&extension=ts",
-            "Maraya TV" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=316957&extension=ts",
-            "MBC 1" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120314&extension=ts",
-            "MBC 2" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120313&extension=ts",
-            "MBC 3" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120312&extension=ts",
-            "MBC 4" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120311&extension=ts",
-            "MBC ACTION" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120308&extension=ts",
-            "MBC MAX FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=23077&extension=ts",
-            "MBC DRAMA" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120306&extension=ts",
-            "MBC MASR 1 FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120303&extension=ts",
-            "MBC MASR 2 FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=120302&extension=ts",
-            "MBC IRAQ FHD" to "http://4kpro2.com:8789/play/live.php?mac=00:1A:79:FB:74:61&stream=84196&extension=ts"
-        ).forEach { add(customChannel(it.first, "DRAMA & MBC", it.second)) }
+            "SHAHID CINEMA 1 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265710.ts",
+            "SHAHID CINEMA 2 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265711.ts",
+            "SHAHID CINEMA 3 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265712.ts",
+            "SHAHID CINEMA 4 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265713.ts",
+            "SHAHID CINEMA 5 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265714.ts",
+            "SHAHID CINEMA 6 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265715.ts",
+            "SHAHID CINEMA 7 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265716.ts",
+            "SHAHID CINEMA 8 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265717.ts",
+            "SHAHID CINEMA 9 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265718.ts",
+            "SHAHID CINEMA 10 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265719.ts",
+            "SHAHID CINEMA 11 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265720.ts",
+            "SHAHID CINEMA 12 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265721.ts",
+            "SHAHID CINEMA 13 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265722.ts",
+            "SHAHID CINEMA 14 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265723.ts",
+            "SHAHID CINEMA 15 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265724.ts",
+            "SHAHID CINEMA 16 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265725.ts",
+            "SHAHID CINEMA 17 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265726.ts",
+            "SHAHID CINEMA 18 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265727.ts",
+            "Shahid Top Chef" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260364.ts",
+            "Shahid History" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260368.ts",
+            "Shahid Khaleeji" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260374.ts",
+            "Shahid Turki" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260377.ts",
+            "Shahid Style" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260381.ts",
+            "Shahid Tash" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260383.ts",
+            "Shahid Korea" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260367.ts",
+            "Shahid Al Huffra" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260371.ts",
+            "Shahid Al Hayba HD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260380.ts",
+            "Shahid Zeina & Aziza" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/292929.ts",
+            "Hala London International UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/596774.ts",
+            "Shahid Al Hayba" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513091.ts",
+            "Shahid Bab Al-Hara" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513090.ts",
+            "Shahid Naser Al Qassaby" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513098.ts"
+        ).forEach { add(customChannel(it.first, "SHAHID VIP", it.second)) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -650,7 +670,7 @@ class MainActivity : Activity() {
             "KURDISTAN SPORTS" -> "Kurdistan Sports"
             "SHAHID SPORT" -> "Shahid Sport"
             "SHASHA" -> "Shasha TV"
-            "DRAMA & MBC" -> "Drama & MBC 🎬"
+            "SHAHID VIP" -> "Shahid VIP 🎬"
             else -> name
         }
     }
@@ -740,7 +760,7 @@ class MainActivity : Activity() {
 
         val quality = TextView(this).apply {
             text = when {
-                channel.name.contains("4K", true) -> "4K"
+                channel.name.contains("UHD", true) || channel.name.contains("4K", true) -> "UHD"
                 channel.name.contains("FHD", true) -> "FHD"
                 channel.name.contains("HD", true) -> "HD"
                 else -> "SD"
