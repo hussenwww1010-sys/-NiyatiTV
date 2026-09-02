@@ -925,7 +925,7 @@ class MainActivity : Activity() {
             "MUSIC" -> "موسيقى 🎶"
             "IRAQ" -> "العراق 🇮🇶"
             "KSA" -> "السعودية 🇸🇦"
-            "UAE" -> "الإمارات 🇦🇪"
+            "UAE" -> "الإارات 🇦🇪"
             "QATAR" -> "قطر 🇶🇦"
             "SYRIA" -> "سوريا 🇸🇾"
             "LEBANON" -> "لبنان 🇱🇧"
@@ -1090,7 +1090,8 @@ class MainActivity : Activity() {
             exoPlayer = ExoPlayer.Builder(this).build().apply {
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
-                        Toast.makeText(this@MainActivity, "تعذر تشغيل هذه القناة حالياً", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "تعذر تشغيل هذه القناة حالياً، جاري إعادة المحاولة...", Toast.LENGTH_SHORT).show()
+                        currentSelectedChannel?.let { playChannel(it) }
                     }
                 })
             }
@@ -1107,9 +1108,12 @@ class MainActivity : Activity() {
             initExoPlayer()
 
             val mediaItem = MediaItem.fromUri(Uri.parse(channel.url))
-            exoPlayer?.setMediaItem(mediaItem)
-            exoPlayer?.prepare()
-            exoPlayer?.playWhenReady = true
+            exoPlayer?.apply {
+                stop()
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
 
         } catch (e: Exception) {
             Toast.makeText(this, "خطأ في تشغيل القناة", Toast.LENGTH_SHORT).show()
