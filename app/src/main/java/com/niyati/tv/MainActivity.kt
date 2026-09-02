@@ -9,6 +9,8 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -44,6 +46,13 @@ class MainActivity : Activity() {
     private var currentChannelIndex = -1
     private var currentSelectedChannel: Channel? = null
 
+    // إدارة إعادة الاتصال التلقائي
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private var reconnectRunnable: Runnable? = null
+    private var reconnectAttempts = 0
+    private val maxReconnectAttempts = 5
+    private val reconnectDelayMs = 3000L
+
     private val visibleChannels = mutableListOf<Channel>()
     private val channelButtons = mutableListOf<View>()
     private val packageButtons = mutableListOf<View>()
@@ -59,6 +68,8 @@ class MainActivity : Activity() {
     private lateinit var epgSub: TextView
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
+    private lateinit var customControlsLayout: LinearLayout
+    private lateinit var btnPlayPause: TextView
 
     // UI Colors
     private val bgPrimary = Color.parseColor("#090C10")
@@ -66,7 +77,7 @@ class MainActivity : Activity() {
     private val bgCard = Color.parseColor("#161B22")
     private val accentColor = Color.parseColor("#00E5FF") // Turquoise Accent
     private val accentHover = Color.parseColor("#1F2937")
-    private val telegramBlue = Color.parseColor("#24A1DE") // Official Telegram Color
+    private val telegramBlue = Color.parseColor("#24A1DE")
 
     private val textWhite = Color.WHITE
     private val textMuted = Color.parseColor("#8B949E")
@@ -74,7 +85,6 @@ class MainActivity : Activity() {
     private val strokeColor = Color.parseColor("#21262D")
 
     private val telegramUrl = "https://t.me/NAITI_Tv"
-
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
     private fun c(name: String, group: String, id: String): Channel {
@@ -356,9 +366,8 @@ class MainActivity : Activity() {
         ).forEach { add(customChannel(it.first, "MUSIC", it.second)) }
 
         // ==========================================
-        // 22. القنوات المحلية والإقليمية حسب الدول
+        // 22. القنوات المحلية والإقليمية
         // ==========================================
-        // العراق
         listOf(
             "ALWAN SPORT 1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2607.ts",
             "ALWAN SPORT 2" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2608.ts",
@@ -372,7 +381,6 @@ class MainActivity : Activity() {
             "Dijlah Zaman TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2462.ts"
         ).forEach { add(customChannel(it.first, "IRAQ", it.second)) }
 
-        // السعودية
         listOf(
             "KSA SPORTS 3 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2497.ts",
             "Al Arabiya Business" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2492.ts",
@@ -381,7 +389,6 @@ class MainActivity : Activity() {
             "Thikrayat HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2494.ts"
         ).forEach { add(customChannel(it.first, "KSA", it.second)) }
 
-        // الإمارات
         listOf(
             "DUBAI SPORTS 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2548.ts",
             "DUBAI SPORTS 2 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2549.ts",
@@ -390,7 +397,6 @@ class MainActivity : Activity() {
             "SAMA DUBAI HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2550.ts"
         ).forEach { add(customChannel(it.first, "UAE", it.second)) }
 
-        // قطر
         listOf(
             "ALKASS ONE HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2600.ts",
             "ALKASS TWO HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2601.ts",
@@ -398,42 +404,35 @@ class MainActivity : Activity() {
             "QATAR TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2491.ts"
         ).forEach { add(customChannel(it.first, "QATAR", it.second)) }
 
-        // سوريا
         listOf(
             "Syria Drama" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2517.ts",
             "Syria News" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2515.ts"
         ).forEach { add(customChannel(it.first, "SYRIA", it.second)) }
 
-        // لبنان
         listOf(
             "LBC International" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2477.ts",
             "Al Mashhad" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2475.ts"
         ).forEach { add(customChannel(it.first, "LEBANON", it.second)) }
 
-        // الأردن
         listOf(
             "Jordan Sport HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2405.ts",
             "RO'YA HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2413.ts"
         ).forEach { add(customChannel(it.first, "JORDAN", it.second)) }
 
-        // فلسطين
         listOf(
             "Palestine Sport" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2416.ts",
             "Palestine News HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2415.ts"
         ).forEach { add(customChannel(it.first, "PALESTINE", it.second)) }
 
-        // اليمن
         listOf(
             "YEMEN SHABAB" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2534.ts",
             "BELQEES HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2533.ts"
         ).forEach { add(customChannel(it.first, "YEMEN", it.second)) }
 
-        // عُمان
         listOf(
             "Majan TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2452.ts"
         ).forEach { add(customChannel(it.first, "OMAN", it.second)) }
 
-        // المغرب العربي
         listOf(
             "2M TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/94.ts",
             "Arryadia HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/98.ts",
@@ -443,19 +442,16 @@ class MainActivity : Activity() {
             "LIBYA SPORT 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2395.ts"
         ).forEach { add(customChannel(it.first, "MAGHREB", it.second)) }
 
-        // السودان
         listOf(
             "Sudan" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2441.ts"
         ).forEach { add(customChannel(it.first, "SUDAN", it.second)) }
 
-        // FAJER TV
         listOf(
             "Fajer TV 1" to "463532", "Fajer TV 2" to "463533",
             "Fajer TV 3" to "463534", "Fajer TV 4" to "463535",
             "Fajer TV 5" to "463536"
         ).forEach { add(c(it.first, "FAJER TV", it.second)) }
 
-        // KURDISTAN SPORTS
         listOf(
             "KU: Duhok Sport" to "358226", "KU: LD Sport" to "358229",
             "KU: See Sport 1" to "358222", "KU: See Sport 2" to "358223",
@@ -470,16 +466,13 @@ class MainActivity : Activity() {
             "KU: Delal Sport" to "358239"
         ).forEach { add(c(it.first, "KURDISTAN SPORTS", it.second)) }
 
-        // SHAHID SPORT
         for (i in 1..5) add(c("Shahid Sport $i 4K", "SHAHID SPORT", "${430910 + i}"))
 
-        // SHASHA
         listOf(
             "Shasha 1 TV 4K" to "348400", "Shasha 2 TV 4K" to "244079",
             "Shasha 3 TV 4K" to "443029"
         ).forEach { add(c(it.first, "SHASHA", it.second)) }
 
-        // SHAHID VIP
         listOf(
             "SHAHID CINEMA 1 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265710.ts",
             "SHAHID CINEMA 2 UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/265711.ts",
@@ -510,8 +503,7 @@ class MainActivity : Activity() {
             "Shahid Al Hayba HD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/260380.ts",
             "Shahid Zeina & Aziza" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/292929.ts",
             "Hala London International UHD" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/596774.ts",
-            "Shahid Al Hayba" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513091.ts",
-            "Shahid Bab Al-Hara" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513090.ts",
+            "Shahid Al Hayba" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513090.ts",
             "Shahid Naser Al Qassaby" to "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/513098.ts"
         ).forEach { add(customChannel(it.first, "SHAHID VIP", it.second)) }
     }
@@ -530,7 +522,7 @@ class MainActivity : Activity() {
     private fun showWelcomeDialog() {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("أهلاً بك في تطبيق NAITI TV 📺")
-        builder.setMessage("استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\nيمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني.")
+        builder.setMessage("استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\nتم دمج خاصية أزرار التحكم بالمشغل ونظام إعادة الاتصال التلقائي عند ضعف البث.")
         builder.setPositiveButton("ابدأ المشاهدة") { dialog, _ ->
             dialog.dismiss()
         }
@@ -740,8 +732,11 @@ class MainActivity : Activity() {
             clipToOutline = true
         }
 
+        // إتاحة أدوات التحكم المدمجة مع مشغل ExoPlayer
         playerView = PlayerView(this).apply {
-            useController = false
+            useController = true
+            showTimeoutMs = 3000
+            controllerAutoShow = true
             setBackgroundColor(Color.BLACK)
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             isFocusable = true
@@ -757,8 +752,6 @@ class MainActivity : Activity() {
                     }
                 }
             }
-
-            setOnClickListener { toggleFullscreen() }
         }
 
         playerContainer.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -783,9 +776,12 @@ class MainActivity : Activity() {
         playerContainer.addView(watermark, wmParams)
         playerColumn.addView(playerContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f))
 
+        // إضافة أزرار التحكم المخصصة أسفل الشاشة
+        createPlayerControlsBar()
+
         epgContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(16))
+            setPadding(dp(20), dp(12), dp(20), dp(12))
             background = GradientDrawable().apply {
                 setColor(bgSecondary)
                 cornerRadius = dp(20).toFloat()
@@ -805,7 +801,7 @@ class MainActivity : Activity() {
             text = "Live Stream Ready"
             textSize = 12f
             setTextColor(textMuted)
-            setPadding(0, dp(4), 0, dp(12))
+            setPadding(0, dp(4), 0, dp(8))
         }
         epgContainer.addView(epgSub)
 
@@ -815,11 +811,107 @@ class MainActivity : Activity() {
         }
 
         epgContainer.addView(progressBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6)))
-        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.35f).apply {
-            topMargin = dp(15)
+        playerColumn.addView(epgContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.25f).apply {
+            topMargin = dp(10)
         })
 
         mainContent.addView(playerColumn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+    }
+
+    // بناء شريط أزرار التحكم المخصصة
+    private fun createPlayerControlsBar() {
+        customControlsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            background = GradientDrawable().apply {
+                setColor(bgSecondary)
+                cornerRadius = dp(15).toFloat()
+                setStroke(dp(1), strokeColor)
+            }
+        }
+
+        val btnPrev = createControlButton("⏮ القناة السابقة") { playPreviousChannel() }
+        btnPlayPause = createControlButton("⏸ إيقاف") { togglePlayPause() }
+        val btnNext = createControlButton("⏭ القناة التالية") { playNextChannel() }
+        val btnReload = createControlButton("🔄 إعادة اتصال") {
+            reconnectAttempts = 0
+            currentSelectedChannel?.let { playChannel(it) }
+        }
+        val btnFull = createControlButton("⛶ الشاشة الكاملة") { toggleFullscreen() }
+
+        customControlsLayout.addView(btnPrev)
+        customControlsLayout.addView(btnPlayPause)
+        customControlsLayout.addView(btnNext)
+        customControlsLayout.addView(btnReload)
+        customControlsLayout.addView(btnFull)
+
+        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(10)
+        }
+        playerColumn.addView(customControlsLayout, params)
+    }
+
+    private fun createControlButton(title: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = title
+            textSize = 11f
+            setTextColor(textWhite)
+            gravity = Gravity.CENTER
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isFocusable = true
+            isFocusableInTouchMode = true
+            background = GradientDrawable().apply {
+                setColor(bgCard)
+                cornerRadius = dp(10).toFloat()
+            }
+            setOnFocusChangeListener { _, hasFocus ->
+                background = GradientDrawable().apply {
+                    setColor(if (hasFocus) accentHover else bgCard)
+                    cornerRadius = dp(10).toFloat()
+                    if (hasFocus) setStroke(dp(1), accentColor)
+                }
+            }
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(dp(4), 0, dp(4), 0)
+            }
+        }
+    }
+
+    private fun togglePlayPause() {
+        exoPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                btnPlayPause.text = "▶ تشغيل"
+            } else {
+                it.play()
+                btnPlayPause.text = "⏸ إيقاف"
+            }
+        }
+    }
+
+    private fun playNextChannel() {
+        if (visibleChannels.isNotEmpty()) {
+            currentChannelIndex = (currentChannelIndex + 1) % visibleChannels.size
+            val channel = visibleChannels[currentChannelIndex]
+            if (currentChannelIndex in channelButtons.indices) {
+                updateChannelSelection(channelButtons[currentChannelIndex])
+            }
+            playChannel(channel)
+        }
+    }
+
+    private fun playPreviousChannel() {
+        if (visibleChannels.isNotEmpty()) {
+            currentChannelIndex = if (currentChannelIndex - 1 < 0) visibleChannels.size - 1 else currentChannelIndex - 1
+            val channel = visibleChannels[currentChannelIndex]
+            if (currentChannelIndex in channelButtons.indices) {
+                updateChannelSelection(channelButtons[currentChannelIndex])
+            }
+            playChannel(channel)
+        }
     }
 
     private fun createColumnHeader(title: String): TextView {
@@ -925,7 +1017,7 @@ class MainActivity : Activity() {
             "MUSIC" -> "موسيقى 🎶"
             "IRAQ" -> "العراق 🇮🇶"
             "KSA" -> "السعودية 🇸🇦"
-            "UAE" -> "الإارات 🇦🇪"
+            "UAE" -> "الإمارات 🇦🇪"
             "QATAR" -> "قطر 🇶🇦"
             "SYRIA" -> "سوريا 🇸🇾"
             "LEBANON" -> "لبنان 🇱🇧"
@@ -1090,8 +1182,18 @@ class MainActivity : Activity() {
             exoPlayer = ExoPlayer.Builder(this).build().apply {
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
-                        Toast.makeText(this@MainActivity, "تعذر تشغيل هذه القناة حالياً، جاري إعادة المحاولة...", Toast.LENGTH_SHORT).show()
-                        currentSelectedChannel?.let { playChannel(it) }
+                        scheduleAutoReconnect()
+                    }
+
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_ENDED) {
+                            scheduleAutoReconnect()
+                        } else if (playbackState == Player.STATE_READY) {
+                            reconnectAttempts = 0
+                            cancelReconnect()
+                            epgSub.text = "Live Stream Active 🟢"
+                            btnPlayPause.text = "⏸ إيقاف"
+                        }
                     }
                 })
             }
@@ -1099,10 +1201,31 @@ class MainActivity : Activity() {
         }
     }
 
+    // آلية إعادة الاتصال التلقائي
+    private fun scheduleAutoReconnect() {
+        if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            epgSub.text = "انقطع البث.. محاولة إعادة الاتصال ($reconnectAttempts/$maxReconnectAttempts)..."
+            cancelReconnect()
+
+            reconnectRunnable = Runnable {
+                currentSelectedChannel?.let { playChannel(it) }
+            }
+            reconnectHandler.postDelayed(reconnectRunnable!!, reconnectDelayMs)
+        } else {
+            epgSub.text = "فشل الاتصال بالقناة. يرجى اختيار قناة أخرى أو الضغط على إعادة اتصال."
+            Toast.makeText(this@MainActivity, "تعذر تشغيل القناة بعد عدة محاولات", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun cancelReconnect() {
+        reconnectRunnable?.let { reconnectHandler.removeCallbacks(it) }
+    }
+
     private fun playChannel(channel: Channel) {
         currentSelectedChannel = channel
         epgTitle.text = channel.name
-        epgSub.text = "Now Playing: Live Broadcast"
+        epgSub.text = "جاري تحميل البث المباشر..."
 
         try {
             initExoPlayer()
@@ -1132,6 +1255,7 @@ class MainActivity : Activity() {
         mainContent.getChildAt(0).visibility = View.GONE
         mainContent.getChildAt(1).visibility = View.GONE
         epgContainer.visibility = View.GONE
+        customControlsLayout.visibility = View.GONE
 
         playerColumn.setPadding(0, 0, 0, 0)
         playerContainer.background = null
@@ -1164,6 +1288,7 @@ class MainActivity : Activity() {
         mainContent.getChildAt(0).visibility = View.VISIBLE
         mainContent.getChildAt(1).visibility = View.VISIBLE
         epgContainer.visibility = View.VISIBLE
+        customControlsLayout.visibility = View.VISIBLE
 
         playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
         playerContainer.background = GradientDrawable().apply {
@@ -1202,7 +1327,7 @@ class MainActivity : Activity() {
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     if (playerView.hasFocus()) {
-                        toggleFullscreen()
+                        playerView.showController()
                         return true
                     }
                 }
@@ -1218,6 +1343,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
+        cancelReconnect()
         playerView.player = null
         exoPlayer?.release()
         exoPlayer = null
