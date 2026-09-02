@@ -86,14 +86,18 @@ class MainActivity : Activity() {
     }
 
     private val channels = mutableListOf<Channel>().apply {
-        // BEIN TOD
+        // ==========================================
+        // 1. BEIN TOD
+        // ==========================================
         add(c("beIN Tod 4K", "BEIN TOD", "460835"))
         for (i in 1..9) add(c("beIN Sport Tod $i", "BEIN TOD", "${460835 + i}"))
         add(c("beIN Sport Tod English 1", "BEIN TOD", "460845"))
         add(c("beIN Sport Tod English 2", "BEIN TOD", "460846"))
         for (i in 1..9) add(c("beIN Sport Tod Extra $i", "BEIN TOD", "${460846 + i}"))
 
-        // BEIN SPORTS
+        // ==========================================
+        // 2. BEIN SPORTS BASE
+        // ==========================================
         add(c("beIN Sport Global 4K", "BEIN SPORTS", "22186"))
         add(c("beIN Sport News 4K", "BEIN SPORTS", "318230"))
 
@@ -129,7 +133,9 @@ class MainActivity : Activity() {
         add(c("beIN Sport French 1 SD", "BEIN SPORTS", "319427"))
         add(c("beIN Sport French 2 SD", "BEIN SPORTS", "319428"))
 
-        // BEIN XTRA
+        // ==========================================
+        // 3. BEIN XTRA
+        // ==========================================
         val xtra4k = listOf(325790, 319487, 319488, 440569, 440570, 440571, 447243, 447244, 447245)
         val xtraHd = listOf(325812, 319435, 319436, 440572, 440573, 440574, 447246, 447247, 447248)
         val xtraSd = listOf(325822, 319423, 319424, 440575, 440576, 440577, 447249, 447250, 447251)
@@ -140,7 +146,9 @@ class MainActivity : Activity() {
             xtraSd.getOrNull(i - 1)?.let { add(c("beIN Sport XTRA $i SD", "BEIN XTRA", it.toString())) }
         }
 
-        // AL RABIAA
+        // ==========================================
+        // 4. AL RABIAA
+        // ==========================================
         listOf(
             "AL RABIAA SPORT 1" to "371931", "AL RABIAA SPORT 1+" to "371933",
             "AL RABIAA SPORT 2" to "371932", "Rabiaa Sport +2" to "434565",
@@ -150,13 +158,17 @@ class MainActivity : Activity() {
             "AL RABIAA QURAN" to "371937", "AL RABIAA MUSICA" to "371938"
         ).forEach { add(c(it.first, "AL RABIAA", it.second)) }
 
-        // ALKASS
+        // ==========================================
+        // 5. ALKASS
+        // ==========================================
         val alkassIds = listOf(96214, 96215, 278068, 96216, 96217, 211523, 379828, 379829, 393991, 393992)
         for (i in 1..10) {
             alkassIds.getOrNull(i - 1)?.let { add(c("Alkass $i HD", "ALKASS", it.toString())) }
         }
 
-        // SAUDI SPORTS
+        // ==========================================
+        // 6. SAUDI SPORTS & SSC
+        // ==========================================
         listOf(
             "KSA Sport 1 4K" to "97805", "KSA Sport 2 4K" to "97806",
             "KSA Sport 3 4K" to "97807", "SAUDUA NOW" to "97808",
@@ -165,7 +177,18 @@ class MainActivity : Activity() {
             "STC SPORT 4 HD" to "433178"
         ).forEach { add(c(it.first, "SAUDI SPORTS", it.second)) }
 
-        // GULF SPORTS
+        // ==========================================
+        // 7. THAMANYA (ثمانية)
+        // ==========================================
+        listOf(
+            "Thamanya Sport 1 HD" to "460890",
+            "Thamanya Sport 2 HD" to "460891",
+            "Thamanya Documentary" to "460892"
+        ).forEach { add(c(it.first, "THAMANYA", it.second)) }
+
+        // ==========================================
+        // 8. GULF SPORTS
+        // ==========================================
         listOf(
             "Dubai Sport 1 HD" to "97813", "Dubai Sport 2 HD" to "97814",
             "Dubai Racing 1 HD" to "97816", "On Sport HD 1" to "97820",
@@ -182,13 +205,17 @@ class MainActivity : Activity() {
             "PalestineSport" to "417306"
         ).forEach { add(c(it.first, "GULF SPORTS", it.second)) }
 
-        // AD SPORTS
+        // ==========================================
+        // 9. AD SPORTS
+        // ==========================================
         listOf(
             "AD SPORTS 1 HD" to "326053", "AD SPORTS 2 HD" to "326054",
             "AD Sport Asia 1 HD" to "244188", "AD Sport Asia 2 HD" to "244191"
         ).forEach { add(c(it.first, "AD SPORTS", it.second)) }
 
-        // ALWAN SPORT
+        // ==========================================
+        // 10. ALWAN SPORT
+        // ==========================================
         val alwan = listOf(418111, 418112, 418113, 418114, 418115, 418116, 418117, 418118, 418119, 418120, 418121, 418122, 418123, 418124, 418125, 418126, 418127, 418128)
         for (i in 1..6) {
             val x = (i - 1) * 3
@@ -200,6 +227,226 @@ class MainActivity : Activity() {
             "Alwan Sport 7 4K" to "433739", "Alwan Sport 8 4K" to "433740",
             "Alwan Sport 9 4K" to "433741", "Alwan Sport 10 4K" to "433742"
         ).forEach { add(c(it.first, "ALWAN SPORT", it.second)) }
+
+        // ==========================================
+        // 11. beIN SPORTS 1080p FPS 60
+        // ==========================================
+        listOf(
+            "|beIN| 4K" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1340.ts",
+            "|beIN| 1 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1387.ts",
+            "|beIN| 2 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1388.ts",
+            "|beIN| 3 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1389.ts",
+            "|beIN| 4 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1390.ts",
+            "|beIN| 5 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1391.ts",
+            "|beIN| 6 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1392.ts",
+            "|beIN| 7 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1393.ts",
+            "|beIN| 8 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1394.ts",
+            "|beIN| 9 1080p 60FPS" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1395.ts"
+        ).forEach { add(customChannel(it.first, "beIN SPORTS 1080p", it.second)) }
+
+        // ==========================================
+        // 12. SSC SPORTS VIP
+        // ==========================================
+        listOf(
+            "SSC NEWS HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2627.ts",
+            "SSC 1 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2628.ts",
+            "SSC 2 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2629.ts",
+            "SSC 3 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2630.ts",
+            "SSC 4 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2631.ts",
+            "SSC 5 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2632.ts",
+            "SSC EXTRA 1 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2633.ts",
+            "SSC EXTRA 2 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2634.ts",
+            "SSC EXTRA 3 HD VIP" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2635.ts"
+        ).forEach { add(customChannel(it.first, "SSC SPORTS VIP", it.second)) }
+
+        // ==========================================
+        // 13. باقة MBC VIP
+        // ==========================================
+        listOf(
+            "MBC1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/35.ts",
+            "MBC2 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/36.ts",
+            "MBC3 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/37.ts",
+            "MBC4 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/38.ts",
+            "MBC5 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/423.ts",
+            "MBC Action HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/29.ts",
+            "MBC Drama HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/28.ts",
+            "MBC MAX HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/33.ts",
+            "MBC Bollywood HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/39.ts",
+            "MBC IRAQ HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/27.ts",
+            "MBC MASR" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/31.ts",
+            "MBC Masr 2" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/32.ts"
+        ).forEach { add(customChannel(it.first, "MBC VIP", it.second)) }
+
+        // ==========================================
+        // 14. شبكة beIN الترفيهية
+        // ==========================================
+        listOf(
+            "|beIN| MOVIES 4K 1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1342.ts",
+            "|beIN| Movies HD1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1360.ts",
+            "|beIN| SERIES 4K 1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1346.ts",
+            "|beIN| Series HD1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1365.ts",
+            "|beIN| DRAMA 4K" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1359.ts"
+        ).forEach { add(customChannel(it.first, "beIN ENTERTAINMENT", it.second)) }
+
+        // ==========================================
+        // 15. باقة الرياضة المباشرة
+        // ==========================================
+        listOf(
+            "SHAHID SPORTS 1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2643.ts",
+            "SHAHID SPORTS 2" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2644.ts",
+            "STARZPLAY SPORT 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2636.ts",
+            "STARZPLAY SPORT 2 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2637.ts",
+            "Thamanya 1 Sport 4K" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2575.ts",
+            "Thamanya 2 Sport 4K" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2576.ts"
+        ).forEach { add(customChannel(it.first, "LIVE SPORTS", it.second)) }
+
+        // ==========================================
+        // 16. أخبار عربية ودولية
+        // ==========================================
+        listOf(
+            "Al Arabiya HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/16.ts",
+            "Al Jazeera HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/15.ts",
+            "Al Jazeera Documentary HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/197.ts",
+            "BBC NEWS Arabic" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/14.ts",
+            "Sky News Arabia HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/6.ts",
+            "TRT Arabi HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/24.ts"
+        ).forEach { add(customChannel(it.first, "NEWS", it.second)) }
+
+        // ==========================================
+        // 17. أفلام وسينما
+        // ==========================================
+        listOf(
+            "Rotana Cinema HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/59.ts",
+            "Rotana Classic HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/63.ts",
+            "Rotana Comedy HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/58.ts"
+        ).forEach { add(customChannel(it.first, "MOVIES", it.second)) }
+
+        // ==========================================
+        // 18. قنوات إسلامية ودينية
+        // ==========================================
+        listOf(
+            "Saudi ch for Quran HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/268.ts",
+            "Saudi Ch for Sunnah HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/269.ts",
+            "Almajd Holy Quran" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/487.ts"
+        ).forEach { add(customChannel(it.first, "ISLAMIC", it.second)) }
+
+        // ==========================================
+        // 19. وثائقية وطبخ وترفيه
+        // ==========================================
+        listOf(
+            "|beIN| BBC Earth HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1381.ts",
+            "|beIN| Nat Geo HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1385.ts",
+            "|beIN| Fatafeat" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1377.ts"
+        ).forEach { add(customChannel(it.first, "DOCUMENTARY", it.second)) }
+
+        // ==========================================
+        // 20. قنوات أطفال
+        // ==========================================
+        listOf(
+            "|beIN| Baraem HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1386.ts",
+            "|beIN| JEEM 4K" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/1349.ts"
+        ).forEach { add(customChannel(it.first, "KIDS", it.second)) }
+
+        // ==========================================
+        // 21. موسيقى وكليبات
+        // ==========================================
+        listOf(
+            "rotana clip" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/64.ts",
+            "Rotana Music HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/62.ts"
+        ).forEach { add(customChannel(it.first, "MUSIC", it.second)) }
+
+        // ==========================================
+        // 22. القنوات المحلية والإقليمية حسب الدول
+        // ==========================================
+        // العراق
+        listOf(
+            "ALWAN SPORT 1" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2607.ts",
+            "ALWAN SPORT 2" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2608.ts",
+            "Iraqia Sport HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2459.ts",
+            "Iraqia News HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/581.ts",
+            "AFAQ TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2454.ts",
+            "Al Forat" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2473.ts",
+            "AL RASHEED TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2464.ts",
+            "Al-Etejah TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2472.ts",
+            "BAGHDAD TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2470.ts",
+            "Dijlah Zaman TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2462.ts"
+        ).forEach { add(customChannel(it.first, "IRAQ", it.second)) }
+
+        // السعودية
+        listOf(
+            "KSA SPORTS 3 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2497.ts",
+            "Al Arabiya Business" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2492.ts",
+            "Al-Arabiya Alhadath" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2493.ts",
+            "SBC HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2495.ts",
+            "Thikrayat HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2494.ts"
+        ).forEach { add(customChannel(it.first, "KSA", it.second)) }
+
+        // الإمارات
+        listOf(
+            "DUBAI SPORTS 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2548.ts",
+            "DUBAI SPORTS 2 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2549.ts",
+            "Sharjah Sport HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2543.ts",
+            "Dubai One HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2540.ts",
+            "SAMA DUBAI HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2550.ts"
+        ).forEach { add(customChannel(it.first, "UAE", it.second)) }
+
+        // قطر
+        listOf(
+            "ALKASS ONE HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2600.ts",
+            "ALKASS TWO HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2601.ts",
+            "AL ARABY TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2490.ts",
+            "QATAR TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2491.ts"
+        ).forEach { add(customChannel(it.first, "QATAR", it.second)) }
+
+        // سوريا
+        listOf(
+            "Syria Drama" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2517.ts",
+            "Syria News" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2515.ts"
+        ).forEach { add(customChannel(it.first, "SYRIA", it.second)) }
+
+        // لبنان
+        listOf(
+            "LBC International" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2477.ts",
+            "Al Mashhad" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2475.ts"
+        ).forEach { add(customChannel(it.first, "LEBANON", it.second)) }
+
+        // الأردن
+        listOf(
+            "Jordan Sport HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2405.ts",
+            "RO'YA HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2413.ts"
+        ).forEach { add(customChannel(it.first, "JORDAN", it.second)) }
+
+        // فلسطين
+        listOf(
+            "Palestine Sport" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2416.ts",
+            "Palestine News HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2415.ts"
+        ).forEach { add(customChannel(it.first, "PALESTINE", it.second)) }
+
+        // اليمن
+        listOf(
+            "YEMEN SHABAB" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2534.ts",
+            "BELQEES HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2533.ts"
+        ).forEach { add(customChannel(it.first, "YEMEN", it.second)) }
+
+        // عُمان
+        listOf(
+            "Majan TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2452.ts"
+        ).forEach { add(customChannel(it.first, "OMAN", it.second)) }
+
+        // المغرب العربي
+        listOf(
+            "2M TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/94.ts",
+            "Arryadia HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/98.ts",
+            "Echorouk TV HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/73.ts",
+            "ENNAHAR TV" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/79.ts",
+            "Tunisia 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2329.ts",
+            "LIBYA SPORT 1 HD" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2395.ts"
+        ).forEach { add(customChannel(it.first, "MAGHREB", it.second)) }
+
+        // السودان
+        listOf(
+            "Sudan" to "http://cms-ar.accesss.me:25461/live/Me37RYlfhw/717461472772/2441.ts"
+        ).forEach { add(customChannel(it.first, "SUDAN", it.second)) }
 
         // FAJER TV
         listOf(
@@ -298,7 +545,7 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bgPrimary)
-            layoutDirection = View.LAYOUT_DIRECTION_LTR // LTR Layout for English Interface
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
 
         createTopBar()
@@ -355,7 +602,6 @@ class MainActivity : Activity() {
         val spacer = View(this)
         topBar.addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
 
-        // Telegram Button
         val telegramBtn = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -390,7 +636,6 @@ class MainActivity : Activity() {
         }
         topBar.addView(telegramBtn, tgParams)
 
-        // Live Badge
         val liveBadge = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -662,10 +907,34 @@ class MainActivity : Activity() {
             "BEIN XTRA" -> "beIN XTRA 🔥"
             "AL RABIAA" -> "Al Rabiaa Sport"
             "ALKASS" -> "Alkass Qatar"
-            "SAUDI SPORTS" -> "Saudi Sports"
+            "SAUDI SPORTS" -> "Saudi Sports 🇸🇦"
+            "THAMANYA" -> "Thamanya 8️⃣"
             "GULF SPORTS" -> "Gulf Sports"
             "AD SPORTS" -> "Abu Dhabi Sports"
             "ALWAN SPORT" -> "Alwan Sport"
+            "beIN SPORTS 1080p" -> "beIN 60FPS 🏆"
+            "SSC SPORTS VIP" -> "SSC VIP 🇸🇦"
+            "MBC VIP" -> "MBC VIP 🎬"
+            "beIN ENTERTAINMENT" -> "beIN Movies 🎥"
+            "LIVE SPORTS" -> "Shahid & Starz ⚽"
+            "NEWS" -> "أخبار 🌐"
+            "MOVIES" -> "سينما 🍿"
+            "ISLAMIC" -> "إسلاميات 🕌"
+            "DOCUMENTARY" -> "وثائقي 🌿"
+            "KIDS" -> "أطفال 👶"
+            "MUSIC" -> "موسيقى 🎶"
+            "IRAQ" -> "العراق 🇮🇶"
+            "KSA" -> "السعودية 🇸🇦"
+            "UAE" -> "الإمارات 🇦🇪"
+            "QATAR" -> "قطر 🇶🇦"
+            "SYRIA" -> "سوريا 🇸🇾"
+            "LEBANON" -> "لبنان 🇱🇧"
+            "JORDAN" -> "الأردن 🇯🇴"
+            "PALESTINE" -> "فلسطين 🇵🇸"
+            "YEMEN" -> "اليمن 🇾🇪"
+            "OMAN" -> "عُمان 🇴🇲"
+            "MAGHREB" -> "المغرب العربي 🇲🇦"
+            "SUDAN" -> "السودان 🇸🇩"
             "FAJER TV" -> "Fajer TV"
             "KURDISTAN SPORTS" -> "Kurdistan Sports"
             "SHAHID SPORT" -> "Shahid Sport"
@@ -761,7 +1030,7 @@ class MainActivity : Activity() {
         val quality = TextView(this).apply {
             text = when {
                 channel.name.contains("UHD", true) || channel.name.contains("4K", true) -> "UHD"
-                channel.name.contains("FHD", true) -> "FHD"
+                channel.name.contains("FHD", true) || channel.name.contains("1080p", true) -> "FHD"
                 channel.name.contains("HD", true) -> "HD"
                 else -> "SD"
             }
