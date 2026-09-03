@@ -1,4 +1,4 @@
-ackage package com.niyati.tv
+package package com.niyati.tv
 
 import android.app.Activity
 import android.app.AlertDialog
