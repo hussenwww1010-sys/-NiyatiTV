@@ -63,27 +63,20 @@ class MainActivity : Activity() {
     private lateinit var playerColumn: LinearLayout
     private lateinit var playerContainer: FrameLayout
     private lateinit var playerView: PlayerView
-    private lateinit var epgContainer: LinearLayout
-    private lateinit var epgTitle: TextView
-    private lateinit var epgSub: TextView
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
-    private lateinit var customControlsLayout: LinearLayout
-    private lateinit var btnPlayPause: TextView
 
     private val bgPrimary = Color.parseColor("#090C10")
     private val bgSecondary = Color.parseColor("#0D1117")
     private val bgCard = Color.parseColor("#161B22")
     private val accentColor = Color.parseColor("#00E5FF")
     private val accentHover = Color.parseColor("#1F2937")
-    private val telegramBlue = Color.parseColor("#24A1DE")
 
     private val textWhite = Color.WHITE
     private val textMuted = Color.parseColor("#8B949E")
     private val statusGreen = Color.parseColor("#00E676")
     private val strokeColor = Color.parseColor("#21262D")
 
-    private val telegramUrl = "https://t.me/NAITI_Tv"
     private val base = "http://xxtv.me:8080/live/1219624801985519/2036793881828746/"
 
     private fun c(name: String, group: String, id: String): Channel {
@@ -527,10 +520,9 @@ class MainActivity : Activity() {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("أهلاً بك في تطبيق NAITI TV 📺")
         builder.setMessage(
-            "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\nتم دمج خاصية أزرار التحكم بالمشغل ونظام إعادة الاتصال التلقائي عند ضعف البث."
+            "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!"
         )
         builder.setPositiveButton("ابدأ المشاهدة") { dialog, _ -> dialog.dismiss() }
-        builder.setNeutralButton("قناة التليجرام") { _, _ -> openTelegramChannel() }
         val dialog = builder.create()
         dialog.show()
     }
@@ -607,44 +599,6 @@ class MainActivity : Activity() {
         val spacer = View(this)
         topBar.addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
 
-        val telegramBtn = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            isFocusable = true
-            isFocusableInTouchMode = true
-            background = GradientDrawable().apply {
-                setColor(telegramBlue)
-                cornerRadius = dp(20).toFloat()
-            }
-            setOnClickListener { openTelegramChannel() }
-        }
-
-        val tgIcon = TextView(this).apply {
-            text = "✈ "
-            textSize = 12f
-            setTextColor(textWhite)
-        }
-
-        val tgText = TextView(this).apply {
-            text = "Telegram"
-            textSize = 11f
-            setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
-        }
-
-        telegramBtn.addView(tgIcon)
-        telegramBtn.addView(tgText)
-
-        val tgParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setMargins(0, 0, dp(12), 0)
-        }
-
-        topBar.addView(telegramBtn, tgParams)
-
         val liveBadge = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -678,15 +632,6 @@ class MainActivity : Activity() {
             topBar,
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60))
         )
-    }
-
-    private fun openTelegramChannel() {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl))
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "تعذر فتح رابط التليجرام", Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun createPackageColumn() {
@@ -760,7 +705,7 @@ class MainActivity : Activity() {
     private fun createPlayerColumn() {
         playerColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(15), dp(20), dp(20))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
             setBackgroundColor(bgPrimary)
         }
 
@@ -774,12 +719,9 @@ class MainActivity : Activity() {
         }
 
         playerView = PlayerView(this).apply {
-            useController = true
-            controllerAutoShow = true
+            useController = false
             setBackgroundColor(Color.BLACK)
-
-            // تعديل لمنع التشويه والخطوط العمودية
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 
             isFocusable = true
             isFocusableInTouchMode = true
@@ -793,6 +735,10 @@ class MainActivity : Activity() {
                         setStroke(dp(2), if (hasFocus) accentColor else strokeColor)
                     }
                 }
+            }
+
+            setOnClickListener {
+                toggleFullscreen()
             }
         }
 
@@ -828,144 +774,13 @@ class MainActivity : Activity() {
 
         playerColumn.addView(
             playerContainer,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f)
-        )
-
-        createPlayerControlsBar()
-
-        epgContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(12), dp(20), dp(12))
-            background = GradientDrawable().apply {
-                setColor(bgSecondary)
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), strokeColor)
-            }
-        }
-
-        epgTitle = TextView(this).apply {
-            text = "Select a channel to play"
-            textSize = 16f
-            setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
-        }
-
-        epgContainer.addView(epgTitle)
-
-        epgSub = TextView(this).apply {
-            text = "Live Stream Ready"
-            textSize = 12f
-            setTextColor(textMuted)
-            setPadding(0, dp(4), 0, dp(8))
-        }
-
-        epgContainer.addView(epgSub)
-
-        val progressBar = ProgressBar(
-            this,
-            null,
-            android.R.attr.progressBarStyleHorizontal
-        ).apply {
-            progress = 100
-            progressDrawable.setTint(accentColor)
-        }
-
-        epgContainer.addView(
-            progressBar,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(6))
-        )
-
-        playerColumn.addView(
-            epgContainer,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.25f).apply {
-                topMargin = dp(10)
-            }
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         )
 
         mainContent.addView(
             playerColumn,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         )
-    }
-
-    private fun createPlayerControlsBar() {
-        customControlsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            background = GradientDrawable().apply {
-                setColor(bgSecondary)
-                cornerRadius = dp(15).toFloat()
-                setStroke(dp(1), strokeColor)
-            }
-        }
-
-        val btnPrev = createControlButton("⏮ القناة السابقة") { playPreviousChannel() }
-        btnPlayPause = createControlButton("⏸ إيقاف") { togglePlayPause() }
-        val btnNext = createControlButton("⏭ القناة التالية") { playNextChannel() }
-        val btnReload = createControlButton("🔄 إعادة اتصال") {
-            reconnectAttempts = 0
-            currentSelectedChannel?.let { playChannel(it) }
-        }
-        val btnFull = createControlButton("⛶ الشاشة الكاملة") { toggleFullscreen() }
-
-        customControlsLayout.addView(btnPrev)
-        customControlsLayout.addView(btnPlayPause)
-        customControlsLayout.addView(btnNext)
-        customControlsLayout.addView(btnReload)
-        customControlsLayout.addView(btnFull)
-
-        val params = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(10) }
-
-        playerColumn.addView(customControlsLayout, params)
-    }
-
-    private fun createControlButton(title: String, onClick: () -> Unit): TextView {
-        return TextView(this).apply {
-            text = title
-            textSize = 11f
-            setTextColor(textWhite)
-            gravity = Gravity.CENTER
-            setTypeface(Typeface.DEFAULT_BOLD)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            isFocusable = true
-            isFocusableInTouchMode = true
-            background = GradientDrawable().apply {
-                setColor(bgCard)
-                cornerRadius = dp(10).toFloat()
-            }
-
-            setOnFocusChangeListener { _, hasFocus ->
-                background = GradientDrawable().apply {
-                    setColor(if (hasFocus) accentHover else bgCard)
-                    cornerRadius = dp(10).toFloat()
-                    if (hasFocus) {
-                        setStroke(dp(1), accentColor)
-                    }
-                }
-            }
-
-            setOnClickListener { onClick() }
-
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(dp(4), 0, dp(4), 0)
-            }
-        }
-    }
-
-    private fun togglePlayPause() {
-        exoPlayer?.let {
-            if (it.isPlaying) {
-                it.pause()
-                btnPlayPause.text = "▶ تشغيل"
-            } else {
-                it.play()
-                btnPlayPause.text = "⏸ إيقاف"
-            }
-        }
     }
 
     private fun playNextChannel() {
@@ -1270,7 +1085,6 @@ class MainActivity : Activity() {
 
     private fun initExoPlayer() {
         if (exoPlayer == null) {
-            // إضافة دعم فك التشفير المرن للتغلب على مشكلة الخطوط والمشاهد المشوهة
             val renderersFactory = DefaultRenderersFactory(this)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
@@ -1288,8 +1102,6 @@ class MainActivity : Activity() {
                             } else if (playbackState == Player.STATE_READY) {
                                 reconnectAttempts = 0
                                 cancelReconnect()
-                                epgSub.text = "Live Stream Active 🟢"
-                                btnPlayPause.text = "⏸ إيقاف"
                             }
                         }
                     })
@@ -1302,8 +1114,6 @@ class MainActivity : Activity() {
     private fun scheduleAutoReconnect() {
         if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++
-            epgSub.text = "انقطع البث.. محاولة إعادة الاتصال ($reconnectAttempts/$maxReconnectAttempts)..."
-
             cancelReconnect()
 
             reconnectRunnable = Runnable {
@@ -1314,8 +1124,7 @@ class MainActivity : Activity() {
                 reconnectHandler.postDelayed(it, reconnectDelayMs)
             }
         } else {
-            epgSub.text = "فشل الاتصال بالقناة. يرجى اختيار قناة أخرى أو الضغط على إعادة اتصال."
-            Toast.makeText(this@MainActivity, "تعذر تشغيل القناة بعد عدة محاولات", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, "تعذر تشغيل القناة، جار الانتقال...", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1325,8 +1134,6 @@ class MainActivity : Activity() {
 
     private fun playChannel(channel: Channel) {
         currentSelectedChannel = channel
-        epgTitle.text = channel.name
-        epgSub.text = "جاري تحميل البث المباشر..."
 
         try {
             initExoPlayer()
@@ -1358,8 +1165,6 @@ class MainActivity : Activity() {
         topBar.visibility = View.GONE
         mainContent.getChildAt(0).visibility = View.GONE
         mainContent.getChildAt(1).visibility = View.GONE
-        epgContainer.visibility = View.GONE
-        customControlsLayout.visibility = View.GONE
 
         playerColumn.setPadding(0, 0, 0, 0)
         playerContainer.background = null
@@ -1393,20 +1198,13 @@ class MainActivity : Activity() {
         topBar.visibility = View.VISIBLE
         mainContent.getChildAt(0).visibility = View.VISIBLE
         mainContent.getChildAt(1).visibility = View.VISIBLE
-        epgContainer.visibility = View.VISIBLE
-        customControlsLayout.visibility = View.VISIBLE
 
-        playerColumn.setPadding(dp(20), dp(15), dp(20), dp(20))
+        playerColumn.setPadding(dp(10), dp(10), dp(10), dp(10))
         playerContainer.background = GradientDrawable().apply {
             setColor(Color.BLACK)
             cornerRadius = dp(20).toFloat()
             setStroke(dp(1), strokeColor)
         }
-
-        val params = playerContainer.layoutParams as LinearLayout.LayoutParams
-        params.height = 0
-        params.weight = 0.65f
-        playerContainer.layoutParams = params
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.show(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -1431,9 +1229,21 @@ class MainActivity : Activity() {
                         return true
                     }
                 }
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (playerView.hasFocus() || fullscreen) {
+                        playNextChannel()
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (playerView.hasFocus() || fullscreen) {
+                        playPreviousChannel()
+                        return true
+                    }
+                }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     if (playerView.hasFocus()) {
-                        playerView.showController()
+                        toggleFullscreen()
                         return true
                     }
                 }
