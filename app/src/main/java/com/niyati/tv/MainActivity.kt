@@ -2,10 +2,11 @@ package com.niyati.tv
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.Intent
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,7 +22,6 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -46,6 +46,7 @@ class MainActivity : Activity() {
     private var currentGroup = ""
     private var currentChannelIndex = -1
     private var currentSelectedChannel: Channel? = null
+    private var isMuted = false
 
     private val reconnectHandler = Handler(Looper.getMainLooper())
     private var reconnectRunnable: Runnable? = null
@@ -63,8 +64,12 @@ class MainActivity : Activity() {
     private lateinit var playerColumn: LinearLayout
     private lateinit var playerContainer: FrameLayout
     private lateinit var playerView: PlayerView
+    private lateinit var customControlsLayout: LinearLayout
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
+
+    private lateinit var playPauseBtn: TextView
+    private lateinit var muteBtn: TextView
 
     private val bgPrimary = Color.parseColor("#090C10")
     private val bgSecondary = Color.parseColor("#0D1117")
@@ -721,7 +726,8 @@ class MainActivity : Activity() {
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            // استخدام FIT لمنع قص الصورة وإظهار الشاشة بالكامل
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
             isFocusable = true
             isFocusableInTouchMode = true
@@ -774,13 +780,100 @@ class MainActivity : Activity() {
 
         playerColumn.addView(
             playerContainer,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+
+        // شريط الأزرار (أيقونات فقط بدون كلمات)
+        customControlsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+        }
+
+        playPauseBtn = createIconButton("⏸") {
+            exoPlayer?.let {
+                if (it.isPlaying) {
+                    it.pause()
+                    playPauseBtn.text = "▶"
+                } else {
+                    it.play()
+                    playPauseBtn.text = "⏸"
+                }
+            }
+        }
+
+        val prevBtn = createIconButton("⏮") { playPreviousChannel() }
+        val nextBtn = createIconButton("⏭") { playNextChannel() }
+
+        muteBtn = createIconButton("🔊") {
+            isMuted = !isMuted
+            exoPlayer?.volume = if (isMuted) 0f else 1f
+            muteBtn.text = if (isMuted) "🔕" else "🔊"
+        }
+
+        val volDownBtn = createIconButton("➖") { adjustVolume(false) }
+        val volUpBtn = createIconButton("➕") { adjustVolume(true) }
+
+        val fullscreenBtn = createIconButton("⛶") {
+            toggleFullscreen()
+        }
+
+        customControlsLayout.addView(prevBtn)
+        customControlsLayout.addView(playPauseBtn)
+        customControlsLayout.addView(nextBtn)
+        customControlsLayout.addView(muteBtn)
+        customControlsLayout.addView(volDownBtn)
+        customControlsLayout.addView(volUpBtn)
+        customControlsLayout.addView(fullscreenBtn)
+
+        playerColumn.addView(
+            customControlsLayout,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         )
 
         mainContent.addView(
             playerColumn,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         )
+    }
+
+    private fun createIconButton(symbol: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = symbol
+            textSize = 16f
+            setTextColor(textWhite)
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isFocusableInTouchMode = true
+            isClickable = true
+
+            val margin = dp(4)
+            val params = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                setMargins(margin, 0, margin, 0)
+            }
+            layoutParams = params
+
+            background = GradientDrawable().apply {
+                setColor(bgCard)
+                cornerRadius = dp(12).toFloat()
+            }
+
+            setOnFocusChangeListener { _, hasFocus ->
+                background = GradientDrawable().apply {
+                    setColor(if (hasFocus) accentHover else bgCard)
+                    cornerRadius = dp(12).toFloat()
+                    setStroke(dp(1), if (hasFocus) accentColor else Color.TRANSPARENT)
+                }
+            }
+
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun adjustVolume(increase: Boolean) {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val direction = if (increase) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI)
     }
 
     private fun playNextChannel() {
@@ -1102,6 +1195,7 @@ class MainActivity : Activity() {
                             } else if (playbackState == Player.STATE_READY) {
                                 reconnectAttempts = 0
                                 cancelReconnect()
+                                playPauseBtn.text = "⏸"
                             }
                         }
                     })
@@ -1165,6 +1259,7 @@ class MainActivity : Activity() {
         topBar.visibility = View.GONE
         mainContent.getChildAt(0).visibility = View.GONE
         mainContent.getChildAt(1).visibility = View.GONE
+        customControlsLayout.visibility = View.GONE
 
         playerColumn.setPadding(0, 0, 0, 0)
         playerContainer.background = null
@@ -1173,6 +1268,9 @@ class MainActivity : Activity() {
         params.height = LinearLayout.LayoutParams.MATCH_PARENT
         params.weight = 1f
         playerContainer.layoutParams = params
+
+        // تفعيل أشرطة التحكم الداخلية لمشغل ExoPlayer في وضع التكبير
+        playerView.useController = true
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let {
@@ -1198,6 +1296,10 @@ class MainActivity : Activity() {
         topBar.visibility = View.VISIBLE
         mainContent.getChildAt(0).visibility = View.VISIBLE
         mainContent.getChildAt(1).visibility = View.VISIBLE
+        customControlsLayout.visibility = View.VISIBLE
+
+        // إخفاء الأزرار الداخلية لـ ExoPlayer والاعتماد على الأزرار العادية الخارجية
+        playerView.useController = false
 
         playerColumn.setPadding(dp(10), dp(10), dp(10), dp(10))
         playerContainer.background = GradientDrawable().apply {
@@ -1230,20 +1332,14 @@ class MainActivity : Activity() {
                     }
                 }
                 KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (playerView.hasFocus() || fullscreen) {
+                    if (playerView.hasFocus() && fullscreen) {
                         playNextChannel()
                         return true
                     }
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (playerView.hasFocus() || fullscreen) {
+                    if (playerView.hasFocus() && fullscreen) {
                         playPreviousChannel()
-                        return true
-                    }
-                }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    if (playerView.hasFocus()) {
-                        toggleFullscreen()
                         return true
                     }
                 }
