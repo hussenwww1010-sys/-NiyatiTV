@@ -439,7 +439,7 @@ class MainActivity : Activity() {
             val id = 265709 + i
             add(
                 Channel(
-                    "|AR| شاهد CINEMA $i ᵁᴴᴰ",
+                    "|AR| شاهد CINEMA $i ᵁHD",
                     shahid,
                     "http://m3u.drm-26.com:80/live/Mkdtv1_061261/4STJysUc/$id.ts"
                 )
