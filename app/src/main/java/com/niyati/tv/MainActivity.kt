@@ -143,7 +143,6 @@ class MainActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
 
-        // Packages Scroll Sidebar
         val packageScrollView = ScrollView(this).apply {
             isFillViewport = true
         }
@@ -165,7 +164,6 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(dpToPx(240f), LinearLayout.LayoutParams.MATCH_PARENT)
         )
 
-        // Main Center Layout
         centerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
@@ -190,7 +188,6 @@ class MainActivity : Activity() {
             )
         )
 
-        // Channels Scroll Area
         val channelScrollView = ScrollView(this).apply {
             isFillViewport = true
         }
@@ -411,6 +408,73 @@ class MainActivity : Activity() {
     }
 
     private fun loadChannelsData() {
-        // Place channel entries here...
+        val server = "http://m3u.drm-26.com:80/live/Mkdtv1_061261/123456/"
+
+        // Alwan Network
+        channels.add(Channel("ALWAN SPORT 1 4K", "Alwan", "${server}1001.ts"))
+        channels.add(Channel("ALWAN SPORT 2 4K", "Alwan", "${server}1002.ts"))
+        channels.add(Channel("ALWAN SPORT 3 4K", "Alwan", "${server}1003.ts"))
+        channels.add(Channel("ALWAN SPORT 4 4K", "Alwan", "${server}1004.ts"))
+        channels.add(Channel("ALWAN SPORT 1 HD", "Alwan", "${server}1005.ts"))
+        channels.add(Channel("ALWAN SPORT 2 HD", "Alwan", "${server}1006.ts"))
+        channels.add(Channel("ALWAN SPORT 3 HD", "Alwan", "${server}1007.ts"))
+        channels.add(Channel("ALWAN SPORT 4 HD", "Alwan", "${server}1008.ts"))
+        channels.add(Channel("ALWAN SPORT 1 SD", "Alwan", "${server}1009.ts"))
+        channels.add(Channel("ALWAN SPORT 2 SD", "Alwan", "${server}1010.ts"))
+        channels.add(Channel("ALWAN MOVIES 4K", "Alwan", "${server}1011.ts"))
+        channels.add(Channel("ALWAN CINEMA 4K", "Alwan", "${server}1012.ts"))
+        channels.add(Channel("ALWAN ANIME 4K", "Alwan", "${server}1013.ts"))
+        channels.add(Channel("ALWAN KIDS 4K", "Alwan", "${server}1014.ts"))
+        channels.add(Channel("ALWAN DOCUMENTARY 4K", "Alwan", "${server}1015.ts"))
+        channels.add(Channel("ALWAN UFC 4K", "Alwan", "${server}1016.ts"))
+        channels.add(Channel("ALWAN F1 4K", "Alwan", "${server}1017.ts"))
+        channels.add(Channel("ALWAN SERIES 1 4K", "Alwan", "${server}1018.ts"))
+        channels.add(Channel("ALWAN SERIES 2 4K", "Alwan", "${server}1019.ts"))
+
+        // Serie A
+        channels.add(Channel("Serie A Pass 1 HD", "الدوري الإيطالي - Serie A", "${server}2001.ts"))
+        channels.add(Channel("Serie A Pass 2 HD", "الدوري الإيطالي - Serie A", "${server}2002.ts"))
+        channels.add(Channel("Serie A Pass 3 HD", "الدوري الإيطالي - Serie A", "${server}2003.ts"))
+        channels.add(Channel("Serie A Matchday 1", "الدوري الإيطالي - Serie A", "${server}2004.ts"))
+        channels.add(Channel("Serie A Matchday 2", "الدوري الإيطالي - Serie A", "${server}2005.ts"))
+
+        // StarzPlay & AD Sports
+        channels.add(Channel("AD SPORTS 1 HD", "StarzPlay", "${server}3001.ts"))
+        channels.add(Channel("AD SPORTS 2 HD", "StarzPlay", "${server}3002.ts"))
+        channels.add(Channel("AD SPORTS 3 HD", "StarzPlay", "${server}3003.ts"))
+        channels.add(Channel("AD SPORTS PREMIUM 1 HD", "StarzPlay", "${server}3004.ts"))
+        channels.add(Channel("StarzPlay Action", "StarzPlay", "${server}3005.ts"))
+        channels.add(Channel("StarzPlay Cinema", "StarzPlay", "${server}3006.ts"))
+
+        // Shahid Network
+        channels.add(Channel("Shahid Drama HD", "Shahid", "${server}4001.ts"))
+        channels.add(Channel("Shahid Cinema HD", "Shahid", "${server}4002.ts"))
+        channels.add(Channel("Shahid Series HD", "Shahid", "${server}4003.ts"))
+        channels.add(Channel("Shahid Events Live 1", "Shahid", "${server}4004.ts"))
+        channels.add(Channel("Shahid Events Live 2", "Shahid", "${server}4005.ts"))
+
+        // Alkass
+        channels.add(Channel("Alkass One HD", "الكأس", "${server}5001.ts"))
+        channels.add(Channel("Alkass Two HD", "الكأس", "${server}5002.ts"))
+        channels.add(Channel("Alkass Three HD", "الكأس", "${server}5003.ts"))
+        channels.add(Channel("Alkass Four HD", "الكأس", "${server}5004.ts"))
+        channels.add(Channel("Alkass Five HD", "الكأس", "${server}5005.ts"))
+        channels.add(Channel("Alkass Six HD", "الكأس", "${server}5006.ts"))
+        channels.add(Channel("Alkass Seven HD", "الكأس", "${server}5007.ts"))
+        channels.add(Channel("Alkass Eight HD", "الكأس", "${server}5008.ts"))
+
+        // Al Rabiaa
+        channels.add(Channel("Al Rabiaa TV HD", "الرابعة العراقية - Al Rabiaa", "${server}6001.ts"))
+        channels.add(Channel("Al Rabiaa Sport 1 HD", "الرابعة العراقية - Al Rabiaa", "${server}6002.ts"))
+        channels.add(Channel("Al Rabiaa Sport 2 HD", "الرابعة العراقية - Al Rabiaa", "${server}6003.ts"))
+
+        // Post Sport
+        channels.add(Channel("Post Sport Main", "Post Sport", "${server}7001.ts"))
+        channels.add(Channel("Post Sport 1 HD", "Post Sport", "${server}7002.ts"))
+        channels.add(Channel("Post Sport 2 HD", "Post Sport", "${server}7003.ts"))
+        channels.add(Channel("Post Sport 3 HD", "Post Sport", "${server}7004.ts"))
+        channels.add(Channel("Post Sport 4 HD", "Post Sport", "${server}7005.ts"))
+        channels.add(Channel("Post Sport 5 HD", "Post Sport", "${server}7006.ts"))
+        channels.add(Channel("Post Sport 6 HD", "Post Sport", "${server}7007.ts"))
     }
 }
