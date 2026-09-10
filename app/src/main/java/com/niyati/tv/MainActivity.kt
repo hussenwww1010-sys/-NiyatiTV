@@ -14,6 +14,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -22,6 +23,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
 data class Channel(
@@ -33,9 +35,9 @@ data class Channel(
 class MainActivity : Activity() {
 
     private lateinit var playerView: PlayerView
+    private lateinit var sidebarContainer: LinearLayout
     private lateinit var packageLayout: LinearLayout
     private lateinit var channelLayout: LinearLayout
-    private lateinit var centerLayout: LinearLayout
     private lateinit var headerTextView: TextView
 
     private var player: ExoPlayer? = null
@@ -43,7 +45,7 @@ class MainActivity : Activity() {
     private var currentChannelIndex = -1
     private var currentChannel: Channel? = null
 
-    private var isFullscreen = false
+    private var isOverlayVisible = true
     private var isPlayingChannel = false
 
     private val handler = Handler(Looper.getMainLooper())
@@ -77,7 +79,6 @@ class MainActivity : Activity() {
         ).toInt()
     }
 
-    // دوال إنشاء الخلفيات ذات الحواف الدائرية
     private fun createCardBackground(bgColor: Int, strokeColor: Int = Color.TRANSPARENT, radiusDp: Float = 10f): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -93,7 +94,9 @@ class MainActivity : Activity() {
         player = ExoPlayer.Builder(this).build()
         playerView = PlayerView(this).apply {
             player = this@MainActivity.player
-            useController = true
+            useController = false
+            // تمديد الفيديو ليملأ الشاشة بالكامل بدون حواف
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
         }
 
@@ -131,8 +134,7 @@ class MainActivity : Activity() {
             playWhenReady = true
         }
         isPlayingChannel = true
-        showChannels(currentGroup) // إعادة تحديث القائمة لإبراز القناة الشغالة
-        enterFullscreen()
+        hideOverlay() // إخفاء القوائم فور اختيار القناة للتكبير المباشر
     }
 
     private fun reconnectChannel() {
@@ -152,22 +154,32 @@ class MainActivity : Activity() {
     }
 
     private fun createInterface() {
-        val root = LinearLayout(this).apply {
+        val rootFrameLayout = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
+
+        // إضافة مشغل الفيديو على كامل خلفية الشاشة
+        rootFrameLayout.addView(
+            playerView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        // حاوية القوائم العائمة فوق الفيديو
+        sidebarContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#0B0E14")) // خلفية داكنة فخمة
+            setBackgroundColor(Color.parseColor("#CC0B0E14")) // خلفية داكنة شفافة احترافية
             layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dpToPx(16f), dpToPx(16f), dpToPx(16f), dpToPx(16f))
         }
 
         // --- 1. قائمة الباقات الجانبية ---
-        val packageScrollView = ScrollView(this).apply {
-            isFillViewport = true
-            scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
-        }
+        val packageScrollView = ScrollView(this).apply { isFillViewport = true }
         packageLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP
-            setPadding(dpToPx(10f), dpToPx(16f), dpToPx(10f), dpToPx(16f))
-            setBackgroundColor(Color.parseColor("#121620"))
         }
         packageScrollView.addView(
             packageLayout,
@@ -176,55 +188,29 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         )
-        root.addView(
+        sidebarContainer.addView(
             packageScrollView,
-            LinearLayout.LayoutParams(dpToPx(220f), LinearLayout.LayoutParams.MATCH_PARENT)
+            LinearLayout.LayoutParams(dpToPx(240f), LinearLayout.LayoutParams.MATCH_PARENT)
         )
 
-        // --- 2. المنطقة الوسطى (المشغل + القنوات) ---
-        centerLayout = LinearLayout(this).apply {
+        // --- 2. قائمة القنوات الوسطى ---
+        val centerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
         }
 
-        // الشريط العلوي (Header)
         headerTextView = TextView(this).apply {
             text = "📺 الباقات الرياضية"
-            textSize = 17f
+            textSize = 20f
             setTextColor(Color.parseColor("#00E5FF"))
             setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            setPadding(dpToPx(8f), 0, dpToPx(8f), dpToPx(10f))
+            setPadding(0, 0, 0, dpToPx(16f))
         }
         centerLayout.addView(headerTextView)
 
-        // حاوية مشغل الفيديو
-        val playerContainer = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            background = createCardBackground(Color.BLACK, Color.parseColor("#1E2638"), 12f)
-            setPadding(dpToPx(2f), dpToPx(2f), dpToPx(2f), dpToPx(2f))
-            addView(
-                playerView,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.MATCH_PARENT
-                )
-            )
-        }
-        centerLayout.addView(
-            playerContainer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(250f)
-            ).apply { bottomMargin = dpToPx(12f) }
-        )
-
-        // قائمة القنوات
-        val channelScrollView = ScrollView(this).apply {
-            isFillViewport = true
-        }
+        val channelScrollView = ScrollView(this).apply { isFillViewport = true }
         channelLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dpToPx(4f), 0, dpToPx(4f))
         }
         channelScrollView.addView(
             channelLayout,
@@ -242,12 +228,21 @@ class MainActivity : Activity() {
             )
         )
 
-        root.addView(
+        sidebarContainer.addView(
             centerLayout,
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            LinearLayout.LayoutParams(dpToPx(320f), LinearLayout.LayoutParams.MATCH_PARENT)
         )
 
-        setContentView(root)
+        rootFrameLayout.addView(
+            sidebarContainer,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.RIGHT
+            )
+        )
+
+        setContentView(rootFrameLayout)
         buildPackages()
     }
 
@@ -259,19 +254,19 @@ class MainActivity : Activity() {
             val title = packageDisplayName(group)
             val text = TextView(this).apply {
                 this.text = title
-                textSize = 14f
+                textSize = 16f
                 setTextColor(Color.parseColor("#C5CEE0"))
                 gravity = Gravity.CENTER_VERTICAL
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                setPadding(dpToPx(14f), 0, dpToPx(14f), 0)
+                setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
                 isFocusable = true
                 isFocusableInTouchMode = true
-                background = createCardBackground(Color.TRANSPARENT, radiusDp = 8f)
-                
+                background = createCardBackground(Color.parseColor("#1A2232"), radiusDp = 8f)
+
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dpToPx(46f)
-                ).apply { bottomMargin = dpToPx(6f) }
+                    dpToPx(52f)
+                ).apply { bottomMargin = dpToPx(8f) }
 
                 setOnFocusChangeListener { view, hasFocus ->
                     if (hasFocus) {
@@ -280,7 +275,7 @@ class MainActivity : Activity() {
                     } else {
                         val isSelectedGroup = group == currentGroup
                         view.background = createCardBackground(
-                            if (isSelectedGroup) Color.parseColor("#1A233A") else Color.TRANSPARENT,
+                            if (isSelectedGroup) Color.parseColor("#25334D") else Color.parseColor("#1A2232"),
                             radiusDp = 8f
                         )
                         setTextColor(if (isSelectedGroup) Color.parseColor("#00E5FF") else Color.parseColor("#C5CEE0"))
@@ -304,22 +299,22 @@ class MainActivity : Activity() {
 
             val text = TextView(this).apply {
                 this.text = if (isCurrentPlaying) "▶  ${channel.name}" else channel.name
-                textSize = 14f
+                textSize = 15f
                 setTextColor(if (isCurrentPlaying) Color.parseColor("#00FF66") else Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
                 setTypeface(Typeface.DEFAULT, if (isCurrentPlaying) Typeface.BOLD_ITALIC else Typeface.BOLD)
-                setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+                setPadding(dpToPx(18f), 0, dpToPx(18f), 0)
                 isFocusable = true
                 isFocusableInTouchMode = true
 
-                val normalBg = if (isCurrentPlaying) Color.parseColor("#152D24") else Color.parseColor("#161B26")
+                val normalBg = if (isCurrentPlaying) Color.parseColor("#153D2A") else Color.parseColor("#121824")
                 val strokeBg = if (isCurrentPlaying) Color.parseColor("#00FF66") else Color.TRANSPARENT
                 background = createCardBackground(normalBg, strokeBg, 8f)
 
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dpToPx(44f)
-                ).apply { bottomMargin = dpToPx(6f) }
+                    dpToPx(48f)
+                ).apply { bottomMargin = dpToPx(8f) }
 
                 setOnFocusChangeListener { view, hasFocus ->
                     if (hasFocus) {
@@ -336,7 +331,7 @@ class MainActivity : Activity() {
                 }
             }
             channelLayout.addView(text)
-            if (index == 0 && !isFullscreen) text.requestFocus()
+            if (index == 0 && isOverlayVisible) text.requestFocus()
         }
     }
 
@@ -354,10 +349,9 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun enterFullscreen() {
-        if (isFullscreen) return
-        isFullscreen = true
-
+    private fun hideOverlay() {
+        isOverlayVisible = false
+        sidebarContainer.visibility = View.GONE
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -366,20 +360,15 @@ class MainActivity : Activity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         )
-        packageLayout.parent?.let { (it as View).visibility = View.GONE }
-        channelLayout.parent?.let { (it as View).visibility = View.GONE }
-        headerTextView.visibility = View.GONE
-        playerView.requestFocus()
     }
 
-    private fun exitFullscreen() {
-        if (!isFullscreen) return
-        isFullscreen = false
-
+    private fun showOverlay() {
+        isOverlayVisible = true
+        sidebarContainer.visibility = View.VISIBLE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-        packageLayout.parent?.let { (it as View).visibility = View.VISIBLE }
-        channelLayout.parent?.let { (it as View).visibility = View.VISIBLE }
-        headerTextView.visibility = View.VISIBLE
+        if (channelLayout.childCount > 0) {
+            channelLayout.getChildAt(0).requestFocus()
+        }
     }
 
     private fun nextChannel() {
@@ -409,32 +398,36 @@ class MainActivity : Activity() {
 
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                if (isFullscreen) {
-                    playerView.showController()
+                if (!isOverlayVisible) {
+                    showOverlay()
                     return true
                 }
             }
             KeyEvent.KEYCODE_BACK -> {
-                if (isFullscreen) {
-                    exitFullscreen()
+                if (!isOverlayVisible) {
+                    showOverlay()
                     return true
-                }
-                if (isPlayingChannel) {
-                    player?.stop()
-                    isPlayingChannel = false
+                } else if (isPlayingChannel) {
+                    hideOverlay()
                     return true
                 }
                 return super.dispatchKeyEvent(event)
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (isFullscreen) {
+                if (!isOverlayVisible) {
                     nextChannel()
                     return true
                 }
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (isFullscreen) {
+                if (!isOverlayVisible) {
                     previousChannel()
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (!isOverlayVisible) {
+                    showOverlay()
                     return true
                 }
             }
