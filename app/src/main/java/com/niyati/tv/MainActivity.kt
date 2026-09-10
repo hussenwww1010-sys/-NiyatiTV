@@ -3,6 +3,7 @@ package com.niyati.tv
 import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -35,6 +36,7 @@ class MainActivity : Activity() {
     private lateinit var packageLayout: LinearLayout
     private lateinit var channelLayout: LinearLayout
     private lateinit var centerLayout: LinearLayout
+    private lateinit var headerTextView: TextView
 
     private var player: ExoPlayer? = null
     private var currentGroup = ""
@@ -73,6 +75,18 @@ class MainActivity : Activity() {
             dp,
             resources.displayMetrics
         ).toInt()
+    }
+
+    // دوال إنشاء الخلفيات ذات الحواف الدائرية
+    private fun createCardBackground(bgColor: Int, strokeColor: Int = Color.TRANSPARENT, radiusDp: Float = 10f): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bgColor)
+            cornerRadius = dpToPx(radiusDp).toFloat()
+            if (strokeColor != Color.TRANSPARENT) {
+                setStroke(dpToPx(2f), strokeColor)
+            }
+        }
     }
 
     private fun createPlayer() {
@@ -117,6 +131,7 @@ class MainActivity : Activity() {
             playWhenReady = true
         }
         isPlayingChannel = true
+        showChannels(currentGroup) // إعادة تحديث القائمة لإبراز القناة الشغالة
         enterFullscreen()
     }
 
@@ -139,18 +154,20 @@ class MainActivity : Activity() {
     private fun createInterface() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.rgb(8, 10, 16))
+            setBackgroundColor(Color.parseColor("#0B0E14")) // خلفية داكنة فخمة
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
 
+        // --- 1. قائمة الباقات الجانبية ---
         val packageScrollView = ScrollView(this).apply {
             isFillViewport = true
+            scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
         }
         packageLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP
-            setPadding(dpToPx(12f), dpToPx(16f), dpToPx(12f), dpToPx(16f))
-            setBackgroundColor(Color.rgb(13, 16, 24))
+            setPadding(dpToPx(10f), dpToPx(16f), dpToPx(10f), dpToPx(16f))
+            setBackgroundColor(Color.parseColor("#121620"))
         }
         packageScrollView.addView(
             packageLayout,
@@ -161,17 +178,30 @@ class MainActivity : Activity() {
         )
         root.addView(
             packageScrollView,
-            LinearLayout.LayoutParams(dpToPx(240f), LinearLayout.LayoutParams.MATCH_PARENT)
+            LinearLayout.LayoutParams(dpToPx(220f), LinearLayout.LayoutParams.MATCH_PARENT)
         )
 
+        // --- 2. المنطقة الوسطى (المشغل + القنوات) ---
         centerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
         }
 
+        // الشريط العلوي (Header)
+        headerTextView = TextView(this).apply {
+            text = "📺 الباقات الرياضية"
+            textSize = 17f
+            setTextColor(Color.parseColor("#00E5FF"))
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            setPadding(dpToPx(8f), 0, dpToPx(8f), dpToPx(10f))
+        }
+        centerLayout.addView(headerTextView)
+
+        // حاوية مشغل الفيديو
         val playerContainer = LinearLayout(this).apply {
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.BLACK)
+            background = createCardBackground(Color.BLACK, Color.parseColor("#1E2638"), 12f)
+            setPadding(dpToPx(2f), dpToPx(2f), dpToPx(2f), dpToPx(2f))
             addView(
                 playerView,
                 LinearLayout.LayoutParams(
@@ -184,16 +214,17 @@ class MainActivity : Activity() {
             playerContainer,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(260f)
-            )
+                dpToPx(250f)
+            ).apply { bottomMargin = dpToPx(12f) }
         )
 
+        // قائمة القنوات
         val channelScrollView = ScrollView(this).apply {
             isFillViewport = true
         }
         channelLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            setPadding(0, dpToPx(4f), 0, dpToPx(4f))
         }
         channelScrollView.addView(
             channelLayout,
@@ -228,24 +259,32 @@ class MainActivity : Activity() {
             val title = packageDisplayName(group)
             val text = TextView(this).apply {
                 this.text = title
-                textSize = 16f
-                setTextColor(Color.WHITE)
+                textSize = 14f
+                setTextColor(Color.parseColor("#C5CEE0"))
                 gravity = Gravity.CENTER_VERTICAL
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+                setPadding(dpToPx(14f), 0, dpToPx(14f), 0)
                 isFocusable = true
                 isFocusableInTouchMode = true
-                setBackgroundColor(Color.TRANSPARENT)
+                background = createCardBackground(Color.TRANSPARENT, radiusDp = 8f)
+                
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dpToPx(48f)
-                ).apply {
-                    bottomMargin = dpToPx(4f)
-                }
+                    dpToPx(46f)
+                ).apply { bottomMargin = dpToPx(6f) }
+
                 setOnFocusChangeListener { view, hasFocus ->
-                    view.setBackgroundColor(
-                        if (hasFocus) Color.rgb(35, 90, 170) else Color.TRANSPARENT
-                    )
+                    if (hasFocus) {
+                        view.background = createCardBackground(Color.parseColor("#1D60C2"), Color.parseColor("#00E5FF"), 8f)
+                        setTextColor(Color.WHITE)
+                    } else {
+                        val isSelectedGroup = group == currentGroup
+                        view.background = createCardBackground(
+                            if (isSelectedGroup) Color.parseColor("#1A233A") else Color.TRANSPARENT,
+                            radiusDp = 8f
+                        )
+                        setTextColor(if (isSelectedGroup) Color.parseColor("#00E5FF") else Color.parseColor("#C5CEE0"))
+                    }
                 }
                 setOnClickListener { showChannels(group) }
             }
@@ -256,30 +295,40 @@ class MainActivity : Activity() {
 
     private fun showChannels(group: String) {
         currentGroup = group
+        headerTextView.text = "📺 ${packageDisplayName(group)}"
         channelLayout.removeAllViews()
 
         val groupChannels = channels.filter { it.group == group }
         groupChannels.forEachIndexed { index, channel ->
+            val isCurrentPlaying = channel == currentChannel
+
             val text = TextView(this).apply {
-                this.text = channel.name
-                textSize = 15f
-                setTextColor(Color.WHITE)
+                this.text = if (isCurrentPlaying) "▶  ${channel.name}" else channel.name
+                textSize = 14f
+                setTextColor(if (isCurrentPlaying) Color.parseColor("#00FF66") else Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                setTypeface(Typeface.DEFAULT, if (isCurrentPlaying) Typeface.BOLD_ITALIC else Typeface.BOLD)
                 setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
                 isFocusable = true
                 isFocusableInTouchMode = true
+
+                val normalBg = if (isCurrentPlaying) Color.parseColor("#152D24") else Color.parseColor("#161B26")
+                val strokeBg = if (isCurrentPlaying) Color.parseColor("#00FF66") else Color.TRANSPARENT
+                background = createCardBackground(normalBg, strokeBg, 8f)
+
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     dpToPx(44f)
-                ).apply {
-                    bottomMargin = dpToPx(4f)
-                }
-                setBackgroundColor(Color.rgb(18, 22, 32))
+                ).apply { bottomMargin = dpToPx(6f) }
+
                 setOnFocusChangeListener { view, hasFocus ->
-                    view.setBackgroundColor(
-                        if (hasFocus) Color.rgb(35, 90, 170) else Color.rgb(18, 22, 32)
-                    )
+                    if (hasFocus) {
+                        view.background = createCardBackground(Color.parseColor("#2563EB"), Color.WHITE, 8f)
+                        setTextColor(Color.WHITE)
+                    } else {
+                        view.background = createCardBackground(normalBg, strokeBg, 8f)
+                        setTextColor(if (isCurrentPlaying) Color.parseColor("#00FF66") else Color.WHITE)
+                    }
                 }
                 setOnClickListener {
                     val realIndex = channels.indexOf(channel)
@@ -287,19 +336,20 @@ class MainActivity : Activity() {
                 }
             }
             channelLayout.addView(text)
-            if (index == 0) text.requestFocus()
+            if (index == 0 && !isFullscreen) text.requestFocus()
         }
     }
 
     private fun packageDisplayName(group: String): String {
         return when (group) {
-            "Alwan" -> "🎨 ألوان"
-            "الدوري الإيطالي - Serie A" -> "🇮🇹 الدوري الإيطالي"
-            "StarzPlay" -> "⭐ StarzPlay"
-            "Shahid" -> "🟢 شاهد"
-            "الكأس" -> "🏆 الكأس"
-            "الرابعة العراقية - Al Rabiaa" -> "🇮🇶 الرابعة العراقية"
-            "Post Sport" -> "⚽ Post Sport"
+            "ALWAN SPORT" -> "🎨 ألوان سبورت"
+            "beIN SPORTS" -> "⚽ beIN SPORTS"
+            "beIN SPORTS VIP" -> "👑 beIN SPORTS VIP"
+            "THAMANYA" -> "8️⃣ ثمانية"
+            "ALKASS SPORT" -> "🏆 الكأس"
+            "AD SPORT" -> "🇦🇪 أبوظبي الرياضية"
+            "DUBAI SPORT" -> "🏙️ دبي الرياضية"
+            "IRAQIA SPORT" -> "🇮🇶 العراقية الرياضية"
             else -> group
         }
     }
@@ -318,6 +368,7 @@ class MainActivity : Activity() {
         )
         packageLayout.parent?.let { (it as View).visibility = View.GONE }
         channelLayout.parent?.let { (it as View).visibility = View.GONE }
+        headerTextView.visibility = View.GONE
         playerView.requestFocus()
     }
 
@@ -328,6 +379,7 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         packageLayout.parent?.let { (it as View).visibility = View.VISIBLE }
         channelLayout.parent?.let { (it as View).visibility = View.VISIBLE }
+        headerTextView.visibility = View.VISIBLE
     }
 
     private fun nextChannel() {
@@ -408,73 +460,77 @@ class MainActivity : Activity() {
     }
 
     private fun loadChannelsData() {
-        val server = "http://m3u.drm-26.com:80/live/Mkdtv1_061261/123456/"
+        channels.clear()
 
-        // Alwan Network
-        channels.add(Channel("ALWAN SPORT 1 4K", "Alwan", "${server}1001.ts"))
-        channels.add(Channel("ALWAN SPORT 2 4K", "Alwan", "${server}1002.ts"))
-        channels.add(Channel("ALWAN SPORT 3 4K", "Alwan", "${server}1003.ts"))
-        channels.add(Channel("ALWAN SPORT 4 4K", "Alwan", "${server}1004.ts"))
-        channels.add(Channel("ALWAN SPORT 1 HD", "Alwan", "${server}1005.ts"))
-        channels.add(Channel("ALWAN SPORT 2 HD", "Alwan", "${server}1006.ts"))
-        channels.add(Channel("ALWAN SPORT 3 HD", "Alwan", "${server}1007.ts"))
-        channels.add(Channel("ALWAN SPORT 4 HD", "Alwan", "${server}1008.ts"))
-        channels.add(Channel("ALWAN SPORT 1 SD", "Alwan", "${server}1009.ts"))
-        channels.add(Channel("ALWAN SPORT 2 SD", "Alwan", "${server}1010.ts"))
-        channels.add(Channel("ALWAN MOVIES 4K", "Alwan", "${server}1011.ts"))
-        channels.add(Channel("ALWAN CINEMA 4K", "Alwan", "${server}1012.ts"))
-        channels.add(Channel("ALWAN ANIME 4K", "Alwan", "${server}1013.ts"))
-        channels.add(Channel("ALWAN KIDS 4K", "Alwan", "${server}1014.ts"))
-        channels.add(Channel("ALWAN DOCUMENTARY 4K", "Alwan", "${server}1015.ts"))
-        channels.add(Channel("ALWAN UFC 4K", "Alwan", "${server}1016.ts"))
-        channels.add(Channel("ALWAN F1 4K", "Alwan", "${server}1017.ts"))
-        channels.add(Channel("ALWAN SERIES 1 4K", "Alwan", "${server}1018.ts"))
-        channels.add(Channel("ALWAN SERIES 2 4K", "Alwan", "${server}1019.ts"))
+        // =========================
+        // ALWAN SPORT
+        // =========================
+        channels.add(Channel("ALWAN SPORT 1 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859098&extension=ts"))
+        channels.add(Channel("ALWAN SPORT 2 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859097&extension=ts"))
+        channels.add(Channel("ALWAN SPORT 3 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859096&extension=ts"))
+        channels.add(Channel("ALWAN SPORT 4 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859095&extension=ts"))
+        channels.add(Channel("ALWAN SPORT 5 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859094&extension=ts"))
+        channels.add(Channel("ALWAN SPORT 6 HD", "ALWAN SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859093&extension=ts"))
 
-        // Serie A
-        channels.add(Channel("Serie A Pass 1 HD", "الدوري الإيطالي - Serie A", "${server}2001.ts"))
-        channels.add(Channel("Serie A Pass 2 HD", "الدوري الإيطالي - Serie A", "${server}2002.ts"))
-        channels.add(Channel("Serie A Pass 3 HD", "الدوري الإيطالي - Serie A", "${server}2003.ts"))
-        channels.add(Channel("Serie A Matchday 1", "الدوري الإيطالي - Serie A", "${server}2004.ts"))
-        channels.add(Channel("Serie A Matchday 2", "الدوري الإيطالي - Serie A", "${server}2005.ts"))
+        // =========================
+        // beIN SPORTS
+        // =========================
+        channels.add(Channel("beIN SPORT 1 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"))
+        channels.add(Channel("beIN SPORT 2 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330438&extension=ts"))
+        channels.add(Channel("beIN SPORT 3 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411381&extension=ts"))
+        channels.add(Channel("beIN SPORT 4 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411380&extension=ts"))
+        channels.add(Channel("beIN SPORT 5 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411379&extension=ts"))
+        channels.add(Channel("beIN SPORT 6 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411378&extension=ts"))
+        channels.add(Channel("beIN SPORT 7 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411377&extension=ts"))
+        channels.add(Channel("beIN SPORT 8 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411376&extension=ts"))
+        channels.add(Channel("beIN SPORT 9 HD", "beIN SPORTS", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411375&extension=ts"))
 
-        // StarzPlay & AD Sports
-        channels.add(Channel("AD SPORTS 1 HD", "StarzPlay", "${server}3001.ts"))
-        channels.add(Channel("AD SPORTS 2 HD", "StarzPlay", "${server}3002.ts"))
-        channels.add(Channel("AD SPORTS 3 HD", "StarzPlay", "${server}3003.ts"))
-        channels.add(Channel("AD SPORTS PREMIUM 1 HD", "StarzPlay", "${server}3004.ts"))
-        channels.add(Channel("StarzPlay Action", "StarzPlay", "${server}3005.ts"))
-        channels.add(Channel("StarzPlay Cinema", "StarzPlay", "${server}3006.ts"))
+        // =========================
+        // beIN SPORTS VIP
+        // =========================
+        channels.add(Channel("beIN SPORT 1 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660413&extension=ts"))
+        channels.add(Channel("beIN SPORT 2 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660411&extension=ts"))
+        channels.add(Channel("beIN SPORT 3 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660409&extension=ts"))
+        channels.add(Channel("beIN SPORT 4 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660407&extension=ts"))
+        channels.add(Channel("beIN SPORT 5 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660405&extension=ts"))
+        channels.add(Channel("beIN SPORT 6 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660403&extension=ts"))
+        channels.add(Channel("beIN SPORT 7 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660401&extension=ts"))
+        channels.add(Channel("beIN SPORT 8 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660399&extension=ts"))
+        channels.add(Channel("beIN SPORT 9 HD", "beIN SPORTS VIP", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660397&extension=ts"))
 
-        // Shahid Network
-        channels.add(Channel("Shahid Drama HD", "Shahid", "${server}4001.ts"))
-        channels.add(Channel("Shahid Cinema HD", "Shahid", "${server}4002.ts"))
-        channels.add(Channel("Shahid Series HD", "Shahid", "${server}4003.ts"))
-        channels.add(Channel("Shahid Events Live 1", "Shahid", "${server}4004.ts"))
-        channels.add(Channel("Shahid Events Live 2", "Shahid", "${server}4005.ts"))
+        // =========================
+        // THAMANYA
+        // =========================
+        channels.add(Channel("THAMANYA 1 HD", "THAMANYA", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936356&extension=ts"))
+        channels.add(Channel("THAMANYA 2 HD", "THAMANYA", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936355&extension=ts"))
+        channels.add(Channel("THAMANYA 3 HD", "THAMANYA", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936354&extension=ts"))
 
-        // Alkass
-        channels.add(Channel("Alkass One HD", "الكأس", "${server}5001.ts"))
-        channels.add(Channel("Alkass Two HD", "الكأس", "${server}5002.ts"))
-        channels.add(Channel("Alkass Three HD", "الكأس", "${server}5003.ts"))
-        channels.add(Channel("Alkass Four HD", "الكأس", "${server}5004.ts"))
-        channels.add(Channel("Alkass Five HD", "الكأس", "${server}5005.ts"))
-        channels.add(Channel("Alkass Six HD", "الكأس", "${server}5006.ts"))
-        channels.add(Channel("Alkass Seven HD", "الكأس", "${server}5007.ts"))
-        channels.add(Channel("Alkass Eight HD", "الكأس", "${server}5008.ts"))
+        // =========================
+        // ALKASS SPORT
+        // =========================
+        channels.add(Channel("ALKASS SPORT 1 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591593&extension=ts"))
+        channels.add(Channel("ALKASS SPORT 2 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591591&extension=ts"))
+        channels.add(Channel("ALKASS SPORT 3 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787903&extension=ts"))
+        channels.add(Channel("ALKASS SPORT 4 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591589&extension=ts"))
+        channels.add(Channel("ALKASS SPORT 5 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591587&extension=ts"))
+        channels.add(Channel("ALKASS SPORT 6 HD", "ALKASS SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787906&extension=ts"))
 
-        // Al Rabiaa
-        channels.add(Channel("Al Rabiaa TV HD", "الرابعة العراقية - Al Rabiaa", "${server}6001.ts"))
-        channels.add(Channel("Al Rabiaa Sport 1 HD", "الرابعة العراقية - Al Rabiaa", "${server}6002.ts"))
-        channels.add(Channel("Al Rabiaa Sport 2 HD", "الرابعة العراقية - Al Rabiaa", "${server}6003.ts"))
+        // =========================
+        // AD SPORT
+        // =========================
+        channels.add(Channel("AD SPORT 1 HD", "AD SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993336&extension=ts"))
+        channels.add(Channel("AD SPORT 2 HD", "AD SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993337&extension=ts"))
 
-        // Post Sport
-        channels.add(Channel("Post Sport Main", "Post Sport", "${server}7001.ts"))
-        channels.add(Channel("Post Sport 1 HD", "Post Sport", "${server}7002.ts"))
-        channels.add(Channel("Post Sport 2 HD", "Post Sport", "${server}7003.ts"))
-        channels.add(Channel("Post Sport 3 HD", "Post Sport", "${server}7004.ts"))
-        channels.add(Channel("Post Sport 4 HD", "Post Sport", "${server}7005.ts"))
-        channels.add(Channel("Post Sport 5 HD", "Post Sport", "${server}7006.ts"))
-        channels.add(Channel("Post Sport 6 HD", "Post Sport", "${server}7007.ts"))
+        // =========================
+        // DUBAI SPORT
+        // =========================
+        channels.add(Channel("DUBAI SPORT 1 HD", "DUBAI SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8086&extension=ts"))
+        channels.add(Channel("DUBAI SPORT 2 HD", "DUBAI SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=84251&extension=ts"))
+        channels.add(Channel("DUBAI SPORT 3 HD", "DUBAI SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591579&extension=ts"))
+
+        // =========================
+        // IRAQIA SPORT
+        // =========================
+        channels.add(Channel("IRAQIA SPORT HD", "IRAQIA SPORT", "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8116&extension=ts"))
     }
 }
