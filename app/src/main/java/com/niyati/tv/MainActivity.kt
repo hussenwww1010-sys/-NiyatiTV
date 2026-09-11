@@ -18,7 +18,6 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -38,78 +37,81 @@ data class Channel(
 
 class MainActivity : Activity() {
 
-    // =========================================================
+    // ============================================================
     // PLAYER
-    // =========================================================
+    // ============================================================
 
     private lateinit var playerView: PlayerView
     private var player: ExoPlayer? = null
 
-    // =========================================================
-    // ROOT UI
-    // =========================================================
+    // ============================================================
+    // UI
+    // ============================================================
 
     private lateinit var overlay: LinearLayout
-
     private lateinit var packageScroll: HorizontalScrollView
-    private lateinit var packageLayout: LinearLayout
-
     private lateinit var channelScroll: HorizontalScrollView
+    private lateinit var packageLayout: LinearLayout
     private lateinit var channelLayout: LinearLayout
 
+    private lateinit var logoView: ImageView
     private lateinit var currentChannelText: TextView
     private lateinit var currentGroupText: TextView
     private lateinit var statusText: TextView
     private lateinit var timeText: TextView
-
-    private lateinit var liveDot: TextView
-
-    private var currentGroup = ""
-    private var currentChannel: Channel? = null
-    private var currentChannelIndex = -1
+    private lateinit var channelCountText: TextView
 
     private var isOverlayVisible = true
     private var isPlayingChannel = false
 
+    private var currentGroup = ""
+    private var currentChannelIndex = -1
+    private var currentChannel: Channel? = null
+
     private val handler = Handler(Looper.getMainLooper())
+
+    private val channels = mutableListOf<Channel>()
+
+    // ============================================================
+    // LUXURY COLORS
+    // ============================================================
+
+    private val BG = Color.parseColor("#030407")
+
+    private val BLACK = Color.parseColor("#000000")
+    private val BLACK_SOFT = Color.parseColor("#08090D")
+
+    private val GOLD = Color.parseColor("#D6A84F")
+    private val GOLD_LIGHT = Color.parseColor("#F4D58A")
+    private val GOLD_DARK = Color.parseColor("#8E6525")
+
+    private val SILVER = Color.parseColor("#D9DCE2")
+    private val SILVER_SOFT = Color.parseColor("#A6ACB7")
+
+    private val WHITE = Color.WHITE
+    private val TEXT_PRIMARY = Color.parseColor("#F7F7F5")
+    private val TEXT_SECONDARY = Color.parseColor("#9EA4AE")
+
+    private val CARD = Color.parseColor("#101217")
+    private val CARD_2 = Color.parseColor("#151820")
+
+    private val GREEN = Color.parseColor("#22C55E")
+    private val RED = Color.parseColor("#EF4444")
+
+    // ============================================================
+    // TIME
+    // ============================================================
 
     private val timeRunnable = object : Runnable {
         override fun run() {
-            if (::timeText.isInitialized) {
-                val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-                timeText.text = sdf.format(Date())
-            }
-
+            updateTime()
             handler.postDelayed(this, 1000)
         }
     }
 
-    private val channels = mutableListOf<Channel>()
-
-    // =========================================================
-    // COLORS
-    // =========================================================
-
-    private val BLACK = Color.parseColor("#05070B")
-
-    private val GLASS = Color.parseColor("#D90A0F17")
-
-    private val CARD = Color.parseColor("#E6111721")
-    private val CARD_DARK = Color.parseColor("#D90B1018")
-
-    private val WHITE = Color.WHITE
-    private val TEXT = Color.parseColor("#F8FAFC")
-    private val MUTED = Color.parseColor("#94A3B8")
-
-    private val CYAN = Color.parseColor("#00E5FF")
-    private val BLUE = Color.parseColor("#1677FF")
-
-    private val GREEN = Color.parseColor("#16C784")
-    private val RED = Color.parseColor("#EF4444")
-
-    // =========================================================
-    // CREATE
-    // =========================================================
+    // ============================================================
+    // ON CREATE
+    // ============================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,19 +130,19 @@ class MainActivity : Activity() {
         loadChannelsData()
 
         createPlayer()
-
         createInterface()
 
         if (channels.isNotEmpty()) {
-            showChannels(channels.first().group)
+            val firstGroup = channels.first().group
+            showChannels(firstGroup)
         }
 
         handler.post(timeRunnable)
     }
 
-    // =========================================================
-    // HELPERS
-    // =========================================================
+    // ============================================================
+    // DP
+    // ============================================================
 
     private fun dp(value: Float): Int {
         return TypedValue.applyDimension(
@@ -150,28 +152,54 @@ class MainActivity : Activity() {
         ).toInt()
     }
 
-    private fun background(
+    // ============================================================
+    // BACKGROUND HELPERS
+    // ============================================================
+
+    private fun roundedBackground(
         color: Int,
-        radius: Float = 16f,
-        stroke: Int = Color.TRANSPARENT,
+        radius: Float = 14f,
+        strokeColor: Int = Color.TRANSPARENT,
         strokeWidth: Int = 0
     ): GradientDrawable {
 
         return GradientDrawable().apply {
+
             shape = GradientDrawable.RECTANGLE
+
             setColor(color)
+
             cornerRadius = dp(radius).toFloat()
 
-            if (stroke != Color.TRANSPARENT && strokeWidth > 0) {
+            if (strokeColor != Color.TRANSPARENT && strokeWidth > 0) {
+
                 setStroke(
                     dp(strokeWidth.toFloat()),
-                    stroke
+                    strokeColor
                 )
             }
         }
     }
 
-    private fun tv(
+    private fun gradientBackground(
+        colors: IntArray,
+        orientation: GradientDrawable.Orientation =
+            GradientDrawable.Orientation.TOP_BOTTOM
+    ): GradientDrawable {
+
+        return GradientDrawable(
+            orientation,
+            colors
+        ).apply {
+            cornerRadius = dp(22f).toFloat()
+        }
+    }
+
+    // ============================================================
+    // TEXT
+    // ============================================================
+
+    private fun text(
         value: String,
         size: Float,
         color: Int = WHITE,
@@ -197,9 +225,9 @@ class MainActivity : Activity() {
         }
     }
 
-    // =========================================================
+    // ============================================================
     // PLAYER
-    // =========================================================
+    // ============================================================
 
     private fun createPlayer() {
 
@@ -211,8 +239,10 @@ class MainActivity : Activity() {
 
             useController = false
 
-            resizeMode =
-                AspectRatioFrameLayout.RESIZE_MODE_FILL
+            /*
+             * FIT يمنع قص الصورة خصوصاً بالموبايل العمودي.
+             */
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
             setShowBuffering(
                 PlayerView.SHOW_BUFFERING_WHEN_PLAYING
@@ -231,18 +261,17 @@ class MainActivity : Activity() {
         }
 
         player?.addListener(
+
             object : Player.Listener {
 
-                override fun onPlaybackStateChanged(
-                    state: Int
-                ) {
+                override fun onPlaybackStateChanged(state: Int) {
 
                     when (state) {
 
                         Player.STATE_BUFFERING -> {
 
                             statusTextSafe(
-                                "جاري الاتصال بالبث..."
+                                "جاري الاتصال بالبث المباشر..."
                             )
                         }
 
@@ -251,7 +280,7 @@ class MainActivity : Activity() {
                             isPlayingChannel = true
 
                             statusTextSafe(
-                                "البث مباشر ومستقر"
+                                "● البث المباشر مستقر"
                             )
                         }
 
@@ -269,7 +298,7 @@ class MainActivity : Activity() {
                     isPlayingChannel = false
 
                     statusTextSafe(
-                        "فشل الاتصال • إعادة الاتصال..."
+                        "فشل الاتصال — جاري إعادة المحاولة..."
                     )
 
                     reconnectChannel()
@@ -278,16 +307,21 @@ class MainActivity : Activity() {
         )
     }
 
+    // ============================================================
+    // SAFE STATUS
+    // ============================================================
+
     private fun statusTextSafe(value: String) {
 
         if (::statusText.isInitialized) {
+
             statusText.text = value
         }
     }
 
-    // =========================================================
+    // ============================================================
     // PLAY CHANNEL
-    // =========================================================
+    // ============================================================
 
     private fun playChannel(
         channel: Channel,
@@ -302,10 +336,9 @@ class MainActivity : Activity() {
 
         updateCurrentInfo()
 
-        val mediaItem =
-            MediaItem.fromUri(
-                Uri.parse(channel.url)
-            )
+        val mediaItem = MediaItem.fromUri(
+            Uri.parse(channel.url)
+        )
 
         player?.apply {
 
@@ -324,12 +357,15 @@ class MainActivity : Activity() {
 
         refreshChannelCards()
 
+        /*
+         * بمجرد اختيار قناة ندخل للمشاهدة الكاملة.
+         */
         hideOverlay()
     }
 
-    // =========================================================
+    // ============================================================
     // RECONNECT
-    // =========================================================
+    // ============================================================
 
     private fun reconnectChannel() {
 
@@ -361,26 +397,35 @@ class MainActivity : Activity() {
         }, 1500)
     }
 
-    // =========================================================
-    // NEW INTERFACE
-    // =========================================================
+    // ============================================================
+    // CREATE INTERFACE
+    // ============================================================
 
     private fun createInterface() {
 
         val root = FrameLayout(this).apply {
-            setBackgroundColor(BLACK)
+
+            setBackgroundColor(BG)
         }
 
+        // --------------------------------------------------------
         // PLAYER
+        // --------------------------------------------------------
+
         root.addView(
+
             playerView,
+
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
 
+        // --------------------------------------------------------
         // MAIN OVERLAY
+        // --------------------------------------------------------
+
         overlay = LinearLayout(this).apply {
 
             orientation = LinearLayout.VERTICAL
@@ -389,27 +434,222 @@ class MainActivity : Activity() {
                 View.LAYOUT_DIRECTION_RTL
 
             setPadding(
+                dp(22f),
                 dp(18f),
-                dp(16f),
-                dp(18f),
-                dp(16f)
+                dp(22f),
+                dp(18f)
+            )
+
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.parseColor("#C9030407"),
+                    Color.parseColor("#E6030407"),
+                    Color.parseColor("#F5080A0F")
+                )
+            )
+        }
+
+        // ========================================================
+        // TOP BAR
+        // ========================================================
+
+        val topBar = LinearLayout(this).apply {
+
+            orientation = LinearLayout.HORIZONTAL
+
+            gravity = Gravity.CENTER_VERTICAL
+
+            layoutDirection =
+                View.LAYOUT_DIRECTION_RTL
+        }
+
+        // --------------------------------------------------------
+        // LOGO
+        // --------------------------------------------------------
+
+        logoView = ImageView(this).apply {
+
+            setImageResource(
+                R.drawable.niyati_logo
+            )
+
+            scaleType =
+                ImageView.ScaleType.FIT_CENTER
+
+            contentDescription = "NIYATI TV"
+        }
+
+        topBar.addView(
+
+            logoView,
+
+            LinearLayout.LayoutParams(
+                dp(68f),
+                dp(68f)
+            )
+        )
+
+        // --------------------------------------------------------
+        // BRAND
+        // --------------------------------------------------------
+
+        val brandBox = LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.VERTICAL
+
+            gravity =
+                Gravity.CENTER_VERTICAL
+
+            setPadding(
+                dp(10f),
+                0,
+                0,
+                0
+            )
+        }
+
+        val brand = text(
+            "NIYATI",
+            22f,
+            WHITE,
+            true
+        ).apply {
+
+            letterSpacing = 0.18f
+        }
+
+        val brandSub = text(
+            "SPORTS • LIVE TV",
+            9f,
+            GOLD_LIGHT,
+            true
+        ).apply {
+
+            letterSpacing = 0.18f
+        }
+
+        brandBox.addView(brand)
+
+        brandBox.addView(brandSub)
+
+        topBar.addView(
+
+            brandBox,
+
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        // --------------------------------------------------------
+        // LIVE
+        // --------------------------------------------------------
+
+        val liveBox = LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER
+
+            setPadding(
+                dp(12f),
+                0,
+                dp(12f),
+                0
             )
 
             background =
-                background(
-                    GLASS,
-                    28f
+                roundedBackground(
+                    Color.parseColor("#80110D0A"),
+                    50f,
+                    GOLD_DARK,
+                    1
                 )
-
-            elevation =
-                dp(20f).toFloat()
         }
 
-        // =====================================================
-        // TOP BAR
-        // =====================================================
+        val liveDot = text(
+            "●",
+            10f,
+            GREEN,
+            true
+        )
 
-        val topBar = LinearLayout(this).apply {
+        val liveText = text(
+            " LIVE",
+            10f,
+            SILVER,
+            true
+        )
+
+        liveBox.addView(liveDot)
+
+        liveBox.addView(liveText)
+
+        topBar.addView(
+
+            liveBox,
+
+            LinearLayout.LayoutParams(
+                dp(74f),
+                dp(34f)
+            ).apply {
+
+                marginStart = dp(8f)
+            }
+        )
+
+        // --------------------------------------------------------
+        // TIME
+        // --------------------------------------------------------
+
+        timeText = text(
+            "--:--",
+            15f,
+            WHITE,
+            true
+        ).apply {
+
+            gravity = Gravity.CENTER
+
+            setPadding(
+                dp(10f),
+                0,
+                dp(4f),
+                0
+            )
+        }
+
+        topBar.addView(
+
+            timeText,
+
+            LinearLayout.LayoutParams(
+                dp(62f),
+                dp(40f)
+            )
+        )
+
+        overlay.addView(
+
+            topBar,
+
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(70f)
+            )
+        )
+
+        // ========================================================
+        // HERO / CURRENT CHANNEL
+        // ========================================================
+
+        val hero = LinearLayout(this).apply {
 
             orientation =
                 LinearLayout.HORIZONTAL
@@ -419,53 +659,78 @@ class MainActivity : Activity() {
 
             layoutDirection =
                 View.LAYOUT_DIRECTION_RTL
+
+            setPadding(
+                dp(18f),
+                dp(12f),
+                dp(18f),
+                dp(12f)
+            )
+
+            background =
+                gradientBackground(
+                    intArrayOf(
+                        Color.parseColor("#D916171C"),
+                        Color.parseColor("#B30B0D12")
+                    ),
+                    GradientDrawable.Orientation.LEFT_RIGHT
+                )
         }
 
-        // BRAND
-        val brandBox =
-            LinearLayout(this).apply {
+        val heroInfo = LinearLayout(this).apply {
 
-                orientation =
-                    LinearLayout.VERTICAL
+            orientation =
+                LinearLayout.VERTICAL
 
-                gravity =
-                    Gravity.CENTER_VERTICAL
-            }
+            gravity =
+                Gravity.CENTER_VERTICAL
+        }
 
-        val brand =
-            tv(
-                "NIYATI",
-                25f,
-                WHITE,
-                true
-            ).apply {
-
-                letterSpacing = 0.18f
-            }
-
-        val subtitle =
-            tv(
-                "SPORTS",
-                9f,
-                CYAN,
-                true
-            ).apply {
-
-                letterSpacing = 0.35f
-            }
-
-        brandBox.addView(brand)
-
-        brandBox.addView(
-            subtitle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                dp(18f)
-            )
+        currentGroupText = text(
+            "البث الرياضي المباشر",
+            10f,
+            GOLD_LIGHT,
+            true
         )
 
-        topBar.addView(
-            brandBox,
+        currentGroupText.setPadding(
+            0,
+            0,
+            0,
+            dp(3f)
+        )
+
+        heroInfo.addView(
+            currentGroupText
+        )
+
+        currentChannelText = text(
+            "اختر قناة للبدء",
+            20f,
+            WHITE,
+            true
+        )
+
+        currentChannelText.maxLines = 1
+
+        heroInfo.addView(
+            currentChannelText
+        )
+
+        statusText = text(
+            "جاهز للبث",
+            10f,
+            TEXT_SECONDARY
+        )
+
+        heroInfo.addView(
+            statusText
+        )
+
+        hero.addView(
+
+            heroInfo,
+
             LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -473,323 +738,83 @@ class MainActivity : Activity() {
             )
         )
 
-        // CURRENT CHANNEL
-        val topChannel =
-            tv(
-                "البث الرياضي",
-                12f,
-                MUTED,
-                true
-            ).apply {
+        // --------------------------------------------------------
+        // CHANNEL COUNT
+        // --------------------------------------------------------
 
-                gravity = Gravity.CENTER
-            }
+        channelCountText = text(
+            "0 قناة",
+            10f,
+            SILVER_SOFT,
+            true
+        ).apply {
 
-        topBar.addView(
-            topChannel,
-            LinearLayout.LayoutParams(
-                0,
-                dp(38f),
-                1f
-            )
-        )
+            gravity = Gravity.CENTER
 
-        // TIME
-        timeText =
-            tv(
-                "--:--",
-                16f,
-                WHITE,
-                true
-            ).apply {
-
-                gravity = Gravity.CENTER
-
-                background =
-                    background(
-                        Color.parseColor("#66111A24"),
-                        14f
-                    )
-
-                setPadding(
-                    dp(14f),
-                    0,
-                    dp(14f),
-                    0
+            background =
+                roundedBackground(
+                    Color.parseColor("#201D1A15"),
+                    12f,
+                    Color.parseColor("#664F3A1A"),
+                    1
                 )
-            }
 
-        topBar.addView(
-            timeText,
+            setPadding(
+                dp(12f),
+                0,
+                dp(12f),
+                0
+            )
+        }
+
+        hero.addView(
+
+            channelCountText,
+
             LinearLayout.LayoutParams(
-                dp(80f),
+                dp(76f),
+                dp(34f)
+            )
+        )
+
+        overlay.addView(
+
+            hero,
+
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(76f)
+            ).apply {
+
+                topMargin = dp(6f)
+
+                bottomMargin = dp(14f)
+            }
+        )
+
+        // ========================================================
+        // PACKAGES TITLE
+        // ========================================================
+
+        val packageHeader =
+            createSectionHeader(
+                "الباقات الرياضية",
+                "اختر الباقة"
+            )
+
+        overlay.addView(
+
+            packageHeader,
+
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(38f)
             )
         )
 
-        // LIVE
-        liveDot =
-            tv(
-                "●  LIVE",
-                10f,
-                WHITE,
-                true
-            ).apply {
-
-                gravity = Gravity.CENTER
-
-                background =
-                    background(
-                        Color.parseColor("#B5163A2B"),
-                        30f,
-                        GREEN,
-                        1
-                    )
-            }
-
-        topBar.addView(
-            liveDot,
-            LinearLayout.LayoutParams(
-                dp(80f),
-                dp(34f)
-            ).apply {
-
-                marginStart =
-                    dp(8f)
-            }
-        )
-
-        overlay.addView(
-            topBar,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48f)
-            )
-        )
-
-        // =====================================================
-        // CURRENT CHANNEL CARD
-        // =====================================================
-
-        val currentCard =
-            LinearLayout(this).apply {
-
-                orientation =
-                    LinearLayout.HORIZONTAL
-
-                gravity =
-                    Gravity.CENTER_VERTICAL
-
-                layoutDirection =
-                    View.LAYOUT_DIRECTION_RTL
-
-                setPadding(
-                    dp(16f),
-                    dp(8f),
-                    dp(16f),
-                    dp(8f)
-                )
-
-                background =
-                    background(
-                        Color.parseColor("#B3091018"),
-                        20f,
-                        Color.parseColor("#334155"),
-                        1
-                    )
-            }
-
-        val channelIcon =
-            TextView(this).apply {
-
-                text = "▶"
-
-                textSize = 20f
-
-                setTextColor(CYAN)
-
-                gravity = Gravity.CENTER
-
-                background =
-                    background(
-                        Color.parseColor("#221E293B"),
-                        14f
-                    )
-            }
-
-        currentCard.addView(
-            channelIcon,
-            LinearLayout.LayoutParams(
-                dp(46f),
-                dp(46f)
-            )
-        )
-
-        val currentInfo =
-            LinearLayout(this).apply {
-
-                orientation =
-                    LinearLayout.VERTICAL
-
-                gravity =
-                    Gravity.CENTER_VERTICAL
-
-                setPadding(
-                    dp(12f),
-                    0,
-                    dp(12f),
-                    0
-                )
-            }
-
-        currentGroupText =
-            tv(
-                "اختر باقة",
-                10f,
-                CYAN,
-                true
-            )
-
-        currentChannelText =
-            tv(
-                "اختر قناة للبدء",
-                17f,
-                WHITE,
-                true
-            )
-
-        statusText =
-            tv(
-                "جاهز للبث",
-                9f,
-                MUTED
-            )
-
-        currentInfo.addView(
-            currentGroupText
-        )
-
-        currentInfo.addView(
-            currentChannelText
-        )
-
-        currentInfo.addView(
-            statusText
-        )
-
-        currentCard.addView(
-            currentInfo,
-            LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                1f
-            )
-        )
-
-        val watch =
-            tv(
-                "مشاهدة",
-                11f,
-                WHITE,
-                true
-            ).apply {
-
-                gravity = Gravity.CENTER
-
-                background =
-                    background(
-                        BLUE,
-                        14f
-                    )
-            }
-
-        watch.setOnClickListener {
-
-            if (currentChannel != null) {
-                hideOverlay()
-            }
-        }
-
-        currentCard.addView(
-            watch,
-            LinearLayout.LayoutParams(
-                dp(85f),
-                dp(40f)
-            )
-        )
-
-        overlay.addView(
-            currentCard,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(68f)
-            ).apply {
-
-                topMargin = dp(10f)
-
-                bottomMargin = dp(12f)
-            }
-        )
-
-        // =====================================================
-        // PACKAGES TITLE
-        // =====================================================
-
-        val packageHeader =
-            LinearLayout(this).apply {
-
-                orientation =
-                    LinearLayout.HORIZONTAL
-
-                gravity =
-                    Gravity.CENTER_VERTICAL
-
-                layoutDirection =
-                    View.LAYOUT_DIRECTION_RTL
-            }
-
-        val packageTitle =
-            tv(
-                "الباقات الرياضية",
-                15f,
-                WHITE,
-                true
-            )
-
-        packageHeader.addView(
-            packageTitle,
-            LinearLayout.LayoutParams(
-                0,
-                dp(30f),
-                1f
-            )
-        )
-
-        val packageHint =
-            tv(
-                "اختر الباقة",
-                9f,
-                MUTED
-            ).apply {
-
-                gravity = Gravity.CENTER
-            }
-
-        packageHeader.addView(
-            packageHint,
-            LinearLayout.LayoutParams(
-                dp(90f),
-                dp(30f)
-            )
-        )
-
-        overlay.addView(
-            packageHeader
-        )
-
-        // =====================================================
-        // PACKAGES HORIZONTAL
-        // =====================================================
+        // ========================================================
+        // PACKAGE SCROLL
+        // ========================================================
 
         packageScroll =
             HorizontalScrollView(this).apply {
@@ -799,7 +824,14 @@ class MainActivity : Activity() {
                 overScrollMode =
                     View.OVER_SCROLL_NEVER
 
-                isFillViewport = false
+                clipToPadding = false
+
+                setPadding(
+                    dp(2f),
+                    0,
+                    dp(2f),
+                    dp(4f)
+                )
             }
 
         packageLayout =
@@ -817,75 +849,41 @@ class MainActivity : Activity() {
         )
 
         overlay.addView(
+
             packageScroll,
+
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(72f)
             ).apply {
 
-                bottomMargin = dp(12f)
+                bottomMargin = dp(10f)
             }
         )
 
-        // =====================================================
+        // ========================================================
         // CHANNEL TITLE
-        // =====================================================
+        // ========================================================
 
         val channelHeader =
-            LinearLayout(this).apply {
-
-                orientation =
-                    LinearLayout.HORIZONTAL
-
-                gravity =
-                    Gravity.CENTER_VERTICAL
-
-                layoutDirection =
-                    View.LAYOUT_DIRECTION_RTL
-            }
-
-        val channelTitle =
-            tv(
+            createSectionHeader(
                 "القنوات",
-                15f,
-                WHITE,
-                true
+                "اضغط OK للتشغيل"
             )
-
-        channelHeader.addView(
-            channelTitle,
-            LinearLayout.LayoutParams(
-                0,
-                dp(30f),
-                1f
-            )
-        )
-
-        val channelHint =
-            tv(
-                "اضغط OK للتشغيل",
-                9f,
-                MUTED
-            ).apply {
-
-                gravity = Gravity.CENTER
-            }
-
-        channelHeader.addView(
-            channelHint,
-            LinearLayout.LayoutParams(
-                dp(110f),
-                dp(30f)
-            )
-        )
 
         overlay.addView(
-            channelHeader
+
+            channelHeader,
+
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(38f)
+            )
         )
 
-        // =====================================================
-        // CHANNELS HORIZONTAL
-        // =====================================================
+        // ========================================================
+        // CHANNEL SCROLL
+        // ========================================================
 
         channelScroll =
             HorizontalScrollView(this).apply {
@@ -895,7 +893,14 @@ class MainActivity : Activity() {
                 overScrollMode =
                     View.OVER_SCROLL_NEVER
 
-                isFillViewport = false
+                clipToPadding = false
+
+                setPadding(
+                    dp(2f),
+                    0,
+                    dp(2f),
+                    0
+                )
             }
 
         channelLayout =
@@ -913,75 +918,70 @@ class MainActivity : Activity() {
         )
 
         overlay.addView(
+
             channelScroll,
+
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        // =====================================================
-        // FOOTER
-        // =====================================================
-
-        val footer =
-            tv(
-                "← → القنوات    ↑ ↓ الباقات    OK تشغيل    BACK رجوع",
-                9f,
-                MUTED
+                dp(104f)
             ).apply {
 
-                gravity = Gravity.CENTER
+                bottomMargin = dp(8f)
             }
+        )
+
+        // ========================================================
+        // BOTTOM INFO
+        // ========================================================
+
+        val footer = LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER
+
+            layoutDirection =
+                View.LAYOUT_DIRECTION_RTL
+        }
+
+        val footerText = text(
+            "▲ ▼ التنقل   •   OK تشغيل   •   BACK القائمة",
+            9f,
+            TEXT_SECONDARY,
+            false
+        ).apply {
+
+            gravity = Gravity.CENTER
+        }
+
+        footer.addView(
+            footerText
+        )
 
         overlay.addView(
+
             footer,
+
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(25f)
+                dp(24f)
             )
         )
 
-        // =====================================================
-        // SIZE
-        // =====================================================
-
-        val width =
-            resources.displayMetrics.widthPixels
-
-        val height =
-            resources.displayMetrics.heightPixels
-
-        val portrait =
-            height > width
-
-        val overlayWidth =
-            if (portrait) {
-                (width * 0.96f).toInt()
-            } else {
-                (width * 0.94f).toInt()
-            }
-
-        val overlayHeight =
-            if (portrait) {
-                (height * 0.78f).toInt()
-            } else {
-                (height * 0.78f).toInt()
-            }
+        // ========================================================
+        // ADD OVERLAY
+        // ========================================================
 
         root.addView(
-            overlay,
-            FrameLayout.LayoutParams(
-                overlayWidth,
-                overlayHeight,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            ).apply {
 
-                bottomMargin =
-                    if (portrait) dp(10f)
-                    else dp(18f)
-            }
+            overlay,
+
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         )
 
         setContentView(root)
@@ -989,9 +989,95 @@ class MainActivity : Activity() {
         buildPackages()
     }
 
-    // =========================================================
-    // BUILD PACKAGES
-    // =========================================================
+    // ============================================================
+    // SECTION HEADER
+    // ============================================================
+
+    private fun createSectionHeader(
+        title: String,
+        subtitle: String
+    ): LinearLayout {
+
+        val box = LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER_VERTICAL
+
+            layoutDirection =
+                View.LAYOUT_DIRECTION_RTL
+        }
+
+        val titleBox = LinearLayout(this).apply {
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER_VERTICAL
+        }
+
+        val line = View(this).apply {
+
+            setBackgroundColor(GOLD)
+        }
+
+        titleBox.addView(
+
+            line,
+
+            LinearLayout.LayoutParams(
+                dp(3f),
+                dp(20f)
+            ).apply {
+
+                marginStart = dp(8f)
+            }
+        )
+
+        val titleText = text(
+            title,
+            14f,
+            WHITE,
+            true
+        )
+
+        titleBox.addView(
+            titleText
+        )
+
+        box.addView(
+
+            titleBox,
+
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1f
+            )
+        )
+
+        val subText = text(
+            subtitle,
+            9f,
+            TEXT_SECONDARY
+        ).apply {
+
+            gravity = Gravity.CENTER
+        }
+
+        box.addView(
+            subText
+        )
+
+        return box
+    }
+
+    // ============================================================
+    // PACKAGES
+    // ============================================================
 
     private fun buildPackages() {
 
@@ -1004,8 +1090,8 @@ class MainActivity : Activity() {
 
         groups.forEachIndexed { index, group ->
 
-            val count =
-                channels.count {
+            val groupChannels =
+                channels.filter {
                     it.group == group
                 }
 
@@ -1027,94 +1113,111 @@ class MainActivity : Activity() {
 
                     setPadding(
                         dp(14f),
-                        dp(5f),
+                        dp(8f),
                         dp(14f),
-                        dp(5f)
+                        dp(8f)
                     )
 
                     background =
-                        background(
-                            if (group == currentGroup)
-                                Color.parseColor("#2230AFFF")
-                            else CARD,
-                            18f,
-                            if (group == currentGroup)
-                                CYAN
-                            else Color.TRANSPARENT,
-                            if (group == currentGroup)
-                                1
-                            else 0
+                        roundedBackground(
+                            CARD,
+                            16f,
+                            Color.TRANSPARENT,
+                            0
                         )
+
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        defaultFocusHighlightEnabled = false
+                    }
                 }
 
-            val icon =
-                tv(
-                    packageIcon(group),
-                    21f,
-                    WHITE,
-                    true
-                ).apply {
+            // ----------------------------------------------------
+            // PACKAGE ICON
+            // ----------------------------------------------------
 
-                    gravity = Gravity.CENTER
-                }
+            val icon = text(
+                packageIcon(group),
+                18f,
+                GOLD_LIGHT,
+                true
+            ).apply {
+
+                gravity = Gravity.CENTER
+            }
 
             card.addView(
+
                 icon,
+
                 LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(34f),
                     dp(28f)
                 )
             )
 
-            val name =
-                tv(
-                    packageDisplayName(group),
-                    11f,
-                    TEXT,
-                    true
-                ).apply {
+            // ----------------------------------------------------
+            // PACKAGE NAME
+            // ----------------------------------------------------
 
-                    gravity = Gravity.CENTER
+            val name = text(
+                packageDisplayName(group),
+                11f,
+                TEXT_PRIMARY,
+                true
+            ).apply {
 
-                    maxLines = 1
-                }
+                gravity = Gravity.CENTER
+
+                maxLines = 1
+            }
 
             card.addView(
+
                 name,
+
                 LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(25f)
+                    dp(122f),
+                    dp(24f)
                 )
             )
 
-            val countText =
-                tv(
-                    "$count قناة",
-                    8f,
-                    MUTED,
-                    true
-                ).apply {
+            // ----------------------------------------------------
+            // COUNT
+            // ----------------------------------------------------
 
-                    gravity = Gravity.CENTER
-                }
+            val count = text(
+                "${groupChannels.size} قناة",
+                8f,
+                TEXT_SECONDARY
+            ).apply {
+
+                gravity = Gravity.CENTER
+            }
 
             card.addView(
-                countText,
+
+                count,
+
                 LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(17f)
+                    dp(122f),
+                    dp(18f)
                 )
             )
 
             card.layoutParams =
                 LinearLayout.LayoutParams(
-                    dp(125f),
-                    dp(70f)
+                    dp(132f),
+                    dp(68f)
                 ).apply {
 
                     marginStart = dp(5f)
+
                     marginEnd = dp(5f)
                 }
+
+            // ----------------------------------------------------
+            // FOCUS
+            // ----------------------------------------------------
 
             card.setOnFocusChangeListener {
                     view,
@@ -1123,14 +1226,24 @@ class MainActivity : Activity() {
                 if (hasFocus) {
 
                     view.background =
-                        background(
-                            BLUE,
-                            18f,
-                            CYAN,
+                        roundedBackground(
+                            Color.parseColor("#3A2A12"),
+                            16f,
+                            GOLD,
                             2
                         )
 
-                    name.setTextColor(WHITE)
+                    name.setTextColor(
+                        GOLD_LIGHT
+                    )
+
+                    icon.setTextColor(
+                        GOLD_LIGHT
+                    )
+
+                    view.scaleX = 1.035f
+
+                    view.scaleY = 1.035f
 
                 } else {
 
@@ -1138,24 +1251,42 @@ class MainActivity : Activity() {
                         group == currentGroup
 
                     view.background =
-                        background(
+                        roundedBackground(
                             if (selected)
-                                Color.parseColor("#2230AFFF")
-                            else CARD,
-                            18f,
+                                Color.parseColor("#211A10")
+                            else
+                                CARD,
+                            16f,
                             if (selected)
-                                CYAN
-                            else Color.TRANSPARENT,
+                                GOLD_DARK
+                            else
+                                Color.TRANSPARENT,
                             if (selected) 1 else 0
                         )
 
                     name.setTextColor(
                         if (selected)
-                            CYAN
-                        else TEXT
+                            GOLD_LIGHT
+                        else
+                            TEXT_PRIMARY
                     )
+
+                    icon.setTextColor(
+                        if (selected)
+                            GOLD
+                        else
+                            SILVER
+                    )
+
+                    view.scaleX = 1f
+
+                    view.scaleY = 1f
                 }
             }
+
+            // ----------------------------------------------------
+            // CLICK
+            // ----------------------------------------------------
 
             card.setOnClickListener {
 
@@ -1181,9 +1312,9 @@ class MainActivity : Activity() {
         }
     }
 
-    // =========================================================
+    // ============================================================
     // SHOW CHANNELS
-    // =========================================================
+    // ============================================================
 
     private fun showChannels(group: String) {
 
@@ -1197,13 +1328,16 @@ class MainActivity : Activity() {
         currentGroupText.text =
             packageDisplayName(group)
 
+        channelCountText.text =
+            "${groupChannels.size} قناة"
+
         channelLayout.removeAllViews()
 
         groupChannels.forEachIndexed {
                 index,
                 channel ->
 
-            val playing =
+            val isPlaying =
                 channel == currentChannel
 
             val card =
@@ -1230,141 +1364,209 @@ class MainActivity : Activity() {
                     )
 
                     background =
-                        background(
-                            if (playing)
-                                Color.parseColor("#153B7A5A")
-                            else CARD_DARK,
-                            18f,
-                            if (playing)
-                                GREEN
-                            else Color.TRANSPARENT,
-                            if (playing) 1 else 0
+                        roundedBackground(
+                            if (isPlaying)
+                                Color.parseColor("#302216")
+                            else
+                                CARD_2,
+                            16f,
+                            if (isPlaying)
+                                GOLD_DARK
+                            else
+                                Color.TRANSPARENT,
+                            if (isPlaying) 1 else 0
                         )
+
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        defaultFocusHighlightEnabled = false
+                    }
                 }
 
-            // CHANNEL NUMBER
-            val number =
-                tv(
-                    String.format(
-                        Locale.getDefault(),
-                        "%02d",
-                        index + 1
-                    ),
-                    12f,
-                    if (playing)
-                        GREEN
-                    else MUTED,
-                    true
-                ).apply {
+            // ----------------------------------------------------
+            // NUMBER / QUALITY
+            // ----------------------------------------------------
 
-                    gravity = Gravity.CENTER
+            val topRow =
+                LinearLayout(this).apply {
 
-                    background =
-                        background(
-                            Color.parseColor("#33111822"),
-                            10f
-                        )
+                    orientation =
+                        LinearLayout.HORIZONTAL
+
+                    gravity =
+                        Gravity.CENTER_VERTICAL
+
+                    layoutDirection =
+                        View.LAYOUT_DIRECTION_RTL
                 }
+
+            val quality = text(
+                if (
+                    channel.name.contains(
+                        "4K",
+                        true
+                    )
+                ) {
+                    "4K"
+                } else {
+                    "HD"
+                },
+                8f,
+                if (isPlaying)
+                    GOLD_LIGHT
+                else
+                    GOLD,
+                true
+            ).apply {
+
+                gravity = Gravity.CENTER
+
+                background =
+                    roundedBackground(
+                        Color.parseColor("#251D12"),
+                        7f
+                    )
+            }
+
+            topRow.addView(
+
+                quality,
+
+                LinearLayout.LayoutParams(
+                    dp(32f),
+                    dp(20f)
+                )
+            )
+
+            val number = text(
+                String.format(
+                    Locale.getDefault(),
+                    "%02d",
+                    index + 1
+                ),
+                9f,
+                SILVER_SOFT,
+                true
+            ).apply {
+
+                gravity = Gravity.CENTER
+            }
+
+            topRow.addView(
+
+                number,
+
+                LinearLayout.LayoutParams(
+                    0,
+                    dp(20f),
+                    1f
+                )
+            )
+
+            val live = text(
+                "LIVE",
+                7f,
+                GREEN,
+                true
+            ).apply {
+
+                gravity = Gravity.CENTER
+            }
+
+            topRow.addView(
+
+                live,
+
+                LinearLayout.LayoutParams(
+                    dp(34f),
+                    dp(20f)
+                )
+            )
 
             card.addView(
-                number,
+
+                topRow,
+
                 LinearLayout.LayoutParams(
-                    dp(42f),
+                    dp(166f),
+                    dp(22f)
+                )
+            )
+
+            // ----------------------------------------------------
+            // CHANNEL NAME
+            // ----------------------------------------------------
+
+            val name = text(
+                if (isPlaying)
+                    "▶ ${channel.name}"
+                else
+                    channel.name,
+                11f,
+                if (isPlaying)
+                    GOLD_LIGHT
+                else
+                    TEXT_PRIMARY,
+                true
+            ).apply {
+
+                gravity = Gravity.CENTER
+
+                maxLines = 1
+            }
+
+            card.addView(
+
+                name,
+
+                LinearLayout.LayoutParams(
+                    dp(166f),
                     dp(28f)
                 )
             )
 
-            // ICON
-            val icon =
-                tv(
-                    if (playing)
-                        "▶"
-                    else "TV",
-                    14f,
-                    if (playing)
-                        GREEN
-                    else CYAN,
-                    true
-                ).apply {
+            // ----------------------------------------------------
+            // STATUS
+            // ----------------------------------------------------
 
-                    gravity = Gravity.CENTER
-                }
+            val smallStatus = text(
+                if (isPlaying)
+                    "يتم التشغيل الآن"
+                else
+                    "بث مباشر",
+                7f,
+                if (isPlaying)
+                    GOLD
+                else
+                    TEXT_SECONDARY
+            ).apply {
 
-            card.addView(
-                icon,
-                LinearLayout.LayoutParams(
-                    dp(48f),
-                    dp(35f)
-                )
-            )
-
-            // NAME
-            val name =
-                tv(
-                    channel.name,
-                    11f,
-                    if (playing)
-                        WHITE
-                    else TEXT,
-                    true
-                ).apply {
-
-                    gravity = Gravity.CENTER
-
-                    maxLines = 2
-                }
+                gravity = Gravity.CENTER
+            }
 
             card.addView(
-                name,
+
+                smallStatus,
+
                 LinearLayout.LayoutParams(
-                    dp(130f),
-                    dp(38f)
-                )
-            )
-
-            // QUALITY
-            val quality =
-                tv(
-                    if (
-                        channel.name.contains(
-                            "4K",
-                            true
-                        )
-                    )
-                        "4K"
-                    else
-                        "HD",
-                    8f,
-                    CYAN,
-                    true
-                ).apply {
-
-                    gravity = Gravity.CENTER
-
-                    background =
-                        background(
-                            Color.parseColor("#33111C29"),
-                            8f
-                        )
-                }
-
-            card.addView(
-                quality,
-                LinearLayout.LayoutParams(
-                    dp(40f),
-                    dp(20f)
+                    dp(166f),
+                    dp(16f)
                 )
             )
 
             card.layoutParams =
                 LinearLayout.LayoutParams(
-                    dp(160f),
-                    dp(155f)
+                    dp(176f),
+                    dp(90f)
                 ).apply {
 
                     marginStart = dp(5f)
+
                     marginEnd = dp(5f)
                 }
+
+            // ----------------------------------------------------
+            // FOCUS
+            // ----------------------------------------------------
 
             card.setOnFocusChangeListener {
                     view,
@@ -1373,38 +1575,61 @@ class MainActivity : Activity() {
                 if (hasFocus) {
 
                     view.background =
-                        background(
-                            BLUE,
-                            18f,
-                            CYAN,
+                        roundedBackground(
+                            Color.parseColor("#3A2A12"),
+                            16f,
+                            GOLD,
                             2
                         )
 
-                    name.setTextColor(WHITE)
+                    name.setTextColor(
+                        WHITE
+                    )
+
+                    number.setTextColor(
+                        GOLD_LIGHT
+                    )
+
+                    view.scaleX = 1.035f
+
+                    view.scaleY = 1.035f
 
                 } else {
 
                     view.background =
-                        background(
-                            if (playing)
-                                Color.parseColor(
-                                    "#153B7A5A"
-                                )
-                            else CARD_DARK,
-                            18f,
-                            if (playing)
-                                GREEN
-                            else Color.TRANSPARENT,
-                            if (playing) 1 else 0
+                        roundedBackground(
+                            if (isPlaying)
+                                Color.parseColor("#302216")
+                            else
+                                CARD_2,
+                            16f,
+                            if (isPlaying)
+                                GOLD_DARK
+                            else
+                                Color.TRANSPARENT,
+                            if (isPlaying) 1 else 0
                         )
 
                     name.setTextColor(
-                        if (playing)
-                            GREEN
-                        else TEXT
+                        if (isPlaying)
+                            GOLD_LIGHT
+                        else
+                            TEXT_PRIMARY
                     )
+
+                    number.setTextColor(
+                        SILVER_SOFT
+                    )
+
+                    view.scaleX = 1f
+
+                    view.scaleY = 1f
                 }
             }
+
+            // ----------------------------------------------------
+            // CLICK
+            // ----------------------------------------------------
 
             card.setOnClickListener {
 
@@ -1418,59 +1643,55 @@ class MainActivity : Activity() {
             }
 
             channelLayout.addView(card)
-        }
 
-        // focus first channel
-        if (
-            channelLayout.childCount > 0 &&
-            isOverlayVisible
-        ) {
+            if (
+                index == 0 &&
+                isOverlayVisible
+            ) {
 
-            channelLayout
-                .getChildAt(0)
-                .post {
+                card.post {
 
-                    channelLayout
-                        .getChildAt(0)
-                        .requestFocus()
+                    card.requestFocus()
                 }
+            }
         }
     }
 
-    // =========================================================
-    // REFRESH
-    // =========================================================
+    // ============================================================
+    // REFRESH CHANNEL CARDS
+    // ============================================================
 
     private fun refreshChannelCards() {
 
         if (currentGroup.isNotEmpty()) {
 
-            showChannels(currentGroup)
+            showChannels(
+                currentGroup
+            )
         }
     }
 
-    // =========================================================
-    // CURRENT CHANNEL
-    // =========================================================
+    // ============================================================
+    // CURRENT INFO
+    // ============================================================
 
     private fun updateCurrentInfo() {
 
         val channel =
             currentChannel
+                ?: run {
 
-        if (channel == null) {
+                    currentChannelText.text =
+                        "اختر قناة للبدء"
 
-            currentChannelText.text =
-                "اختر قناة للبدء"
+                    currentGroupText.text =
+                        "البث الرياضي المباشر"
 
-            currentGroupText.text =
-                "البث الرياضي"
+                    statusText.text =
+                        "جاهز للبث"
 
-            statusText.text =
-                "جاهز للبث"
-
-            return
-        }
+                    return
+                }
 
         currentChannelText.text =
             channel.name
@@ -1484,9 +1705,9 @@ class MainActivity : Activity() {
             "● بث مباشر الآن"
     }
 
-    // =========================================================
+    // ============================================================
     // PACKAGE ICON
-    // =========================================================
+    // ============================================================
 
     private fun packageIcon(
         group: String
@@ -1494,29 +1715,29 @@ class MainActivity : Activity() {
 
         return when (group) {
 
-            "ALWAN SPORT" -> "🎨"
+            "ALWAN SPORT" -> "✦"
 
-            "beIN SPORTS" -> "⚽"
+            "beIN SPORTS" -> "◈"
 
-            "beIN SPORTS VIP" -> "👑"
+            "beIN SPORTS VIP" -> "♛"
 
-            "THAMANYA" -> "8️⃣"
+            "THAMANYA" -> "8"
 
-            "ALKASS SPORT" -> "🏆"
+            "ALKASS SPORT" -> "◆"
 
-            "AD SPORT" -> "🇦🇪"
+            "AD SPORT" -> "A"
 
-            "DUBAI SPORT" -> "🏙️"
+            "DUBAI SPORT" -> "D"
 
-            "IRAQIA SPORT" -> "🇮🇶"
+            "IRAQIA SPORT" -> "I"
 
-            else -> "📺"
+            else -> "N"
         }
     }
 
-    // =========================================================
-    // PACKAGE NAMES
-    // =========================================================
+    // ============================================================
+    // PACKAGE DISPLAY NAME
+    // ============================================================
 
     private fun packageDisplayName(
         group: String
@@ -1537,25 +1758,25 @@ class MainActivity : Activity() {
                 "ثمانية"
 
             "ALKASS SPORT" ->
-                "الكأس"
+                "الكأس الرياضية"
 
             "AD SPORT" ->
-                "أبوظبي"
+                "أبوظبي الرياضية"
 
             "DUBAI SPORT" ->
                 "دبي الرياضية"
 
             "IRAQIA SPORT" ->
-                "العراقية"
+                "العراقية الرياضية"
 
             else ->
                 group
         }
     }
 
-    // =========================================================
-    // FULLSCREEN PLAYER
-    // =========================================================
+    // ============================================================
+    // HIDE OVERLAY
+    // ============================================================
 
     private fun hideOverlay() {
 
@@ -1573,9 +1794,9 @@ class MainActivity : Activity() {
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
     }
 
-    // =========================================================
-    // SHOW UI
-    // =========================================================
+    // ============================================================
+    // SHOW OVERLAY
+    // ============================================================
 
     private fun showOverlay() {
 
@@ -1589,12 +1810,50 @@ class MainActivity : Activity() {
 
         updateCurrentInfo()
 
-        refreshChannelCards()
+        focusCurrentChannel()
     }
 
-    // =========================================================
+    // ============================================================
+    // FOCUS CURRENT CHANNEL
+    // ============================================================
+
+    private fun focusCurrentChannel() {
+
+        if (channelLayout.childCount == 0) {
+            return
+        }
+
+        val groupChannels =
+            channels.filter {
+                it.group == currentGroup
+            }
+
+        val currentPosition =
+            groupChannels.indexOf(
+                currentChannel
+            )
+
+        if (
+            currentPosition >= 0 &&
+            currentPosition <
+            channelLayout.childCount
+        ) {
+
+            channelLayout
+                .getChildAt(currentPosition)
+                .requestFocus()
+
+        } else {
+
+            channelLayout
+                .getChildAt(0)
+                .requestFocus()
+        }
+    }
+
+    // ============================================================
     // NEXT CHANNEL
-    // =========================================================
+    // ============================================================
 
     private fun nextChannel() {
 
@@ -1616,10 +1875,14 @@ class MainActivity : Activity() {
             if (
                 currentPosition <
                 groupChannels.lastIndex
-            )
+            ) {
+
                 currentPosition + 1
-            else
+
+            } else {
+
                 0
+            }
 
         val next =
             groupChannels[nextPosition]
@@ -1630,9 +1893,9 @@ class MainActivity : Activity() {
         )
     }
 
-    // =========================================================
+    // ============================================================
     // PREVIOUS CHANNEL
-    // =========================================================
+    // ============================================================
 
     private fun previousChannel() {
 
@@ -1651,10 +1914,14 @@ class MainActivity : Activity() {
             )
 
         val previousPosition =
-            if (currentPosition > 0)
+            if (currentPosition > 0) {
+
                 currentPosition - 1
-            else
+
+            } else {
+
                 groupChannels.lastIndex
+            }
 
         val previous =
             groupChannels[previousPosition]
@@ -1665,9 +1932,9 @@ class MainActivity : Activity() {
         )
     }
 
-    // =========================================================
-    // REMOTE CONTROL
-    // =========================================================
+    // ============================================================
+    // REMOTE / KEYBOARD CONTROL
+    // ============================================================
 
     override fun dispatchKeyEvent(
         event: KeyEvent
@@ -1677,12 +1944,18 @@ class MainActivity : Activity() {
             event.action !=
             KeyEvent.ACTION_DOWN
         ) {
-            return super.dispatchKeyEvent(event)
+
+            return super.dispatchKeyEvent(
+                event
+            )
         }
 
         when (event.keyCode) {
 
+            // ----------------------------------------------------
             // OK
+            // ----------------------------------------------------
+
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER -> {
 
@@ -1694,8 +1967,19 @@ class MainActivity : Activity() {
                 }
             }
 
+            // ----------------------------------------------------
             // BACK
+            // ----------------------------------------------------
+
             KeyEvent.KEYCODE_BACK -> {
+
+                /*
+                 * إذا الفيديو Fullscreen:
+                 * BACK يرجع للقائمة.
+                 *
+                 * إذا القائمة ظاهرة:
+                 * نبقى داخل التطبيق ولا نغلقه.
+                 */
 
                 if (!isOverlayVisible) {
 
@@ -1704,10 +1988,15 @@ class MainActivity : Activity() {
                     return true
                 }
 
+                focusCurrentChannel()
+
                 return true
             }
 
+            // ----------------------------------------------------
             // RIGHT
+            // ----------------------------------------------------
+
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
 
                 if (!isOverlayVisible) {
@@ -1718,7 +2007,10 @@ class MainActivity : Activity() {
                 }
             }
 
+            // ----------------------------------------------------
             // LEFT
+            // ----------------------------------------------------
+
             KeyEvent.KEYCODE_DPAD_LEFT -> {
 
                 if (!isOverlayVisible) {
@@ -1729,7 +2021,10 @@ class MainActivity : Activity() {
                 }
             }
 
+            // ----------------------------------------------------
             // UP / DOWN
+            // ----------------------------------------------------
+
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_DPAD_DOWN -> {
 
@@ -1742,12 +2037,35 @@ class MainActivity : Activity() {
             }
         }
 
-        return super.dispatchKeyEvent(event)
+        return super.dispatchKeyEvent(
+            event
+        )
     }
 
-    // =========================================================
+    // ============================================================
+    // TIME
+    // ============================================================
+
+    private fun updateTime() {
+
+        if (
+            ::timeText.isInitialized
+        ) {
+
+            val sdf =
+                SimpleDateFormat(
+                    "HH:mm",
+                    Locale.getDefault()
+                )
+
+            timeText.text =
+                sdf.format(Date())
+        }
+    }
+
+    // ============================================================
     // RESUME
-    // =========================================================
+    // ============================================================
 
     override fun onResume() {
 
@@ -1758,9 +2076,9 @@ class MainActivity : Activity() {
         )
     }
 
-    // =========================================================
+    // ============================================================
     // PAUSE
-    // =========================================================
+    // ============================================================
 
     override fun onPause() {
 
@@ -1769,13 +2087,15 @@ class MainActivity : Activity() {
         player?.pause()
     }
 
-    // =========================================================
+    // ============================================================
     // DESTROY
-    // =========================================================
+    // ============================================================
 
     override fun onDestroy() {
 
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacksAndMessages(
+            null
+        )
 
         player?.release()
 
@@ -1784,17 +2104,17 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    // =========================================================
+    // ============================================================
     // CHANNEL DATA
-    // =========================================================
+    // ============================================================
 
     private fun loadChannelsData() {
 
         channels.clear()
 
-        // =====================================================
+        // ========================================================
         // ALWAN SPORT
-        // =====================================================
+        // ========================================================
 
         channels.add(
             Channel(
@@ -1844,9 +2164,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
-        // BEIN SPORTS
-        // =====================================================
+        // ========================================================
+        // beIN SPORTS
+        // ========================================================
 
         channels.add(
             Channel(
@@ -1920,9 +2240,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
-        // BEIN VIP
-        // =====================================================
+        // ========================================================
+        // beIN SPORTS VIP
+        // ========================================================
 
         channels.add(
             Channel(
@@ -1996,9 +2316,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
+        // ========================================================
         // THAMANYA
-        // =====================================================
+        // ========================================================
 
         channels.add(
             Channel(
@@ -2024,9 +2344,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
-        // ALKASS
-        // =====================================================
+        // ========================================================
+        // ALKASS SPORT
+        // ========================================================
 
         channels.add(
             Channel(
@@ -2076,9 +2396,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
+        // ========================================================
         // AD SPORT
-        // =====================================================
+        // ========================================================
 
         channels.add(
             Channel(
@@ -2096,9 +2416,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
+        // ========================================================
         // DUBAI SPORT
-        // =====================================================
+        // ========================================================
 
         channels.add(
             Channel(
@@ -2124,9 +2444,9 @@ class MainActivity : Activity() {
             )
         )
 
-        // =====================================================
+        // ========================================================
         // IRAQIA SPORT
-        // =====================================================
+        // ========================================================
 
         channels.add(
             Channel(
