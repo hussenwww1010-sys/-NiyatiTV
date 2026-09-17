@@ -684,23 +684,22 @@ class MainActivity : Activity() {
             AlertDialog.Builder(this)
 
         builder.setTitle(
-‎            "أهلاً بك في NAITI TV ✨"
+            getString(R.string.welcome_title)
         )
 
         builder.setMessage(
-‎            "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\n" +
-‎                    "يمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني."
+            getString(R.string.welcome_message)
         )
 
         builder.setPositiveButton(
-‎            "ابدأ المشاهدة"
+            getString(R.string.welcome_positive)
         ) { dialog, _ ->
 
             dialog.dismiss()
         }
 
         builder.setNeutralButton(
-‎            "قناة التليجرام"
+            getString(R.string.welcome_neutral)
         ) { _, _ ->
 
             openTelegramChannel()
@@ -1149,7 +1148,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-‎                "تعذر فتح رابط التليجرام",
+                getString(R.string.error_telegram_open),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -3108,7 +3107,7 @@ class MainActivity : Activity() {
 
                                     Toast.makeText(
                                         this@MainActivity,
-‎                                        "تعذر تشغيل هذه القناة حالياً",
+                                        getString(R.string.error_channel_playback),
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -3170,7 +3169,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-‎                "خطأ في تشغيل القناة",
+                getString(R.string.error_channel_play_generic),
                 Toast.LENGTH_SHORT
             ).show()
         }
