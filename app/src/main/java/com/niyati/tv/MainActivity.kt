@@ -87,7 +87,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 1 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798772&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25106"
             )
         )
 
@@ -95,7 +95,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 2 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798773&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25107"
             )
         )
 
@@ -103,7 +103,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 3 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798788&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25108"
             )
         )
 
@@ -111,7 +111,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 4 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798789&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25110"
             )
         )
 
@@ -119,7 +119,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 5 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798790&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25109"
             )
         )
 
@@ -127,7 +127,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 6 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798791&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25111"
             )
         )
 
@@ -135,7 +135,7 @@ class MainActivity : Activity() {
             Channel(
                 name = "┃AR┃ BEIN SPORTS 7 UHD",
                 group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798792&extension=ts"
+                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25112"
             )
         )
 
