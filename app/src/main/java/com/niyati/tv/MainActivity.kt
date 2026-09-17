@@ -60,7 +60,10 @@ class MainActivity : Activity() {
     private lateinit var packagesLayout: LinearLayout
     private lateinit var channelsLayout: LinearLayout
 
-    // UI Colors
+    // ==========================================================
+    // UI COLORS
+    // ==========================================================
+
     private val bgPrimary = Color.parseColor("#090C10")
     private val bgSecondary = Color.parseColor("#0D1117")
     private val bgCard = Color.parseColor("#161B22")
@@ -76,91 +79,386 @@ class MainActivity : Activity() {
     private val telegramUrl = "https://t.me/NAITI_Tv"
 
     // ==========================================================
-    // القنوات الحالية — فقط القنوات التسعة الجديدة
+    // CHANNELS — PLAY SPORTS 2
+    // 39 CHANNELS
     // ==========================================================
 
     private val channels = mutableListOf<Channel>().apply {
 
-        val group = "┃AR┃ BEIN SPORTS UHD"
+        // ======================================================
+        // BEIN SPORTS — SOURCE 1
+        // ======================================================
+
+        val beinSource1 = "┃AR┃ BEIN SPORTS HD"
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 1 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25106"
+                name = "┃AR┃ beIN SPORT 1 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 2 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25107"
+                name = "┃AR┃ beIN SPORT 2 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330438&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 3 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25108"
+                name = "┃AR┃ beIN SPORT 3 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411381&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 4 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25110"
+                name = "┃AR┃ beIN SPORT 4 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411380&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 5 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25109"
+                name = "┃AR┃ beIN SPORT 5 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411379&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 6 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25111"
+                name = "┃AR┃ beIN SPORT 6 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411378&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 7 UHD",
-                group = group,
-                url = "http://neopneojh.top:8080/4531771621243/65d372e9295f/25112"
+                name = "┃AR┃ beIN SPORT 7 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411377&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 8 UHD",
-                group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798793&extension=ts"
+                name = "┃AR┃ beIN SPORT 8 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411376&extension=ts"
             )
         )
 
         add(
             Channel(
-                name = "┃AR┃ BEIN SPORTS 9 UHD",
-                group = group,
-                url = "http://main.light-ott.net:80/play/live.php?mac=A0:BB:3E:02:40:2B&stream=798794&extension=ts"
+                name = "┃AR┃ beIN SPORT 9 HD",
+                group = beinSource1,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1411375&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // BEIN SPORTS — SOURCE 2
+        // ======================================================
+
+        val beinSource2 = "┃AR┃ BEIN SPORTS HD 2"
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 1 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660413&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 2 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660411&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 3 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660409&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 4 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660407&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 5 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660405&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 6 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660403&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 7 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660401&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 8 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660399&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ beIN SPORT 9 HD",
+                group = beinSource2,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660397&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // ALWAN SPORTS
+        // ======================================================
+
+        val alwan = "┃AR┃ ALWAN SPORTS"
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 1 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859098&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 2 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859097&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 3 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859096&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 4 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859095&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 5 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859094&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALWAN SPORT 6 HD",
+                group = alwan,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1859093&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // THAMANYA
+        // ======================================================
+
+        val thamanya = "┃AR┃ THAMANYA"
+
+        add(
+            Channel(
+                name = "┃AR┃ THAMANYA 1 HD",
+                group = thamanya,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936356&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ THAMANYA 2 HD",
+                group = thamanya,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936355&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ THAMANYA 3 HD",
+                group = thamanya,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1936354&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // ALKASS SPORTS
+        // ======================================================
+
+        val alkass = "┃AR┃ ALKASS SPORTS"
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 1 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591593&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 2 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591591&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 3 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787903&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 4 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591589&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 5 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591587&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ ALKASS SPORT 6 HD",
+                group = alkass,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=787906&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // AD SPORTS
+        // ======================================================
+
+        val adSport = "┃AR┃ AD SPORTS"
+
+        add(
+            Channel(
+                name = "┃AR┃ AD SPORT 1 HD",
+                group = adSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993336&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ AD SPORT 2 HD",
+                group = adSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=993337&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // DUBAI SPORTS
+        // ======================================================
+
+        val dubaiSport = "┃AR┃ DUBAI SPORTS"
+
+        add(
+            Channel(
+                name = "┃AR┃ DUBAI SPORT 1 HD",
+                group = dubaiSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8086&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ DUBAI SPORT 2 HD",
+                group = dubaiSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=84251&extension=ts"
+            )
+        )
+
+        add(
+            Channel(
+                name = "┃AR┃ DUBAI SPORT 3 HD",
+                group = dubaiSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=591579&extension=ts"
+            )
+        )
+
+        // ======================================================
+        // IRAQIA SPORTS
+        // ======================================================
+
+        val iraqiaSport = "┃AR┃ IRAQIA SPORTS"
+
+        add(
+            Channel(
+                name = "┃AR┃ IRAQIA SPORT HD",
+                group = iraqiaSport,
+                url = "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=8116&extension=ts"
             )
         )
     }
+
+    // ==========================================================
+    // CREATE
+    // ==========================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
+
         window.statusBarColor = bgPrimary
         window.navigationBarColor = bgPrimary
 
@@ -168,21 +466,32 @@ class MainActivity : Activity() {
         showWelcomeDialog()
     }
 
+    // ==========================================================
+    // WELCOME
+    // ==========================================================
+
     private fun showWelcomeDialog() {
+
         val builder = AlertDialog.Builder(this)
 
-        builder.setTitle("أهلاً بك في تطبيق NAITI TV 📺")
+        builder.setTitle(
+            "أهلاً بك في تطبيق NAITI TV 📺"
+        )
 
         builder.setMessage(
             "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\n" +
                     "يمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني."
         )
 
-        builder.setPositiveButton("ابدأ المشاهدة") { dialog, _ ->
+        builder.setPositiveButton(
+            "ابدأ المشاهدة"
+        ) { dialog, _ ->
             dialog.dismiss()
         }
 
-        builder.setNeutralButton("قناة التليجرام") { _, _ ->
+        builder.setNeutralButton(
+            "قناة التليجرام"
+        ) { _, _ ->
             openTelegramChannel()
         }
 
@@ -190,18 +499,29 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    // ==========================================================
+    // BUILD INTERFACE
+    // ==========================================================
+
     private fun buildInterface() {
 
         root = LinearLayout(this).apply {
+
             orientation = LinearLayout.VERTICAL
+
             setBackgroundColor(bgPrimary)
-            layoutDirection = View.LAYOUT_DIRECTION_LTR
+
+            layoutDirection =
+                View.LAYOUT_DIRECTION_LTR
         }
 
         createTopBar()
 
         mainContent = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
             setBackgroundColor(bgPrimary)
         }
 
@@ -223,28 +543,56 @@ class MainActivity : Activity() {
         loadPackages()
     }
 
+    // ==========================================================
+    // TOP BAR
+    // ==========================================================
+
     private fun createTopBar() {
 
         topBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(25), dp(10), dp(25), dp(10))
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER_VERTICAL
+
+            setPadding(
+                dp(25),
+                dp(10),
+                dp(25),
+                dp(10)
+            )
+
             setBackgroundColor(bgSecondary)
         }
 
         val logoBox = FrameLayout(this).apply {
-            background = GradientDrawable().apply {
-                setColor(accentColor)
-                cornerRadius = dp(12).toFloat()
-            }
+
+            background =
+                GradientDrawable().apply {
+
+                    setColor(accentColor)
+
+                    cornerRadius =
+                        dp(12).toFloat()
+                }
         }
 
         val logoText = TextView(this).apply {
+
             text = "NT"
+
             textSize = 15f
-            gravity = Gravity.CENTER
+
+            gravity =
+                Gravity.CENTER
+
             setTextColor(bgPrimary)
-            setTypeface(Typeface.DEFAULT_BOLD)
+
+            setTypeface(
+                Typeface.DEFAULT_BOLD
+            )
         }
 
         logoBox.addView(
@@ -257,14 +605,23 @@ class MainActivity : Activity() {
 
         topBar.addView(
             logoBox,
-            LinearLayout.LayoutParams(dp(40), dp(40))
+            LinearLayout.LayoutParams(
+                dp(40),
+                dp(40)
+            )
         )
 
         val brandText = TextView(this).apply {
+
             text = "  NAITI TV"
+
             textSize = 18f
+
             setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
+
+            setTypeface(
+                Typeface.DEFAULT_BOLD
+            )
         }
 
         topBar.addView(brandText)
@@ -273,20 +630,41 @@ class MainActivity : Activity() {
 
         topBar.addView(
             spacer,
-            LinearLayout.LayoutParams(0, 1, 1f)
+            LinearLayout.LayoutParams(
+                0,
+                1,
+                1f
+            )
         )
 
         val telegramBtn = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER
+
+            setPadding(
+                dp(12),
+                dp(6),
+                dp(12),
+                dp(6)
+            )
+
             isFocusable = true
             isFocusableInTouchMode = true
 
-            background = GradientDrawable().apply {
-                setColor(telegramBlue)
-                cornerRadius = dp(20).toFloat()
-            }
+            background =
+                GradientDrawable().apply {
+
+                    setColor(
+                        telegramBlue
+                    )
+
+                    cornerRadius =
+                        dp(20).toFloat()
+                }
 
             setOnClickListener {
                 openTelegramChannel()
@@ -294,27 +672,43 @@ class MainActivity : Activity() {
         }
 
         val tgIcon = TextView(this).apply {
+
             text = "✈ "
+
             textSize = 12f
+
             setTextColor(textWhite)
         }
 
         val tgText = TextView(this).apply {
+
             text = "Telegram"
+
             textSize = 11f
+
             setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
+
+            setTypeface(
+                Typeface.DEFAULT_BOLD
+            )
         }
 
         telegramBtn.addView(tgIcon)
         telegramBtn.addView(tgText)
 
-        val tgParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setMargins(0, 0, dp(12), 0)
-        }
+        val tgParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+
+                setMargins(
+                    0,
+                    0,
+                    dp(12),
+                    0
+                )
+            }
 
         topBar.addView(
             telegramBtn,
@@ -322,28 +716,59 @@ class MainActivity : Activity() {
         )
 
         val liveBadge = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(14), dp(6), dp(14), dp(6))
 
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#1A00E676"))
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), statusGreen)
-            }
+            orientation =
+                LinearLayout.HORIZONTAL
+
+            gravity =
+                Gravity.CENTER
+
+            setPadding(
+                dp(14),
+                dp(6),
+                dp(14),
+                dp(6)
+            )
+
+            background =
+                GradientDrawable().apply {
+
+                    setColor(
+                        Color.parseColor(
+                            "#1A00E676"
+                        )
+                    )
+
+                    cornerRadius =
+                        dp(20).toFloat()
+
+                    setStroke(
+                        dp(1),
+                        statusGreen
+                    )
+                }
         }
 
         val liveDot = TextView(this).apply {
+
             text = "● "
+
             textSize = 10f
+
             setTextColor(statusGreen)
         }
 
         val liveText = TextView(this).apply {
+
             text = "LIVE"
+
             textSize = 11f
+
             setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
+
+            setTypeface(
+                Typeface.DEFAULT_BOLD
+            )
         }
 
         liveBadge.addView(liveDot)
@@ -360,9 +785,14 @@ class MainActivity : Activity() {
         )
     }
 
+    // ==========================================================
+    // TELEGRAM
+    // ==========================================================
+
     private fun openTelegramChannel() {
 
         try {
+
             val intent = Intent(
                 Intent.ACTION_VIEW,
                 Uri.parse(telegramUrl)
@@ -380,26 +810,49 @@ class MainActivity : Activity() {
         }
     }
 
+    // ==========================================================
+    // PACKAGES COLUMN
+    // ==========================================================
+
     private fun createPackageColumn() {
 
         val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bgSecondary)
+
+            orientation =
+                LinearLayout.VERTICAL
+
+            setBackgroundColor(
+                bgSecondary
+            )
         }
 
         col.addView(
-            createColumnHeader("PACKAGES")
+            createColumnHeader(
+                "PACKAGES"
+            )
         )
 
         val scroll = ScrollView(this).apply {
-            isVerticalScrollBarEnabled = false
+
+            isVerticalScrollBarEnabled =
+                false
+
             isFocusable = false
         }
 
-        packagesLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-        }
+        packagesLayout =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(12),
+                    dp(10),
+                    dp(12),
+                    dp(10)
+                )
+            }
 
         scroll.addView(
             packagesLayout,
@@ -427,26 +880,49 @@ class MainActivity : Activity() {
         )
     }
 
+    // ==========================================================
+    // CHANNEL COLUMN
+    // ==========================================================
+
     private fun createChannelColumn() {
 
         val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bgSecondary)
+
+            orientation =
+                LinearLayout.VERTICAL
+
+            setBackgroundColor(
+                bgSecondary
+            )
         }
 
         col.addView(
-            createColumnHeader("AVAILABLE CHANNELS")
+            createColumnHeader(
+                "AVAILABLE CHANNELS"
+            )
         )
 
         val scroll = ScrollView(this).apply {
-            isVerticalScrollBarEnabled = false
+
+            isVerticalScrollBarEnabled =
+                false
+
             isFocusable = false
         }
 
-        channelsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-        }
+        channelsLayout =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(12),
+                    dp(10),
+                    dp(12),
+                    dp(10)
+                )
+            }
 
         scroll.addView(
             channelsLayout,
@@ -474,63 +950,102 @@ class MainActivity : Activity() {
         )
     }
 
+    // ==========================================================
+    // PLAYER
+    // ==========================================================
+
     private fun createPlayerColumn() {
 
-        playerColumn = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(15), dp(20), dp(20))
-            setBackgroundColor(bgPrimary)
-        }
+        playerColumn =
+            LinearLayout(this).apply {
 
-        playerContainer = FrameLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
 
-            background = GradientDrawable().apply {
-                setColor(Color.BLACK)
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), strokeColor)
+                setPadding(
+                    dp(20),
+                    dp(15),
+                    dp(20),
+                    dp(20)
+                )
+
+                setBackgroundColor(
+                    bgPrimary
+                )
             }
 
-            clipToOutline = true
-        }
+        playerContainer =
+            FrameLayout(this).apply {
 
-        playerView = PlayerView(this).apply {
+                background =
+                    GradientDrawable().apply {
 
-            useController = false
-            setBackgroundColor(Color.BLACK)
+                        setColor(Color.BLACK)
 
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        cornerRadius =
+                            dp(20).toFloat()
 
-            isFocusable = true
-            isFocusableInTouchMode = true
-            isClickable = true
+                        setStroke(
+                            dp(1),
+                            strokeColor
+                        )
+                    }
 
-            setOnFocusChangeListener { _, hasFocus ->
+                clipToOutline = true
+            }
 
-                if (!fullscreen) {
+        playerView =
+            PlayerView(this).apply {
 
-                    playerContainer.background =
-                        GradientDrawable().apply {
+                useController = false
 
-                            setColor(Color.BLACK)
+                setBackgroundColor(
+                    Color.BLACK
+                )
 
-                            cornerRadius =
-                                dp(20).toFloat()
+                resizeMode =
+                    AspectRatioFrameLayout
+                        .RESIZE_MODE_FILL
 
-                            setStroke(
-                                dp(2),
-                                if (hasFocus)
-                                    accentColor
-                                else
-                                    strokeColor
-                            )
-                        }
+                isFocusable = true
+
+                isFocusableInTouchMode =
+                    true
+
+                isClickable = true
+
+                setOnFocusChangeListener {
+                        _,
+                        hasFocus ->
+
+                    if (!fullscreen) {
+
+                        playerContainer.background =
+                            GradientDrawable().apply {
+
+                                setColor(
+                                    Color.BLACK
+                                )
+
+                                cornerRadius =
+                                    dp(20).toFloat()
+
+                                setStroke(
+                                    dp(2),
+                                    if (hasFocus)
+                                        accentColor
+                                    else
+                                        strokeColor
+                                )
+                            }
+                    }
+                }
+
+                setOnClickListener {
+
+                    toggleFullscreen()
                 }
             }
-
-            setOnClickListener {
-                toggleFullscreen()
-            }
-        }
 
         playerContainer.addView(
             playerView,
@@ -540,40 +1055,60 @@ class MainActivity : Activity() {
             )
         )
 
-        val watermark = TextView(this).apply {
+        val watermark =
+            TextView(this).apply {
 
-            text = "NAITI TV"
-            textSize = 10f
-            setTextColor(Color.parseColor("#80FFFFFF"))
-            setTypeface(Typeface.DEFAULT_BOLD)
+                text = "NAITI TV"
 
-            setPadding(
-                dp(10),
-                dp(5),
-                dp(10),
-                dp(5)
-            )
+                textSize = 10f
 
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#40000000"))
-                cornerRadius = dp(8).toFloat()
+                setTextColor(
+                    Color.parseColor(
+                        "#80FFFFFF"
+                    )
+                )
+
+                setTypeface(
+                    Typeface.DEFAULT_BOLD
+                )
+
+                setPadding(
+                    dp(10),
+                    dp(5),
+                    dp(10),
+                    dp(5)
+                )
+
+                background =
+                    GradientDrawable().apply {
+
+                        setColor(
+                            Color.parseColor(
+                                "#40000000"
+                            )
+                        )
+
+                        cornerRadius =
+                            dp(8).toFloat()
+                    }
             }
-        }
 
-        val wmParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
+        val wmParams =
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
 
-            gravity = Gravity.TOP or Gravity.START
+                gravity =
+                    Gravity.TOP or Gravity.START
 
-            setMargins(
-                dp(12),
-                dp(12),
-                0,
-                0
-            )
-        }
+                setMargins(
+                    dp(12),
+                    dp(12),
+                    0,
+                    0
+                )
+            }
 
         playerContainer.addView(
             watermark,
@@ -589,56 +1124,80 @@ class MainActivity : Activity() {
             )
         )
 
-        epgContainer = LinearLayout(this).apply {
+        epgContainer =
+            LinearLayout(this).apply {
 
-            orientation = LinearLayout.VERTICAL
+                orientation =
+                    LinearLayout.VERTICAL
 
-            setPadding(
-                dp(20),
-                dp(16),
-                dp(20),
-                dp(16)
-            )
+                setPadding(
+                    dp(20),
+                    dp(16),
+                    dp(20),
+                    dp(16)
+                )
 
-            background = GradientDrawable().apply {
+                background =
+                    GradientDrawable().apply {
 
-                setColor(bgSecondary)
+                        setColor(
+                            bgSecondary
+                        )
 
-                cornerRadius =
-                    dp(20).toFloat()
+                        cornerRadius =
+                            dp(20).toFloat()
 
-                setStroke(
-                    dp(1),
-                    strokeColor
+                        setStroke(
+                            dp(1),
+                            strokeColor
+                        )
+                    }
+            }
+
+        epgTitle =
+            TextView(this).apply {
+
+                text =
+                    "Select a channel to play"
+
+                textSize = 16f
+
+                setTextColor(
+                    textWhite
+                )
+
+                setTypeface(
+                    Typeface.DEFAULT_BOLD
                 )
             }
-        }
 
-        epgTitle = TextView(this).apply {
+        epgContainer.addView(
+            epgTitle
+        )
 
-            text = "Select a channel to play"
-            textSize = 16f
-            setTextColor(textWhite)
-            setTypeface(Typeface.DEFAULT_BOLD)
-        }
+        epgSub =
+            TextView(this).apply {
 
-        epgContainer.addView(epgTitle)
+                text =
+                    "Live Stream Ready"
 
-        epgSub = TextView(this).apply {
+                textSize = 12f
 
-            text = "Live Stream Ready"
-            textSize = 12f
-            setTextColor(textMuted)
+                setTextColor(
+                    textMuted
+                )
 
-            setPadding(
-                0,
-                dp(4),
-                0,
-                dp(12)
-            )
-        }
+                setPadding(
+                    0,
+                    dp(4),
+                    0,
+                    dp(12)
+                )
+            }
 
-        epgContainer.addView(epgSub)
+        epgContainer.addView(
+            epgSub
+        )
 
         val progressBar =
             ProgressBar(
@@ -669,6 +1228,7 @@ class MainActivity : Activity() {
                 0,
                 0.35f
             ).apply {
+
                 topMargin = dp(15)
             }
         )
@@ -683,14 +1243,27 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun createColumnHeader(title: String): TextView {
+    // ==========================================================
+    // HEADER
+    // ==========================================================
+
+    private fun createColumnHeader(
+        title: String
+    ): TextView {
 
         return TextView(this).apply {
 
             text = title
+
             textSize = 13f
-            setTextColor(textMuted)
-            setTypeface(Typeface.DEFAULT_BOLD)
+
+            setTextColor(
+                textMuted
+            )
+
+            setTypeface(
+                Typeface.DEFAULT_BOLD
+            )
 
             setPadding(
                 dp(20),
@@ -699,23 +1272,36 @@ class MainActivity : Activity() {
                 dp(12)
             )
 
-            background = GradientDrawable().apply {
-                setColor(bgSecondary)
-            }
+            background =
+                GradientDrawable().apply {
+
+                    setColor(
+                        bgSecondary
+                    )
+                }
         }
     }
+
+    // ==========================================================
+    // LOAD PACKAGES
+    // ==========================================================
 
     private fun loadPackages() {
 
         packagesLayout.removeAllViews()
+
         packageButtons.clear()
 
         val groups =
-            channels.map { it.group }.distinct()
+            channels.map {
+                it.group
+            }.distinct()
 
-        if (groups.isEmpty()) return
+        if (groups.isEmpty())
+            return
 
-        currentGroup = groups.first()
+        currentGroup =
+            groups.first()
 
         groups.forEach { group ->
 
@@ -757,6 +1343,7 @@ class MainActivity : Activity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     dp(48)
                 ).apply {
+
                     bottomMargin = dp(8)
                 }
             )
@@ -764,8 +1351,14 @@ class MainActivity : Activity() {
             packageButtons.add(card)
         }
 
-        loadChannels(groups.first())
+        loadChannels(
+            groups.first()
+        )
     }
+
+    // ==========================================================
+    // PACKAGE CARD
+    // ==========================================================
 
     private fun createPackageCard(
         name: String,
@@ -796,14 +1389,18 @@ class MainActivity : Activity() {
                     )
 
                 isFocusable = true
-                isFocusableInTouchMode = true
+
+                isFocusableInTouchMode =
+                    true
             }
 
         val nameTv =
             TextView(this).apply {
 
                 text =
-                    packageDisplayName(name)
+                    packageDisplayName(
+                        name
+                    )
 
                 textSize = 13f
 
@@ -831,7 +1428,8 @@ class MainActivity : Activity() {
         val badge =
             TextView(this).apply {
 
-                text = count.toString()
+                text =
+                    count.toString()
 
                 textSize = 10f
 
@@ -873,19 +1471,48 @@ class MainActivity : Activity() {
         return layout
     }
 
+    // ==========================================================
+    // PACKAGE NAMES
+    // ==========================================================
+
     private fun packageDisplayName(
         name: String
     ): String {
 
         return when (name) {
 
-            "┃AR┃ BEIN SPORTS UHD" ->
-                "beIN SPORTS UHD 🏆"
+            "┃AR┃ BEIN SPORTS HD" ->
+                "beIN SPORTS HD 🏆"
+
+            "┃AR┃ BEIN SPORTS HD 2" ->
+                "beIN SPORTS HD 2 🏆"
+
+            "┃AR┃ ALWAN SPORTS" ->
+                "ALWAN SPORTS 🎨"
+
+            "┃AR┃ THAMANYA" ->
+                "THAMANYA 📺"
+
+            "┃AR┃ ALKASS SPORTS" ->
+                "ALKASS SPORTS 🏆"
+
+            "┃AR┃ AD SPORTS" ->
+                "AD SPORTS 🏆"
+
+            "┃AR┃ DUBAI SPORTS" ->
+                "DUBAI SPORTS 📺"
+
+            "┃AR┃ IRAQIA SPORTS" ->
+                "IRAQIA SPORTS 🇮🇶"
 
             else ->
                 name
         }
     }
+
+    // ==========================================================
+    // UPDATE PACKAGE SELECTION
+    // ==========================================================
 
     private fun updatePackageSelection() {
 
@@ -955,10 +1582,18 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun loadChannels(group: String) {
+    // ==========================================================
+    // LOAD CHANNELS
+    // ==========================================================
+
+    private fun loadChannels(
+        group: String
+    ) {
 
         channelsLayout.removeAllViews()
+
         channelButtons.clear()
+
         visibleChannels.clear()
 
         currentChannelIndex = -1
@@ -968,7 +1603,9 @@ class MainActivity : Activity() {
                 it.group == group
             }
 
-        visibleChannels.addAll(filtered)
+        visibleChannels.addAll(
+            filtered
+        )
 
         filtered.forEachIndexed {
                 index,
@@ -982,11 +1619,16 @@ class MainActivity : Activity() {
 
             card.setOnClickListener {
 
-                currentChannelIndex = index
+                currentChannelIndex =
+                    index
 
-                updateChannelSelection(card)
+                updateChannelSelection(
+                    card
+                )
 
-                playChannel(channel)
+                playChannel(
+                    channel
+                )
             }
 
             card.setOnFocusChangeListener {
@@ -996,7 +1638,8 @@ class MainActivity : Activity() {
                 view.background =
                     createCardDrawable(
                         hasFocus,
-                        currentChannelIndex == index
+                        currentChannelIndex ==
+                                index
                     )
             }
 
@@ -1006,6 +1649,7 @@ class MainActivity : Activity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     dp(50)
                 ).apply {
+
                     bottomMargin = dp(8)
                 }
             )
@@ -1013,6 +1657,10 @@ class MainActivity : Activity() {
             channelButtons.add(card)
         }
     }
+
+    // ==========================================================
+    // CHANNEL CARD
+    // ==========================================================
 
     private fun createChannelCard(
         channel: Channel,
@@ -1042,13 +1690,16 @@ class MainActivity : Activity() {
                     )
 
                 isFocusable = true
-                isFocusableInTouchMode = true
+
+                isFocusableInTouchMode =
+                    true
             }
 
         val iconBox =
             TextView(this).apply {
 
                 text = "TV"
+
                 textSize = 9f
 
                 setTextColor(
@@ -1091,7 +1742,8 @@ class MainActivity : Activity() {
         val name =
             TextView(this).apply {
 
-                text = "  ${channel.name}"
+                text =
+                    "  ${channel.name}"
 
                 textSize = 12f
 
@@ -1183,10 +1835,16 @@ class MainActivity : Activity() {
                     }
             }
 
-        card.addView(quality)
+        card.addView(
+            quality
+        )
 
         return card
     }
+
+    // ==========================================================
+    // UPDATE CHANNEL SELECTION
+    // ==========================================================
 
     private fun updateChannelSelection(
         selectedView: View
@@ -1264,6 +1922,10 @@ class MainActivity : Activity() {
         }
     }
 
+    // ==========================================================
+    // CARD DRAWABLE
+    // ==========================================================
+
     private fun createCardDrawable(
         hasFocus: Boolean,
         isSelected: Boolean
@@ -1276,7 +1938,9 @@ class MainActivity : Activity() {
 
             if (hasFocus) {
 
-                setColor(accentHover)
+                setColor(
+                    accentHover
+                )
 
                 setStroke(
                     dp(2),
@@ -1285,7 +1949,9 @@ class MainActivity : Activity() {
 
             } else if (isSelected) {
 
-                setColor(accentColor)
+                setColor(
+                    accentColor
+                )
 
                 setStroke(
                     dp(0),
@@ -1294,7 +1960,9 @@ class MainActivity : Activity() {
 
             } else {
 
-                setColor(bgCard)
+                setColor(
+                    bgCard
+                )
 
                 setStroke(
                     dp(1),
@@ -1303,6 +1971,10 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    // ==========================================================
+    // EXO PLAYER
+    // ==========================================================
 
     private fun initExoPlayer() {
 
@@ -1314,10 +1986,13 @@ class MainActivity : Activity() {
                     .apply {
 
                         addListener(
-                            object : Player.Listener {
+                            object :
+                                Player.Listener {
 
-                                override fun onPlayerError(
-                                    error: PlaybackException
+                                override fun
+                                onPlayerError(
+                                    error:
+                                    PlaybackException
                                 ) {
 
                                     Toast.makeText(
@@ -1334,6 +2009,10 @@ class MainActivity : Activity() {
                 exoPlayer
         }
     }
+
+    // ==========================================================
+    // PLAY CHANNEL
+    // ==========================================================
 
     private fun playChannel(
         channel: Channel
@@ -1354,7 +2033,9 @@ class MainActivity : Activity() {
 
             val mediaItem =
                 MediaItem.fromUri(
-                    Uri.parse(channel.url)
+                    Uri.parse(
+                        channel.url
+                    )
                 )
 
             exoPlayer?.setMediaItem(
@@ -1376,6 +2057,10 @@ class MainActivity : Activity() {
         }
     }
 
+    // ==========================================================
+    // FULLSCREEN
+    // ==========================================================
+
     private fun toggleFullscreen() {
 
         if (fullscreen)
@@ -1386,7 +2071,8 @@ class MainActivity : Activity() {
 
     private fun enterFullscreen() {
 
-        if (fullscreen) return
+        if (fullscreen)
+            return
 
         fullscreen = true
 
@@ -1394,10 +2080,12 @@ class MainActivity : Activity() {
             View.GONE
 
         mainContent.getChildAt(0)
-            .visibility = View.GONE
+            .visibility =
+            View.GONE
 
         mainContent.getChildAt(1)
-            .visibility = View.GONE
+            .visibility =
+            View.GONE
 
         epgContainer.visibility =
             View.GONE
@@ -1454,9 +2142,14 @@ class MainActivity : Activity() {
         playerView.requestFocus()
     }
 
+    // ==========================================================
+    // EXIT FULLSCREEN
+    // ==========================================================
+
     private fun exitFullscreen() {
 
-        if (!fullscreen) return
+        if (!fullscreen)
+            return
 
         fullscreen = false
 
@@ -1464,10 +2157,12 @@ class MainActivity : Activity() {
             View.VISIBLE
 
         mainContent.getChildAt(0)
-            .visibility = View.VISIBLE
+            .visibility =
+            View.VISIBLE
 
         mainContent.getChildAt(1)
-            .visibility = View.VISIBLE
+            .visibility =
+            View.VISIBLE
 
         epgContainer.visibility =
             View.VISIBLE
@@ -1498,6 +2193,7 @@ class MainActivity : Activity() {
                     as LinearLayout.LayoutParams
 
         params.height = 0
+
         params.weight = 0.65f
 
         playerContainer.layoutParams =
@@ -1521,7 +2217,9 @@ class MainActivity : Activity() {
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
 
-        if (currentChannelIndex >= 0) {
+        if (
+            currentChannelIndex >= 0
+        ) {
 
             channelButtons
                 .getOrNull(
@@ -1534,6 +2232,10 @@ class MainActivity : Activity() {
             playerView.requestFocus()
         }
     }
+
+    // ==========================================================
+    // REMOTE / KEYBOARD
+    // ==========================================================
 
     override fun dispatchKeyEvent(
         event: KeyEvent
@@ -1569,14 +2271,21 @@ class MainActivity : Activity() {
             }
         }
 
-        return super.dispatchKeyEvent(event)
+        return super.dispatchKeyEvent(
+            event
+        )
     }
+
+    // ==========================================================
+    // LIFECYCLE
+    // ==========================================================
 
     override fun onStart() {
 
         super.onStart()
 
         currentSelectedChannel?.let {
+
             playChannel(it)
         }
     }
@@ -1592,7 +2301,13 @@ class MainActivity : Activity() {
         exoPlayer = null
     }
 
-    private fun dp(value: Int): Int {
+    // ==========================================================
+    // DP
+    // ==========================================================
+
+    private fun dp(
+        value: Int
+    ): Int {
 
         return (
                 value *
