@@ -1,5 +1,6 @@
 package com.niyati.tv
 
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
@@ -11,6 +12,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -19,6 +23,7 @@ import android.view.Window
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -66,6 +71,9 @@ class MainActivity : Activity() {
     private val visibleChannels =
         mutableListOf<Channel>()
 
+    private var currentGroupAllChannels =
+        listOf<Channel>()
+
     private val channelButtons =
         mutableListOf<View>()
 
@@ -79,6 +87,8 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
 
     private lateinit var topBar: LinearLayout
+
+    private lateinit var topDivider: View
 
     private lateinit var mainContent: LinearLayout
 
@@ -98,6 +108,10 @@ class MainActivity : Activity() {
 
     private lateinit var channelsLayout: LinearLayout
 
+    private lateinit var searchInput: EditText
+
+    private lateinit var noResultsView: TextView
+
     // ==========================================================
     // PLAYER OVERLAYS
     // ==========================================================
@@ -113,6 +127,8 @@ class MainActivity : Activity() {
     private lateinit var overlayChannelName: TextView
 
     private lateinit var overlayChannelStatus: TextView
+
+    private var liveDotAnimator: ObjectAnimator? = null
 
     // ==========================================================
     // HANDLER
@@ -140,29 +156,32 @@ class MainActivity : Activity() {
         }
 
     // ==========================================================
-    // COLORS
+    // COLORS — premium dark / cyan-violet signature gradient
     // ==========================================================
 
     private val bgPrimary =
-        Color.parseColor("#070A0F")
+        Color.parseColor("#05070D")
 
     private val bgSecondary =
-        Color.parseColor("#0C1119")
+        Color.parseColor("#0A0E17")
 
     private val bgCard =
-        Color.parseColor("#121A26")
+        Color.parseColor("#111827")
+
+    private val bgCardAlt =
+        Color.parseColor("#0D1420")
 
     private val accentColor =
         Color.parseColor("#00E5FF")
 
     private val accentBlue =
-        Color.parseColor("#0284C7")
+        Color.parseColor("#3B82F6")
 
     private val accentPurple =
         Color.parseColor("#7C3AED")
 
     private val accentHover =
-        Color.parseColor("#182638")
+        Color.parseColor("#16233A")
 
     private val telegramBlue =
         Color.parseColor("#24A1DE")
@@ -171,16 +190,82 @@ class MainActivity : Activity() {
         Color.WHITE
 
     private val textMuted =
-        Color.parseColor("#8B949E")
+        Color.parseColor("#8B96A8")
+
+    private val textFaint =
+        Color.parseColor("#5A6478")
 
     private val statusGreen =
-        Color.parseColor("#00E676")
+        Color.parseColor("#22D3AA")
 
     private val strokeColor =
-        Color.parseColor("#202B3A")
+        Color.parseColor("#1B2536")
+
+    private val glassStroke =
+        Color.parseColor("#26314A")
+
+    // Signature diagonal gradient used across the app for
+    // selection states, badges and accents.
+    private val gradientDuo =
+        intArrayOf(accentColor, accentPurple)
 
     private val telegramUrl =
         "https://t.me/NAITI_Tv"
+
+    // ==========================================================
+    // GRADIENT / DRAWABLE HELPERS
+    // ==========================================================
+
+    private fun gradientPill(
+        colors: IntArray,
+        radiusDp: Int,
+        strokeWidthDp: Int = 0,
+        strokeColorInt: Int = Color.TRANSPARENT
+    ): GradientDrawable {
+
+        return GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            colors
+        ).apply {
+
+            cornerRadius =
+                dp(radiusDp).toFloat()
+
+            if (strokeWidthDp > 0) {
+
+                setStroke(
+                    dp(strokeWidthDp),
+                    strokeColorInt
+                )
+            }
+        }
+    }
+
+    private fun solidPill(
+        color: Int,
+        radiusDp: Int,
+        strokeWidthDp: Int = 0,
+        strokeColorInt: Int = Color.TRANSPARENT
+    ): GradientDrawable {
+
+        return GradientDrawable().apply {
+
+            setColor(
+                color
+            )
+
+            cornerRadius =
+                dp(radiusDp).toFloat()
+
+            if (strokeWidthDp > 0) {
+
+                setStroke(
+                    dp(strokeWidthDp),
+                    strokeColorInt
+                )
+            }
+        }
+    }
 
     // ==========================================================
     // CHANNELS
@@ -599,23 +684,23 @@ class MainActivity : Activity() {
             AlertDialog.Builder(this)
 
         builder.setTitle(
-            "أهلاً بك في تطبيق NAITI TV 📺"
+‎            "أهلاً بك في NAITI TV ✨"
         )
 
         builder.setMessage(
-            "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\n" +
-                    "يمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني."
+‎            "استمتع بمشاهدة أحدث القنوات الرياضية والترفيهية بأعلى جودة وبث مباشر سلس بدون تقطيع!\n\n" +
+‎                    "يمكنك الانضمام إلى قناتنا على التليجرام لمتابعة التحديثات والدعم الفني."
         )
 
         builder.setPositiveButton(
-            "ابدأ المشاهدة"
+‎            "ابدأ المشاهدة"
         ) { dialog, _ ->
 
             dialog.dismiss()
         }
 
         builder.setNeutralButton(
-            "قناة التليجرام"
+‎            "قناة التليجرام"
         ) { _, _ ->
 
             openTelegramChannel()
@@ -648,6 +733,22 @@ class MainActivity : Activity() {
             }
 
         createTopBar()
+
+        topDivider =
+            View(this).apply {
+
+                setBackgroundColor(
+                    strokeColor
+                )
+            }
+
+        root.addView(
+            topDivider,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1
+            )
+        )
 
         mainContent =
             LinearLayout(this).apply {
@@ -696,10 +797,10 @@ class MainActivity : Activity() {
                     Gravity.CENTER_VERTICAL
 
                 setPadding(
-                    dp(25),
-                    dp(10),
-                    dp(25),
-                    dp(10)
+                    dp(22),
+                    dp(12),
+                    dp(22),
+                    dp(12)
                 )
 
                 setBackgroundColor(
@@ -708,8 +809,58 @@ class MainActivity : Activity() {
             }
 
         // ======================================================
-        // BRAND — NO IMAGE LOGO
+        // LOGO EMBLEM
         // ======================================================
+
+        val logoEmblem =
+            TextView(this).apply {
+
+                text =
+                    "N"
+
+                textSize =
+                    16f
+
+                gravity =
+                    Gravity.CENTER
+
+                setTextColor(
+                    Color.BLACK
+                )
+
+                setTypeface(
+                    Typeface.DEFAULT_BOLD
+                )
+
+                background =
+                    gradientPill(
+                        gradientDuo,
+                        18
+                    )
+            }
+
+        topBar.addView(
+            logoEmblem,
+            LinearLayout.LayoutParams(
+                dp(36),
+                dp(36)
+            ).apply {
+
+                rightMargin =
+                    dp(12)
+            }
+        )
+
+        // ======================================================
+        // BRAND
+        // ======================================================
+
+        val brandColumn =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+            }
 
         val brandText =
             TextView(this).apply {
@@ -718,7 +869,7 @@ class MainActivity : Activity() {
                     "NAITI TV"
 
                 textSize =
-                    19f
+                    18f
 
                 setTextColor(
                     textWhite
@@ -729,11 +880,36 @@ class MainActivity : Activity() {
                 )
 
                 letterSpacing =
-                    0.08f
+                    0.06f
             }
 
-        topBar.addView(
+        val brandSub =
+            TextView(this).apply {
+
+                text =
+                    "Premium IPTV Experience"
+
+                textSize =
+                    10f
+
+                setTextColor(
+                    textFaint
+                )
+
+                letterSpacing =
+                    0.03f
+            }
+
+        brandColumn.addView(
             brandText
+        )
+
+        brandColumn.addView(
+            brandSub
+        )
+
+        topBar.addView(
+            brandColumn
         )
 
         val spacer =
@@ -762,10 +938,10 @@ class MainActivity : Activity() {
                     Gravity.CENTER
 
                 setPadding(
-                    dp(12),
-                    dp(7),
-                    dp(12),
-                    dp(7)
+                    dp(14),
+                    dp(8),
+                    dp(14),
+                    dp(8)
                 )
 
                 isFocusable = true
@@ -774,15 +950,10 @@ class MainActivity : Activity() {
                     true
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            telegramBlue
-                        )
-
-                        cornerRadius =
-                            dp(20).toFloat()
-                    }
+                    solidPill(
+                        telegramBlue,
+                        20
+                    )
 
                 setOnClickListener {
 
@@ -839,7 +1010,7 @@ class MainActivity : Activity() {
         )
 
         // ======================================================
-        // LIVE BADGE
+        // LIVE BADGE (with subtle pulsing dot + gradient ring)
         // ======================================================
 
         val liveBadge =
@@ -853,28 +1024,18 @@ class MainActivity : Activity() {
 
                 setPadding(
                     dp(14),
-                    dp(7),
+                    dp(8),
                     dp(14),
-                    dp(7)
+                    dp(8)
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#1400E676"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(20).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            statusGreen
-                        )
-                    }
+                    solidPill(
+                        Color.parseColor("#1422D3AA"),
+                        20,
+                        1,
+                        statusGreen
+                    )
             }
 
         val liveDot =
@@ -889,6 +1050,24 @@ class MainActivity : Activity() {
                 setTextColor(
                     statusGreen
                 )
+            }
+
+        liveDotAnimator =
+            ObjectAnimator.ofFloat(
+                liveDot,
+                "alpha",
+                1f,
+                0.25f,
+                1f
+            ).apply {
+
+                duration =
+                    1400
+
+                repeatCount =
+                    ObjectAnimator.INFINITE
+
+                start()
             }
 
         val liveText =
@@ -907,6 +1086,9 @@ class MainActivity : Activity() {
                 setTypeface(
                     Typeface.DEFAULT_BOLD
                 )
+
+                letterSpacing =
+                    0.05f
             }
 
         liveBadge.addView(
@@ -936,7 +1118,7 @@ class MainActivity : Activity() {
             topBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(60)
+                dp(66)
             )
         )
     }
@@ -967,7 +1149,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "تعذر فتح رابط التليجرام",
+‎                "تعذر فتح رابط التليجرام",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -1037,10 +1219,26 @@ class MainActivity : Activity() {
             )
         )
 
+        val divider =
+            View(this).apply {
+
+                setBackgroundColor(
+                    strokeColor
+                )
+            }
+
         mainContent.addView(
             col,
             LinearLayout.LayoutParams(
-                dp(220),
+                dp(230),
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        mainContent.addView(
+            divider,
+            LinearLayout.LayoutParams(
+                1,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
@@ -1069,6 +1267,153 @@ class MainActivity : Activity() {
             )
         )
 
+        // ======================================================
+        // SEARCH FIELD
+        // ======================================================
+
+        val searchWrap =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    dp(14),
+                    dp(8),
+                    dp(14),
+                    dp(8)
+                )
+
+                background =
+                    solidPill(
+                        bgCardAlt,
+                        18,
+                        1,
+                        glassStroke
+                    )
+            }
+
+        val searchIcon =
+            TextView(this).apply {
+
+                text =
+                    "⌕"
+
+                textSize =
+                    14f
+
+                setTextColor(
+                    textFaint
+                )
+            }
+
+        searchWrap.addView(
+            searchIcon,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+
+                rightMargin =
+                    dp(8)
+            }
+        )
+
+        searchInput =
+            EditText(this).apply {
+
+                hint =
+                    "Search channels"
+
+                textSize =
+                    12f
+
+                setTextColor(
+                    textWhite
+                )
+
+                setHintTextColor(
+                    textFaint
+                )
+
+                inputType =
+                    InputType.TYPE_CLASS_TEXT
+
+                background =
+                    null
+
+                setPadding(
+                    0,
+                    0,
+                    0,
+                    0
+                )
+
+                setSingleLine(
+                    true
+                )
+
+                addTextChangedListener(
+                    object : TextWatcher {
+
+                        override fun beforeTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            count: Int,
+                            after: Int
+                        ) {
+                        }
+
+                        override fun onTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            before: Int,
+                            count: Int
+                        ) {
+                        }
+
+                        override fun afterTextChanged(
+                            s: Editable?
+                        ) {
+
+                            renderChannelList(
+                                s?.toString().orEmpty()
+                            )
+                        }
+                    }
+                )
+            }
+
+        searchWrap.addView(
+            searchInput,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        col.addView(
+            searchWrap,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+
+                leftMargin =
+                    dp(14)
+
+                rightMargin =
+                    dp(14)
+
+                bottomMargin =
+                    dp(10)
+            }
+        )
+
         val scroll =
             ScrollView(this).apply {
 
@@ -1087,11 +1432,42 @@ class MainActivity : Activity() {
 
                 setPadding(
                     dp(12),
-                    dp(10),
+                    0,
                     dp(12),
                     dp(10)
                 )
             }
+
+        noResultsView =
+            TextView(this).apply {
+
+                text =
+                    "No channels found"
+
+                textSize =
+                    12f
+
+                gravity =
+                    Gravity.CENTER
+
+                setTextColor(
+                    textFaint
+                )
+
+                setPadding(
+                    0,
+                    dp(30),
+                    0,
+                    dp(30)
+                )
+
+                visibility =
+                    View.GONE
+            }
+
+        channelsLayout.addView(
+            noResultsView
+        )
 
         scroll.addView(
             channelsLayout,
@@ -1110,10 +1486,26 @@ class MainActivity : Activity() {
             )
         )
 
+        val divider =
+            View(this).apply {
+
+                setBackgroundColor(
+                    strokeColor
+                )
+            }
+
         mainContent.addView(
             col,
             LinearLayout.LayoutParams(
-                dp(280),
+                dp(300),
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        mainContent.addView(
+            divider,
+            LinearLayout.LayoutParams(
+                1,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
@@ -1132,10 +1524,10 @@ class MainActivity : Activity() {
                     LinearLayout.VERTICAL
 
                 setPadding(
-                    dp(20),
-                    dp(15),
-                    dp(20),
-                    dp(20)
+                    dp(22),
+                    dp(18),
+                    dp(22),
+                    dp(22)
                 )
 
                 setBackgroundColor(
@@ -1151,20 +1543,12 @@ class MainActivity : Activity() {
             FrameLayout(this).apply {
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.BLACK
-                        )
-
-                        cornerRadius =
-                            dp(20).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            strokeColor
-                        )
-                    }
+                    solidPill(
+                        Color.BLACK,
+                        22,
+                        1,
+                        strokeColor
+                    )
 
                 clipToOutline =
                     true
@@ -1204,23 +1588,20 @@ class MainActivity : Activity() {
                     if (!fullscreen) {
 
                         playerContainer.background =
-                            GradientDrawable().apply {
-
-                                setColor(
-                                    Color.BLACK
+                            if (hasFocus)
+                                gradientPill(
+                                    gradientDuo,
+                                    22,
+                                    2,
+                                    Color.TRANSPARENT
                                 )
-
-                                cornerRadius =
-                                    dp(20).toFloat()
-
-                                setStroke(
-                                    dp(2),
-                                    if (hasFocus)
-                                        accentColor
-                                    else
-                                        strokeColor
+                            else
+                                solidPill(
+                                    Color.BLACK,
+                                    22,
+                                    1,
+                                    strokeColor
                                 )
-                            }
                     }
                 }
 
@@ -1269,17 +1650,10 @@ class MainActivity : Activity() {
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#40000000"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(8).toFloat()
-                    }
+                    solidPill(
+                        Color.parseColor("#40000000"),
+                        9
+                    )
             }
 
         val wmParams =
@@ -1292,8 +1666,8 @@ class MainActivity : Activity() {
                     Gravity.TOP or Gravity.START
 
                 setMargins(
-                    dp(12),
-                    dp(12),
+                    dp(14),
+                    dp(14),
                     0,
                     0
                 )
@@ -1340,28 +1714,42 @@ class MainActivity : Activity() {
                     LinearLayout.VERTICAL
 
                 setPadding(
-                    dp(20),
-                    dp(16),
-                    dp(20),
-                    dp(16)
+                    dp(22),
+                    dp(18),
+                    dp(22),
+                    dp(18)
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            bgSecondary
-                        )
-
-                        cornerRadius =
-                            dp(20).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            strokeColor
-                        )
-                    }
+                    solidPill(
+                        bgSecondary,
+                        22,
+                        1,
+                        strokeColor
+                    )
             }
+
+        val accentStrip =
+            View(this).apply {
+
+                background =
+                    gradientPill(
+                        gradientDuo,
+                        3
+                    )
+            }
+
+        epgContainer.addView(
+            accentStrip,
+            LinearLayout.LayoutParams(
+                dp(40),
+                dp(4)
+            ).apply {
+
+                bottomMargin =
+                    dp(12)
+            }
+        )
 
         epgTitle =
             TextView(this).apply {
@@ -1370,7 +1758,7 @@ class MainActivity : Activity() {
                     "Select a channel to play"
 
                 textSize =
-                    16f
+                    17f
 
                 setTextColor(
                     textWhite
@@ -1400,9 +1788,9 @@ class MainActivity : Activity() {
 
                 setPadding(
                     0,
-                    dp(4),
+                    dp(5),
                     0,
-                    dp(12)
+                    dp(14)
                 )
             }
 
@@ -1429,7 +1817,7 @@ class MainActivity : Activity() {
             progressBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(6)
+                dp(5)
             )
         )
 
@@ -1442,7 +1830,7 @@ class MainActivity : Activity() {
             ).apply {
 
                 topMargin =
-                    dp(15)
+                    dp(16)
             }
         )
 
@@ -1479,24 +1867,12 @@ class MainActivity : Activity() {
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#CC080D14"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(18).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            Color.parseColor(
-                                "#4000E5FF"
-                            )
-                        )
-                    }
+                    solidPill(
+                        Color.parseColor("#CC080D14"),
+                        20,
+                        1,
+                        glassStroke
+                    )
             }
 
         // ======================================================
@@ -1517,8 +1893,8 @@ class MainActivity : Activity() {
         playerControls.addView(
             zoomButton,
             LinearLayout.LayoutParams(
-                dp(48),
-                dp(42)
+                dp(50),
+                dp(44)
             ).apply {
 
                 rightMargin =
@@ -1532,7 +1908,7 @@ class MainActivity : Activity() {
 
         fullscreenButton =
             createPlayerButton(
-                "⛶",
+                "⤢",
                 "FULL"
             )
 
@@ -1544,8 +1920,8 @@ class MainActivity : Activity() {
         playerControls.addView(
             fullscreenButton,
             LinearLayout.LayoutParams(
-                dp(48),
-                dp(42)
+                dp(50),
+                dp(44)
             )
         )
 
@@ -1607,24 +1983,12 @@ class MainActivity : Activity() {
                 false
 
             background =
-                GradientDrawable().apply {
-
-                    setColor(
-                        Color.parseColor(
-                            "#33253646"
-                        )
-                    )
-
-                    cornerRadius =
-                        dp(13).toFloat()
-
-                    setStroke(
-                        dp(1),
-                        Color.parseColor(
-                            "#5500E5FF"
-                        )
-                    )
-                }
+                solidPill(
+                    Color.parseColor("#33253646"),
+                    14,
+                    1,
+                    Color.parseColor("#5500E5FF")
+                )
         }
     }
 
@@ -1689,10 +2053,10 @@ class MainActivity : Activity() {
                     Gravity.CENTER_VERTICAL
 
                 setPadding(
-                    dp(18),
-                    dp(12),
-                    dp(22),
-                    dp(12)
+                    dp(20),
+                    dp(14),
+                    dp(24),
+                    dp(14)
                 )
 
                 alpha =
@@ -1702,24 +2066,12 @@ class MainActivity : Activity() {
                     View.GONE
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#E60A1018"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(18).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            Color.parseColor(
-                                "#9900E5FF"
-                            )
-                        )
-                    }
+                    solidPill(
+                        Color.parseColor("#E60A1018"),
+                        20,
+                        1,
+                        Color.parseColor("#9900E5FF")
+                    )
             }
 
         overlayChannelName =
@@ -1729,7 +2081,7 @@ class MainActivity : Activity() {
                     ""
 
                 textSize =
-                    17f
+                    18f
 
                 setTextColor(
                     textWhite
@@ -1766,7 +2118,7 @@ class MainActivity : Activity() {
 
                 setPadding(
                     0,
-                    dp(4),
+                    dp(5),
                     0,
                     0
                 )
@@ -1857,7 +2209,7 @@ class MainActivity : Activity() {
                 title
 
             textSize =
-                13f
+                12f
 
             setTextColor(
                 textMuted
@@ -1868,22 +2220,20 @@ class MainActivity : Activity() {
             )
 
             setPadding(
+                dp(22),
                 dp(20),
-                dp(18),
-                dp(20),
-                dp(12)
+                dp(22),
+                dp(14)
             )
 
             letterSpacing =
-                0.04f
+                0.08f
 
             background =
-                GradientDrawable().apply {
-
-                    setColor(
-                        bgSecondary
-                    )
-                }
+                solidPill(
+                    bgSecondary,
+                    0
+                )
         }
     }
 
@@ -1949,11 +2299,11 @@ class MainActivity : Activity() {
                 card,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(52)
+                    dp(58)
                 ).apply {
 
                     bottomMargin =
-                        dp(9)
+                        dp(10)
                 }
             )
 
@@ -1987,7 +2337,7 @@ class MainActivity : Activity() {
                     Gravity.CENTER_VERTICAL
 
                 setPadding(
-                    dp(16),
+                    dp(14),
                     0,
                     dp(14),
                     0
@@ -2006,33 +2356,55 @@ class MainActivity : Activity() {
                     true
             }
 
-        val accentLine =
-            View(this).apply {
+        val iconCircle =
+            TextView(this).apply {
+
+                text =
+                    packageDisplayName(name)
+                        .take(1)
+                        .uppercase()
+
+                textSize =
+                    13f
+
+                gravity =
+                    Gravity.CENTER
+
+                setTypeface(
+                    Typeface.DEFAULT_BOLD
+                )
+
+                setTextColor(
+                    if (isSelected)
+                        Color.BLACK
+                    else
+                        textWhite
+                )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            if (isSelected)
-                                textWhite
-                            else
-                                accentColor
+                    if (isSelected)
+                        gradientPill(
+                            gradientDuo,
+                            15
                         )
-
-                        cornerRadius =
-                            dp(4).toFloat()
-                    }
+                    else
+                        solidPill(
+                            bgCardAlt,
+                            15,
+                            1,
+                            glassStroke
+                        )
             }
 
         layout.addView(
-            accentLine,
+            iconCircle,
             LinearLayout.LayoutParams(
-                dp(4),
-                dp(26)
+                dp(34),
+                dp(34)
             ).apply {
 
                 rightMargin =
-                    dp(10)
+                    dp(12)
             }
         )
 
@@ -2048,10 +2420,7 @@ class MainActivity : Activity() {
                     12f
 
                 setTextColor(
-                    if (isSelected)
-                        bgPrimary
-                    else
-                        textWhite
+                    textWhite
                 )
 
                 setTypeface(
@@ -2084,10 +2453,7 @@ class MainActivity : Activity() {
                     Gravity.CENTER
 
                 setTextColor(
-                    if (isSelected)
-                        bgPrimary
-                    else
-                        accentColor
+                    accentColor
                 )
 
                 setPadding(
@@ -2098,20 +2464,10 @@ class MainActivity : Activity() {
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            if (isSelected)
-                                Color.WHITE
-                            else
-                                Color.parseColor(
-                                    "#1400E5FF"
-                                )
-                        )
-
-                        cornerRadius =
-                            dp(12).toFloat()
-                    }
+                    solidPill(
+                        Color.parseColor("#1400E5FF"),
+                        12
+                    )
             }
 
         layout.addView(
@@ -2193,35 +2549,37 @@ class MainActivity : Activity() {
                     isSelected
                 )
 
-            val accentLine =
+            val iconCircle =
                 child.getChildAt(0)
+                    as? TextView
 
-            if (accentLine != null) {
+            iconCircle?.setTextColor(
+                if (isSelected)
+                    Color.BLACK
+                else
+                    textWhite
+            )
 
-                accentLine.background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            if (isSelected)
-                                textWhite
-                            else
-                                accentColor
-                        )
-
-                        cornerRadius =
-                            dp(4).toFloat()
-                    }
-            }
+            iconCircle?.background =
+                if (isSelected)
+                    gradientPill(
+                        gradientDuo,
+                        15
+                    )
+                else
+                    solidPill(
+                        bgCardAlt,
+                        15,
+                        1,
+                        glassStroke
+                    )
 
             val tv =
                 child.getChildAt(1)
                     as? TextView
 
             tv?.setTextColor(
-                if (isSelected)
-                    bgPrimary
-                else
-                    textWhite
+                textWhite
             )
 
             val badge =
@@ -2229,27 +2587,14 @@ class MainActivity : Activity() {
                     as? TextView
 
             badge?.setTextColor(
-                if (isSelected)
-                    bgPrimary
-                else
-                    accentColor
+                accentColor
             )
 
             badge?.background =
-                GradientDrawable().apply {
-
-                    setColor(
-                        if (isSelected)
-                            Color.WHITE
-                        else
-                            Color.parseColor(
-                                "#1400E5FF"
-                            )
-                    )
-
-                    cornerRadius =
-                        dp(12).toFloat()
-                }
+                solidPill(
+                    Color.parseColor("#1400E5FF"),
+                    12
+                )
         }
     }
 
@@ -2261,7 +2606,36 @@ class MainActivity : Activity() {
         group: String
     ) {
 
+        currentGroupAllChannels =
+            channels.filter {
+                it.group == group
+            }
+
+        if (::searchInput.isInitialized) {
+
+            searchInput.setText(
+                ""
+            )
+        }
+
+        renderChannelList(
+            ""
+        )
+    }
+
+    // ==========================================================
+    // RENDER CHANNEL LIST (search-aware)
+    // ==========================================================
+
+    private fun renderChannelList(
+        query: String
+    ) {
+
         channelsLayout.removeAllViews()
+
+        channelsLayout.addView(
+            noResultsView
+        )
 
         channelButtons.clear()
 
@@ -2271,13 +2645,26 @@ class MainActivity : Activity() {
             -1
 
         val filtered =
-            channels.filter {
-                it.group == group
-            }
+            if (query.isBlank())
+                currentGroupAllChannels
+            else
+                currentGroupAllChannels.filter {
+                    cleanChannelName(it.name)
+                        .contains(
+                            query,
+                            ignoreCase = true
+                        )
+                }
 
         visibleChannels.addAll(
             filtered
         )
+
+        noResultsView.visibility =
+            if (filtered.isEmpty())
+                View.VISIBLE
+            else
+                View.GONE
 
         filtered.forEachIndexed {
                 index,
@@ -2319,11 +2706,11 @@ class MainActivity : Activity() {
                 card,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(54)
+                    dp(58)
                 ).apply {
 
                     bottomMargin =
-                        dp(8)
+                        dp(9)
                 }
             )
 
@@ -2354,7 +2741,7 @@ class MainActivity : Activity() {
                 setPadding(
                     dp(12),
                     0,
-                    dp(12),
+                    dp(14),
                     0
                 )
 
@@ -2372,17 +2759,19 @@ class MainActivity : Activity() {
             }
 
         // ======================================================
-        // TV ICON
+        // AVATAR
         // ======================================================
 
         val iconBox =
             TextView(this).apply {
 
                 text =
-                    "TV"
+                    cleanChannelName(channel.name)
+                        .take(2)
+                        .uppercase()
 
                 textSize =
-                    8f
+                    10f
 
                 setTextColor(
                     accentColor
@@ -2396,35 +2785,23 @@ class MainActivity : Activity() {
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#101923"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(12).toFloat()
-
-                        setStroke(
-                            dp(1),
-                            Color.parseColor(
-                                "#3000E5FF"
-                            )
-                        )
-                    }
+                    solidPill(
+                        Color.parseColor("#101923"),
+                        18,
+                        1,
+                        Color.parseColor("#3000E5FF")
+                    )
             }
 
         card.addView(
             iconBox,
             LinearLayout.LayoutParams(
-                dp(34),
-                dp(34)
+                dp(36),
+                dp(36)
             ).apply {
 
                 rightMargin =
-                    dp(9)
+                    dp(11)
             }
         )
 
@@ -2497,17 +2874,10 @@ class MainActivity : Activity() {
                 )
 
                 background =
-                    GradientDrawable().apply {
-
-                        setColor(
-                            Color.parseColor(
-                                "#1400E5FF"
-                            )
-                        )
-
-                        cornerRadius =
-                            dp(9).toFloat()
-                    }
+                    solidPill(
+                        Color.parseColor("#1400E5FF"),
+                        9
+                    )
             }
 
         card.addView(
@@ -2567,57 +2937,36 @@ class MainActivity : Activity() {
         isSelected: Boolean
     ): GradientDrawable {
 
-        return GradientDrawable().apply {
+        return when {
 
-            cornerRadius =
-                dp(27).toFloat()
+            hasFocus ->
+                gradientPill(
+                    gradientDuo,
+                    27,
+                    2,
+                    Color.TRANSPARENT
+                ).also {
 
-            when {
-
-                hasFocus -> {
-
-                    setColor(
-                        Color.parseColor(
-                            "#162A3A"
-                        )
-                    )
-
-                    setStroke(
-                        dp(2),
-                        accentColor
+                    it.setColor(
+                        Color.parseColor("#162A3A")
                     )
                 }
 
-                isSelected -> {
+            isSelected ->
+                gradientPill(
+                    gradientDuo,
+                    27,
+                    1,
+                    Color.parseColor("#80FFFFFF")
+                )
 
-                    setColor(
-                        Color.parseColor(
-                            "#00D7F0"
-                        )
-                    )
-
-                    setStroke(
-                        dp(1),
-                        Color.parseColor(
-                            "#80FFFFFF"
-                        )
-                    )
-                }
-
-                else -> {
-
-                    setColor(
-                        bgCard
-                    )
-
-                    setStroke(
-                        dp(1),
-                        Color.parseColor(
-                            "#152B3A"
-                        )
-                    )
-                }
-            }
+            else ->
+                solidPill(
+                    bgCard,
+                    27,
+                    1,
+                    Color.parseColor("#152B3A")
+                )
         }
     }
 
@@ -2654,36 +3003,24 @@ class MainActivity : Activity() {
 
             iconBox?.setTextColor(
                 if (isSelected)
-                    bgPrimary
+                    Color.BLACK
                 else
                     accentColor
             )
 
             iconBox?.background =
-                GradientDrawable().apply {
-
-                    setColor(
-                        if (isSelected)
-                            Color.WHITE
-                        else
-                            Color.parseColor(
-                                "#101923"
-                            )
+                if (isSelected)
+                    gradientPill(
+                        gradientDuo,
+                        18
                     )
-
-                    cornerRadius =
-                        dp(12).toFloat()
-
-                    setStroke(
-                        dp(1),
-                        if (isSelected)
-                            Color.WHITE
-                        else
-                            Color.parseColor(
-                                "#3000E5FF"
-                            )
+                else
+                    solidPill(
+                        Color.parseColor("#101923"),
+                        18,
+                        1,
+                        Color.parseColor("#3000E5FF")
                     )
-                }
 
             val quality =
                 child.getChildAt(2)
@@ -2691,26 +3028,19 @@ class MainActivity : Activity() {
 
             quality?.setTextColor(
                 if (isSelected)
-                    bgPrimary
+                    Color.BLACK
                 else
                     accentColor
             )
 
             quality?.background =
-                GradientDrawable().apply {
-
-                    setColor(
-                        if (isSelected)
-                            Color.WHITE
-                        else
-                            Color.parseColor(
-                                "#1400E5FF"
-                            )
-                    )
-
-                    cornerRadius =
-                        dp(9).toFloat()
-                }
+                solidPill(
+                    if (isSelected)
+                        Color.parseColor("#33FFFFFF")
+                    else
+                        Color.parseColor("#1400E5FF"),
+                    9
+                )
         }
     }
 
@@ -2723,53 +3053,31 @@ class MainActivity : Activity() {
         isSelected: Boolean
     ): GradientDrawable {
 
-        return GradientDrawable().apply {
+        return when {
 
-            cornerRadius =
-                dp(24).toFloat()
+            hasFocus ->
+                solidPill(
+                    accentHover,
+                    24,
+                    2,
+                    accentColor
+                )
 
-            when {
+            isSelected ->
+                gradientPill(
+                    gradientDuo,
+                    24,
+                    1,
+                    Color.parseColor("#80FFFFFF")
+                )
 
-                hasFocus -> {
-
-                    setColor(
-                        accentHover
-                    )
-
-                    setStroke(
-                        dp(2),
-                        accentColor
-                    )
-                }
-
-                isSelected -> {
-
-                    setColor(
-                        accentColor
-                    )
-
-                    setStroke(
-                        dp(1),
-                        Color.parseColor(
-                            "#80FFFFFF"
-                        )
-                    )
-                }
-
-                else -> {
-
-                    setColor(
-                        bgCard
-                    )
-
-                    setStroke(
-                        dp(1),
-                        Color.parseColor(
-                            "#152B3A"
-                        )
-                    )
-                }
-            }
+            else ->
+                solidPill(
+                    bgCard,
+                    24,
+                    1,
+                    Color.parseColor("#152B3A")
+                )
         }
     }
 
@@ -2800,7 +3108,7 @@ class MainActivity : Activity() {
 
                                     Toast.makeText(
                                         this@MainActivity,
-                                        "تعذر تشغيل هذه القناة حالياً",
+‎                                        "تعذر تشغيل هذه القناة حالياً",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -2862,7 +3170,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "خطأ في تشغيل القناة",
+‎                "خطأ في تشغيل القناة",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -2992,6 +3300,9 @@ class MainActivity : Activity() {
         topBar.visibility =
             View.GONE
 
+        topDivider.visibility =
+            View.GONE
+
         mainContent
             .getChildAt(0)
             .visibility =
@@ -2999,6 +3310,16 @@ class MainActivity : Activity() {
 
         mainContent
             .getChildAt(1)
+            .visibility =
+            View.GONE
+
+        mainContent
+            .getChildAt(2)
+            .visibility =
+            View.GONE
+
+        mainContent
+            .getChildAt(3)
             .visibility =
             View.GONE
 
@@ -3076,6 +3397,9 @@ class MainActivity : Activity() {
         topBar.visibility =
             View.VISIBLE
 
+        topDivider.visibility =
+            View.VISIBLE
+
         mainContent
             .getChildAt(0)
             .visibility =
@@ -3086,31 +3410,33 @@ class MainActivity : Activity() {
             .visibility =
             View.VISIBLE
 
+        mainContent
+            .getChildAt(2)
+            .visibility =
+            View.VISIBLE
+
+        mainContent
+            .getChildAt(3)
+            .visibility =
+            View.VISIBLE
+
         epgContainer.visibility =
             View.VISIBLE
 
         playerColumn.setPadding(
-            dp(20),
-            dp(15),
-            dp(20),
-            dp(20)
+            dp(22),
+            dp(18),
+            dp(22),
+            dp(22)
         )
 
         playerContainer.background =
-            GradientDrawable().apply {
-
-                setColor(
-                    Color.BLACK
-                )
-
-                cornerRadius =
-                    dp(20).toFloat()
-
-                setStroke(
-                    dp(1),
-                    strokeColor
-                )
-            }
+            solidPill(
+                Color.BLACK,
+                22,
+                1,
+                strokeColor
+            )
 
         val params =
             playerContainer
@@ -3272,6 +3598,8 @@ class MainActivity : Activity() {
         overlayHandler.removeCallbacks(
             hideOverlayRunnable
         )
+
+        liveDotAnimator?.cancel()
 
         playerView.player =
             null
