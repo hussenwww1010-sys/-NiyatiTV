@@ -11,7 +11,7 @@ const channels = [
         qualities: [
             {
                 name: "HD",
-                url: "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330437&extension=ts"
+                url: "http://neopneojh.top:8080/4531771621243/65d372e9295f/25106"
             },
             {
                 name: "HD 2",
