@@ -3,10 +3,11 @@
 
     <style name="Theme.NiyatiTV" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#E91542</item>
-        <item name="android:navigationBarColor">#080B12</item>
-        <item name="android:statusBarColor">#10151F</item>
+        <item name="android:colorAccent">#00E5FF</item>
+        <item name="android:navigationBarColor">#05070D</item>
+        <item name="android:statusBarColor">#05070D</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#05070D</item>
     </style>
 
 </resources>
