@@ -22,6 +22,7 @@
         android:label="Niyati TV"
         android:icon="@drawable/logo"
         android:roundIcon="@drawable/logo"
+        android:banner="@drawable/app_banner"
         android:theme="@style/Theme.NiyatiTV"
         android:usesCleartextTraffic="true">
 
