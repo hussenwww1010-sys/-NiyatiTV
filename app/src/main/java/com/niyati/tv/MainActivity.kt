@@ -283,8 +283,8 @@ class MainActivity : Activity() {
             mainHandler.postDelayed(retryRunnable, 2000)
         } else {
             showStatus(
-‎                "تعذر تشغيل القناة",
-‎                "تحقق من رابط البث أو من اتصال الإنترنت",
+                Txt.ERR_TITLE,
+                Txt.ERR_SUB,
                 true
             )
             livePill.visibility = View.GONE
@@ -380,7 +380,7 @@ class MainActivity : Activity() {
         )
 
         val hint = label(
-‎            "اضغط OK لملء الشاشة  •  أعلى / أسفل لتبديل القناة",
+            Txt.HINT,
             11f,
             gray,
             false,
@@ -402,8 +402,8 @@ class MainActivity : Activity() {
         buildStatusOverlay()
         moveVideoTo(playerFrame)
         showStatus(
-‎            "اختر قناة للمشاهدة",
-‎            "تنقّل بالأسهم بين الباقات والقنوات",
+            Txt.IDLE_TITLE,
+            Txt.IDLE_SUB,
             false
         )
 
@@ -1124,8 +1124,8 @@ class MainActivity : Activity() {
             showListMessage(packagesList, "لا يوجد اتصال", "تحقق من الإنترنت")
             showListMessage(
                 channelsList,
-‎                "تعذر تحميل البيانات",
-‎                "سيتم التحديث تلقائياً عند عودة الاتصال"
+                Txt.LOAD_FAIL_TITLE,
+                Txt.LOAD_FAIL_SUB
             )
         }
     }
@@ -1148,7 +1148,7 @@ class MainActivity : Activity() {
 
                 Toast.makeText(
                     this@MainActivity,
-‎                    "تعذر الاتصال بقاعدة البيانات",
+                    Txt.DB_ERROR,
                     Toast.LENGTH_LONG
                 ).show()
 
@@ -1391,8 +1391,8 @@ class MainActivity : Activity() {
         if (visibleChannels.isEmpty()) {
             showListMessage(
                 channelsList,
-‎                "لا توجد قنوات",
-‎                "لهذه الباقة حالياً"
+                Txt.NO_CHANNELS,
+                Txt.NO_CHANNELS_SUB
             )
             return
         }
@@ -1429,7 +1429,7 @@ class MainActivity : Activity() {
         if (channel.url.isBlank()) {
             Toast.makeText(
                 this,
-‎                "هذه القناة لا تحتوي على رابط بث حالياً",
+                Txt.NO_URL,
                 Toast.LENGTH_SHORT
             ).show()
             return
@@ -1453,8 +1453,8 @@ class MainActivity : Activity() {
 
         } catch (e: Exception) {
             showStatus(
-‎                "تعذر تشغيل القناة",
-‎                "تحقق من رابط البث أو من اتصال الإنترنت",
+                Txt.ERR_TITLE,
+                Txt.ERR_SUB,
                 true
             )
             livePill.visibility = View.GONE
@@ -1821,4 +1821,19 @@ class MainActivity : Activity() {
 
         super.onDestroy()
     }
+}
+
+// Arabic texts: one per line, each line starts with English code.
+private object Txt {
+    const val DB_ERROR = "تعذر الاتصال بقاعدة البيانات"
+    const val ERR_SUB = "تحقق من رابط البث أو من اتصال الإنترنت"
+    const val ERR_TITLE = "تعذر تشغيل القناة"
+    const val HINT = "اضغط OK لملء الشاشة  •  أعلى / أسفل لتبديل القناة"
+    const val IDLE_SUB = "تنقّل بالأسهم بين الباقات والقنوات"
+    const val IDLE_TITLE = "اختر قناة للمشاهدة"
+    const val LOAD_FAIL_SUB = "سيتم التحديث تلقائياً عند عودة الاتصال"
+    const val LOAD_FAIL_TITLE = "تعذر تحميل البيانات"
+    const val NO_CHANNELS = "لا توجد قنوات"
+    const val NO_CHANNELS_SUB = "لهذه الباقة حالياً"
+    const val NO_URL = "هذه القناة لا تحتوي على رابط بث حالياً"
 }
