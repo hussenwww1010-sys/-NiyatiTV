@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "687326927246",
+    "firebase_url": "https://niyati-tv-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "niyati-tv",
+    "storage_bucket": "niyati-tv.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687326927246:android:949755e9f071fdb8072cdf",
+        "android_client_info": {
+          "package_name": "com.niyati.tv"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtvvWWpMwAi8FHZO3sX5UWy93Aq0CU0OA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
