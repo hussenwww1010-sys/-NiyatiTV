@@ -16,7 +16,6 @@ import android.view.Window
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -34,10 +33,6 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 
 class MainActivity : Activity() {
-
-    // ============================================================
-    // DATA
-    // ============================================================
 
     data class Channel(
         val name: String,
@@ -59,37 +54,21 @@ class MainActivity : Activity() {
     private val channels = mutableListOf<Channel>()
     private val packages = mutableListOf<PackageItem>()
 
-    // ============================================================
-    // FIREBASE
-    // ============================================================
-
     private val firebaseDatabase =
         FirebaseDatabase.getInstance(
             "https://niyati-tv-default-rtdb.europe-west1.firebasedatabase.app"
         )
 
-    private val firebaseRoot =
-        firebaseDatabase.reference
+    private val firebaseRoot = firebaseDatabase.reference
 
     private var firebaseListener: ValueEventListener? = null
 
-    // ============================================================
-    // PLAYER
-    // ============================================================
-
     private var player: ExoPlayer? = null
-
     private lateinit var playerView: PlayerView
-
     private var currentChannel: Channel? = null
     private var currentChannelIndex = -1
-
     private var isFullscreen = false
     private var isPlayerReady = false
-
-    // ============================================================
-    // UI
-    // ============================================================
 
     private lateinit var rootLayout: LinearLayout
     private lateinit var packagesLayout: LinearLayout
@@ -97,28 +76,16 @@ class MainActivity : Activity() {
     private lateinit var playerContainer: LinearLayout
     private lateinit var statusText: TextView
     private lateinit var channelTitle: TextView
-
     private lateinit var loadingProgress: ProgressBar
 
     private var selectedPackageId: String? = null
 
-    // ============================================================
-    // COLORS
-    // ============================================================
-
     private val bgPrimary = Color.rgb(4, 7, 13)
     private val bgSecondary = Color.rgb(9, 13, 21)
     private val cardColor = Color.rgb(18, 25, 38)
-
     private val cyan = Color.rgb(0, 229, 255)
-    private val blue = Color.rgb(2, 132, 199)
-
     private val white = Color.WHITE
     private val gray = Color.rgb(160, 170, 185)
-
-    // ============================================================
-    // ON CREATE
-    // ============================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,59 +96,41 @@ class MainActivity : Activity() {
         window.navigationBarColor = bgPrimary
 
         buildInterface()
-
         initExoPlayer()
-
         loadFirebaseData()
-
         showWelcomeDialog()
     }
-
-    // ============================================================
-    // BUILD INTERFACE
-    // ============================================================
 
     private fun buildInterface() {
 
         rootLayout = LinearLayout(this)
-
         rootLayout.orientation = LinearLayout.VERTICAL
         rootLayout.setBackgroundColor(bgPrimary)
-
         rootLayout.layoutDirection = View.LAYOUT_DIRECTION_RTL
 
         setContentView(rootLayout)
 
-        // --------------------------------------------------------
-        // TOP BAR
-        // --------------------------------------------------------
-
         val topBar = LinearLayout(this)
-
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
         topBar.setPadding(20, 18, 20, 18)
-
         topBar.setBackgroundColor(bgSecondary)
 
         val brand = TextView(this)
-
         brand.text = "NIYATI TV"
         brand.textSize = 22f
         brand.setTextColor(white)
         brand.setTypeface(null, Typeface.BOLD)
 
-        val brandParams =
-            LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
-            )
+        val brandParams = LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        )
 
         topBar.addView(brand, brandParams)
 
         statusText = TextView(this)
-
         statusText.text = "جاري الاتصال..."
         statusText.textSize = 12f
         statusText.setTextColor(gray)
@@ -196,37 +145,23 @@ class MainActivity : Activity() {
             )
         )
 
-        // --------------------------------------------------------
-        // MAIN CONTENT
-        // --------------------------------------------------------
-
         val mainScroll = ScrollView(this)
-
         mainScroll.isFillViewport = true
 
         val mainLayout = LinearLayout(this)
-
         mainLayout.orientation = LinearLayout.VERTICAL
-
         mainLayout.setPadding(12, 12, 12, 20)
 
-        // --------------------------------------------------------
-        // PLAYER
-        // --------------------------------------------------------
-
         playerContainer = LinearLayout(this)
-
         playerContainer.orientation = LinearLayout.VERTICAL
-
+        playerContainer.gravity = Gravity.CENTER
         playerContainer.setBackgroundColor(Color.BLACK)
 
         playerView = PlayerView(this)
-
         playerView.useController = true
         playerView.setShowBuffering(
             PlayerView.SHOW_BUFFERING_WHEN_PLAYING
         )
-
         playerView.setBackgroundColor(Color.BLACK)
 
         playerContainer.addView(
@@ -238,7 +173,6 @@ class MainActivity : Activity() {
         )
 
         loadingProgress = ProgressBar(this)
-
         loadingProgress.visibility = View.GONE
 
         playerContainer.addView(
@@ -259,40 +193,22 @@ class MainActivity : Activity() {
             )
         )
 
-        // --------------------------------------------------------
-        // CURRENT CHANNEL
-        // --------------------------------------------------------
-
         channelTitle = TextView(this)
-
         channelTitle.text = "اختر قناة للبدء"
         channelTitle.textSize = 18f
         channelTitle.setTextColor(white)
         channelTitle.setTypeface(null, Typeface.BOLD)
-
         channelTitle.gravity = Gravity.CENTER
-
         channelTitle.setPadding(10, 18, 10, 18)
 
         mainLayout.addView(channelTitle)
 
-        // --------------------------------------------------------
-        // PACKAGES TITLE
-        // --------------------------------------------------------
-
         val packagesTitle = makeSectionTitle("الباقات")
-
         mainLayout.addView(packagesTitle)
 
-        // --------------------------------------------------------
-        // PACKAGES
-        // --------------------------------------------------------
-
         packagesLayout = LinearLayout(this)
-
         packagesLayout.orientation = LinearLayout.HORIZONTAL
         packagesLayout.gravity = Gravity.CENTER_VERTICAL
-
         packagesLayout.setPadding(0, 5, 0, 10)
 
         mainLayout.addView(
@@ -303,22 +219,11 @@ class MainActivity : Activity() {
             )
         )
 
-        // --------------------------------------------------------
-        // CHANNELS TITLE
-        // --------------------------------------------------------
-
         val channelsTitle = makeSectionTitle("القنوات")
-
         mainLayout.addView(channelsTitle)
 
-        // --------------------------------------------------------
-        // CHANNELS
-        // --------------------------------------------------------
-
         channelsLayout = LinearLayout(this)
-
         channelsLayout.orientation = LinearLayout.VERTICAL
-
         channelsLayout.setPadding(0, 5, 0, 20)
 
         mainLayout.addView(
@@ -341,32 +246,19 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // SECTION TITLE
-    // ============================================================
-
-    private fun makeSectionTitle(
-        text: String
-    ): TextView {
+    private fun makeSectionTitle(text: String): TextView {
 
         val title = TextView(this)
 
         title.text = text
         title.textSize = 18f
         title.setTextColor(white)
-
         title.setTypeface(null, Typeface.BOLD)
-
         title.gravity = Gravity.RIGHT
-
         title.setPadding(8, 18, 8, 10)
 
         return title
     }
-
-    // ============================================================
-    // FIREBASE
-    // ============================================================
 
     private fun loadFirebaseData() {
 
@@ -379,9 +271,7 @@ class MainActivity : Activity() {
         firebaseListener =
             object : ValueEventListener {
 
-                override fun onDataChange(
-                    snapshot: DataSnapshot
-                ) {
+                override fun onDataChange(snapshot: DataSnapshot) {
 
                     loadPackagesFromFirebase(
                         snapshot.child("packages")
@@ -411,12 +301,9 @@ class MainActivity : Activity() {
 
                     statusText.text =
                         "متصل • ${channels.size} قناة"
-
                 }
 
-                override fun onCancelled(
-                    error: DatabaseError
-                ) {
+                override fun onCancelled(error: DatabaseError) {
 
                     statusText.text = "فشل الاتصال"
 
@@ -433,10 +320,6 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // LOAD PACKAGES
-    // ============================================================
-
     private fun loadPackagesFromFirebase(
         snapshot: DataSnapshot
     ) {
@@ -445,8 +328,7 @@ class MainActivity : Activity() {
 
         for (packageSnapshot in snapshot.children) {
 
-            val id = packageSnapshot.key
-                ?: continue
+            val id = packageSnapshot.key ?: continue
 
             val enabled =
                 packageSnapshot
@@ -454,9 +336,7 @@ class MainActivity : Activity() {
                     .getValue(Boolean::class.java)
                     ?: true
 
-            if (!enabled) {
-                continue
-            }
+            if (!enabled) continue
 
             val name =
                 packageSnapshot
@@ -476,9 +356,7 @@ class MainActivity : Activity() {
                     .getValue(Long::class.java)
                     ?: 0L
 
-            if (name.isBlank()) {
-                continue
-            }
+            if (name.isBlank()) continue
 
             packages.add(
                 PackageItem(
@@ -496,10 +374,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // ============================================================
-    // LOAD CHANNELS
-    // ============================================================
-
     private fun loadChannelsFromFirebase(
         snapshot: DataSnapshot
     ) {
@@ -514,9 +388,7 @@ class MainActivity : Activity() {
                     .getValue(Boolean::class.java)
                     ?: true
 
-            if (!enabled) {
-                continue
-            }
+            if (!enabled) continue
 
             val name =
                 channelSnapshot
@@ -548,10 +420,15 @@ class MainActivity : Activity() {
                     .getValue(Long::class.java)
                     ?: 0L
 
+            /*
+             * مهم:
+             * لا نشترط وجود URL هنا.
+             * القناة تظهر في التطبيق حتى لو الرابط فارغ.
+             */
+
             if (
                 name.isBlank() ||
-                group.isBlank() ||
-                url.isBlank()
+                group.isBlank()
             ) {
                 continue
             }
@@ -573,10 +450,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // ============================================================
-    // RENDER PACKAGES
-    // ============================================================
-
     private fun renderPackages() {
 
         packagesLayout.removeAllViews()
@@ -593,18 +466,12 @@ class MainActivity : Activity() {
 
         for (packageItem in packages) {
 
-            val button =
-                Button(this)
+            val button = Button(this)
 
-            button.text =
-                packageItem.name
-
+            button.text = packageItem.name
             button.textSize = 14f
-
             button.setTextColor(white)
-
             button.isAllCaps = false
-
             button.background =
                 roundedBackground(
                     cardColor,
@@ -618,11 +485,10 @@ class MainActivity : Activity() {
                 12
             )
 
-            val params =
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    dp(55)
-                )
+            val params = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(55)
+            )
 
             params.setMargins(
                 5,
@@ -636,7 +502,9 @@ class MainActivity : Activity() {
             button.isFocusable = true
             button.isFocusableInTouchMode = false
 
-            button.setOnFocusChangeListener { view, hasFocus ->
+            button.setOnFocusChangeListener {
+                    view,
+                    hasFocus ->
 
                 if (hasFocus) {
 
@@ -671,11 +539,16 @@ class MainActivity : Activity() {
                 )
             }
 
-            button.setOnKeyListener { _, keyCode, event ->
+            button.setOnKeyListener {
+                    _,
+                    keyCode,
+                    event ->
 
                 if (
-                    event.action == KeyEvent.ACTION_DOWN &&
-                    keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+                    event.action ==
+                    KeyEvent.ACTION_DOWN &&
+                    keyCode ==
+                    KeyEvent.KEYCODE_DPAD_CENTER
                 ) {
 
                     selectPackage(
@@ -685,32 +558,28 @@ class MainActivity : Activity() {
                     true
 
                 } else {
+
                     false
                 }
             }
 
-            packagesLayout.addView(button)
+            packagesLayout.addView(
+                button
+            )
         }
     }
-
-    // ============================================================
-    // SELECT PACKAGE
-    // ============================================================
 
     private fun selectPackage(
         packageId: String
     ) {
 
-        selectedPackageId = packageId
+        selectedPackageId =
+            packageId
 
         renderChannels(
             packageId
         )
     }
-
-    // ============================================================
-    // RENDER CHANNELS
-    // ============================================================
 
     private fun renderChannels(
         packageId: String
@@ -737,9 +606,7 @@ class MainActivity : Activity() {
             return
         }
 
-        for (
-            index in packageChannels.indices
-        ) {
+        for (index in packageChannels.indices) {
 
             val channel =
                 packageChannels[index]
@@ -751,13 +618,11 @@ class MainActivity : Activity() {
                     packageChannels
                 )
 
-            channelsLayout.addView(card)
+            channelsLayout.addView(
+                card
+            )
         }
     }
-
-    // ============================================================
-    // CHANNEL CARD
-    // ============================================================
 
     private fun createChannelCard(
         channel: Channel,
@@ -765,8 +630,7 @@ class MainActivity : Activity() {
         packageChannels: List<Channel>
     ): View {
 
-        val card =
-            LinearLayout(this)
+        val card = LinearLayout(this)
 
         card.orientation =
             LinearLayout.HORIZONTAL
@@ -790,31 +654,24 @@ class MainActivity : Activity() {
         card.isFocusable = true
         card.isClickable = true
 
-        val number =
-            TextView(this)
+        val number = TextView(this)
 
         number.text =
             "${index + 1}"
 
         number.textSize = 15f
         number.setTextColor(cyan)
+        number.gravity = Gravity.CENTER
 
-        number.gravity =
-            Gravity.CENTER
-
-        val numberParams =
+        card.addView(
+            number,
             LinearLayout.LayoutParams(
                 dp(40),
                 dp(40)
             )
-
-        card.addView(
-            number,
-            numberParams
         )
 
-        val info =
-            LinearLayout(this)
+        val info = LinearLayout(this)
 
         info.orientation =
             LinearLayout.VERTICAL
@@ -829,16 +686,13 @@ class MainActivity : Activity() {
             0
         )
 
-        val name =
-            TextView(this)
+        val name = TextView(this)
 
         name.text =
             channel.name
 
         name.textSize = 16f
-
         name.setTextColor(white)
-
         name.setTypeface(
             null,
             Typeface.BOLD
@@ -846,16 +700,17 @@ class MainActivity : Activity() {
 
         info.addView(name)
 
-        val quality =
-            TextView(this)
+        val quality = TextView(this)
 
         quality.text =
-            "اضغط OK للتشغيل"
+            if (channel.url.isBlank()) {
+                "الرابط غير مضاف حالياً"
+            } else {
+                "اضغط OK للتشغيل"
+            }
 
         quality.textSize = 11f
-
         quality.setTextColor(gray)
-
         quality.setPadding(
             0,
             4,
@@ -874,17 +729,12 @@ class MainActivity : Activity() {
             )
         )
 
-        val play =
-            TextView(this)
+        val play = TextView(this)
 
         play.text = "▶"
-
         play.textSize = 20f
-
         play.setTextColor(cyan)
-
-        play.gravity =
-            Gravity.CENTER
+        play.gravity = Gravity.CENTER
 
         card.addView(
             play,
@@ -894,7 +744,9 @@ class MainActivity : Activity() {
             )
         )
 
-        card.setOnFocusChangeListener { view, hasFocus ->
+        card.setOnFocusChangeListener {
+                view,
+                hasFocus ->
 
             if (hasFocus) {
 
@@ -948,15 +800,17 @@ class MainActivity : Activity() {
 
         card.setOnClickListener {
 
-            playChannel(
-                channel
-            )
+            playChannel(channel)
         }
 
-        card.setOnKeyListener { _, keyCode, event ->
+        card.setOnKeyListener {
+                _,
+                keyCode,
+                event ->
 
             if (
-                event.action == KeyEvent.ACTION_DOWN
+                event.action ==
+                KeyEvent.ACTION_DOWN
             ) {
 
                 when (keyCode) {
@@ -975,16 +829,13 @@ class MainActivity : Activity() {
                 }
 
             } else {
+
                 false
             }
         }
 
         return card
     }
-
-    // ============================================================
-    // PLAYER INITIALIZATION
-    // ============================================================
 
     private fun initExoPlayer() {
 
@@ -1018,7 +869,8 @@ class MainActivity : Activity() {
                             loadingProgress.visibility =
                                 View.GONE
 
-                            isPlayerReady = true
+                            isPlayerReady =
+                                true
 
                             statusText.text =
                                 "يعمل الآن"
@@ -1061,13 +913,25 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // PLAY CHANNEL
-    // ============================================================
-
     private fun playChannel(
         channel: Channel
     ) {
+
+        /*
+         * إذا القناة ما بيها رابط،
+         * نخليها تظهر لكن ما نحاول نشغلها.
+         */
+
+        if (channel.url.isBlank()) {
+
+            Toast.makeText(
+                this,
+                "هذه القناة لا تحتوي على رابط بث حالياً",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
 
         currentChannel =
             channel
@@ -1097,13 +961,13 @@ class MainActivity : Activity() {
 
             player?.prepare()
 
-            player?.playWhenReady = true
+            player?.playWhenReady =
+                true
 
-            isPlayerReady = false
+            isPlayerReady =
+                false
 
-        } catch (
-            e: Exception
-        ) {
+        } catch (e: Exception) {
 
             loadingProgress.visibility =
                 View.GONE
@@ -1119,15 +983,9 @@ class MainActivity : Activity() {
         }
     }
 
-    // ============================================================
-    // NEXT CHANNEL
-    // ============================================================
-
     private fun playNextChannel() {
 
-        if (channels.isEmpty()) {
-            return
-        }
+        if (channels.isEmpty()) return
 
         val packageId =
             selectedPackageId
@@ -1144,9 +1002,7 @@ class MainActivity : Activity() {
                 channels
             }
 
-        if (list.isEmpty()) {
-            return
-        }
+        if (list.isEmpty()) return
 
         val current =
             currentChannel
@@ -1169,15 +1025,9 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // PREVIOUS CHANNEL
-    // ============================================================
-
     private fun playPreviousChannel() {
 
-        if (channels.isEmpty()) {
-            return
-        }
+        if (channels.isEmpty()) return
 
         val packageId =
             selectedPackageId
@@ -1194,9 +1044,7 @@ class MainActivity : Activity() {
                 channels
             }
 
-        if (list.isEmpty()) {
-            return
-        }
+        if (list.isEmpty()) return
 
         val current =
             currentChannel
@@ -1205,9 +1053,7 @@ class MainActivity : Activity() {
             list.indexOf(current)
 
         val previousIndex =
-            if (
-                currentIndex <= 0
-            ) {
+            if (currentIndex <= 0) {
                 list.lastIndex
             } else {
                 currentIndex - 1
@@ -1217,10 +1063,6 @@ class MainActivity : Activity() {
             list[previousIndex]
         )
     }
-
-    // ============================================================
-    // FULLSCREEN
-    // ============================================================
 
     private fun enterFullscreen() {
 
@@ -1236,7 +1078,8 @@ class MainActivity : Activity() {
                 )
 
                 it.systemBarsBehavior =
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    WindowInsetsController
+                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
 
         } else {
@@ -1297,10 +1140,6 @@ class MainActivity : Activity() {
             )
     }
 
-    // ============================================================
-    // REMOTE CONTROL
-    // ============================================================
-
     override fun onKeyDown(
         keyCode: Int,
         event: KeyEvent?
@@ -1334,9 +1173,7 @@ class MainActivity : Activity() {
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_ENTER -> {
 
-                    if (
-                        player?.isPlaying == true
-                    ) {
+                    if (player?.isPlaying == true) {
 
                         player?.pause()
 
@@ -1356,10 +1193,6 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // BACK
-    // ============================================================
-
     override fun onBackPressed() {
 
         if (isFullscreen) {
@@ -1372,14 +1205,12 @@ class MainActivity : Activity() {
         super.onBackPressed()
     }
 
-    // ============================================================
-    // WELCOME
-    // ============================================================
-
     private fun showWelcomeDialog() {
 
         AlertDialog.Builder(this)
-            .setTitle("أهلاً بك في Niyati TV 📺")
+            .setTitle(
+                "أهلاً بك في Niyati TV 📺"
+            )
             .setMessage(
                 "استمتع بمشاهدة القنوات الرياضية."
             )
@@ -1390,26 +1221,17 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // ============================================================
-    // EMPTY MESSAGE
-    // ============================================================
-
     private fun addEmptyMessage(
         parent: ViewGroup,
         text: String
     ) {
 
-        val message =
-            TextView(this)
+        val message = TextView(this)
 
         message.text = text
-
         message.textSize = 14f
-
         message.setTextColor(gray)
-
-        message.gravity =
-            Gravity.CENTER
+        message.gravity = Gravity.CENTER
 
         message.setPadding(
             20,
@@ -1427,10 +1249,6 @@ class MainActivity : Activity() {
         )
     }
 
-    // ============================================================
-    // BACKGROUND
-    // ============================================================
-
     private fun roundedBackground(
         color: Int,
         radius: Int
@@ -1445,10 +1263,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // ============================================================
-    // DP
-    // ============================================================
-
     private fun dp(
         value: Int
     ): Int {
@@ -1459,10 +1273,6 @@ class MainActivity : Activity() {
             ).toInt()
     }
 
-    // ============================================================
-    // LIFECYCLE
-    // ============================================================
-
     override fun onStart() {
 
         super.onStart()
@@ -1472,7 +1282,8 @@ class MainActivity : Activity() {
             currentChannel != null
         ) {
 
-            player?.playWhenReady = true
+            player?.playWhenReady =
+                true
         }
     }
 
