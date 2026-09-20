@@ -46,4 +46,10 @@ dependencies {
 
     // HLS / M3U8
     implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+
+    // DASH / MPD
+    implementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
+
+    // SmoothStreaming / ISM
+    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.5.1'
 }
