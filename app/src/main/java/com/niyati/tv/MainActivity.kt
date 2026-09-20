@@ -37,12 +37,21 @@ import android.widget.ScrollView
 import android.widget.TextClock
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSourceException
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.PlayerView
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -55,6 +64,7 @@ import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+@OptIn(UnstableApi::class)
 class MainActivity : Activity() {
 
     // =========================
@@ -111,7 +121,9 @@ class MainActivity : Activity() {
         val url: String,
         val logo: String,
         val enabled: Boolean,
-        val order: Int
+        val order: Int,
+        val userAgent: String = "",
+        val referer: String = ""
     )
 
     data class PackageItem(
@@ -122,9 +134,15 @@ class MainActivity : Activity() {
         val order: Int
     )
 
-    data class Accent(val start: Int, val end: Int)
+    data class Accent(
+        val start: Int,
+        val end: Int
+    )
 
-    private class PackageRow(val item: PackageItem, val card: TvCard)
+    private class PackageRow(
+        val item: PackageItem,
+        val card: TvCard
+    )
 
     private class ChannelRow(
         val channel: Channel,
@@ -148,8 +166,12 @@ class MainActivity : Activity() {
     private var dataReady = false
     private var isFullscreen = false
     private var resumeOnStart = false
+
     private var retryCount = 0
     private var backPressedAt = 0L
+
+‎    // يمنع إعادة المحاولة بعد ظهور الخطأ النهائي
+    private var finalPlaybackError = false
 
     // =========================
     // Colors
@@ -182,11 +204,13 @@ class MainActivity : Activity() {
     // =========================
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
     private val ioExecutor: ExecutorService = Executors.newFixedThreadPool(3)
 
-    private val imageCache = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
-        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
-    }
+    private val imageCache =
+        object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
+            override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+        }
 
     private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
     private val wrap = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -200,11 +224,12 @@ class MainActivity : Activity() {
     private fun withAlpha(color: Int, alpha: Int): Int =
         Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
-    private fun mix(a: Int, b: Int, t: Float): Int = Color.rgb(
-        (Color.red(a) * t + Color.red(b) * (1 - t)).toInt(),
-        (Color.green(a) * t + Color.green(b) * (1 - t)).toInt(),
-        (Color.blue(a) * t + Color.blue(b) * (1 - t)).toInt()
-    )
+    private fun mix(a: Int, b: Int, t: Float): Int =
+        Color.rgb(
+            (Color.red(a) * t + Color.red(b) * (1 - t)).toInt(),
+            (Color.green(a) * t + Color.green(b) * (1 - t)).toInt(),
+            (Color.blue(a) * t + Color.blue(b) * (1 - t)).toInt()
+        )
 
     private fun label(
         text: String,
@@ -222,7 +247,9 @@ class MainActivity : Activity() {
         tv.maxLines = lines
         tv.ellipsize = TextUtils.TruncateAt.END
         tv.textDirection = View.TEXT_DIRECTION_ANY_RTL
-        if (bold) tv.typeface = Typeface.DEFAULT_BOLD
+        if (bold) {
+            tv.typeface = Typeface.DEFAULT_BOLD
+        }
         return tv
     }
 
@@ -234,7 +261,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         requestWindowFeature(Window.FEATURE_NO_TITLE)
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         window.statusBarColor = bgTop
         window.navigationBarColor = bgBottom
 
@@ -252,69 +281,531 @@ class MainActivity : Activity() {
     // Player setup
     // =========================
 
+    private enum class StreamKind(
+        val label: String,
+        val mime: String?
+    ) {
+        AUTO("تلقائي", null),
+        HLS("HLS / M3U8", MimeTypes.APPLICATION_M3U8),
+        DASH("DASH / MPD", MimeTypes.APPLICATION_MPD),
+        SS("Smooth Streaming", MimeTypes.APPLICATION_SS),
+        TS("MPEG-TS", MimeTypes.VIDEO_MP2T),
+        RTSP("RTSP", MimeTypes.APPLICATION_RTSP)
+    }
+
+    private data class Source(
+        val url: String,
+        val headers: Map<String, String>
+    )
+
+    private lateinit var httpFactory: DefaultHttpDataSource.Factory
+
+    private var currentSource: Source? = null
+    private var attempts: List<StreamKind> = listOf(StreamKind.AUTO)
+    private var attemptIndex = 0
+    private var firstError: PlaybackException? = null
+    private var liveWindowRetries = 0
+    private var playbackStarted = false
+
+    private val defaultUserAgent =
+        "Mozilla/5.0 (Linux; Android 13; TV) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/120.0.0.0 Safari/537.36"
+
+‎    // أخطاء تعني أن الصيغة المتوقعة غلط (نجرب صيغة ثانية)
+    private val formatErrors = setOf(
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED
+    )
+
     private val retryRunnable = Runnable {
-        player.prepare()
-        player.playWhenReady = true
+        if (finalPlaybackError || playingChannel == null) {
+            return@Runnable
+        }
+        try {
+            player.prepare()
+            player.playWhenReady = true
+        } catch (e: Exception) {
+            finalPlaybackError = true
+            showDetailedPlaybackError(null, e)
+        }
     }
 
     private fun initPlayer() {
 
-        // HTTP/HLS/DASH/Progressive data source.
-        // Keeps the same ExoPlayer and PlayerView,
-        // but gives Media3 a proper HTTP factory.
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent(
-                "Mozilla/5.0 (Linux; Android 13; TV) " +
-                        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                        "Chrome/120.0.0.0 Safari/537.36"
-            )
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(
-                mapOf(
-                    "Accept" to "*/*",
-                    "Accept-Language" to "ar-IQ,ar;q=0.9,en;q=0.8"
+        // HTTP / HTTPS + redirects + headers قابلة للتغيير لكل قناة
+        httpFactory =
+            DefaultHttpDataSource.Factory()
+                .setUserAgent(defaultUserAgent)
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000)
+
+        // DefaultDataSource = http + https + rtmp + udp + file + content
+        val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
+
+‎        // إعدادات تساعد بث TS الحي (يمنع شاشة سوداء مع صوت)
+        val extractorsFactory =
+            DefaultExtractorsFactory()
+                .setTsExtractorFlags(
+                    DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                            DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
                 )
-            )
 
-        // Media3 automatically selects the appropriate MediaSource
-        // based on the URI / content type.
         val mediaSourceFactory =
-            DefaultMediaSourceFactory(httpDataSourceFactory)
+            DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
-        player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
+‎        // إذا فشل ديكودر الجهاز يجرب ديكودر ثاني تلقائياً
+        val renderersFactory =
+            DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true)
+                .setExtensionRendererMode(
+                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+                )
 
-        player.addListener(object : Player.Listener {
+        player =
+            ExoPlayer.Builder(this, renderersFactory)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    retryCount = 0
-                    hideStatus()
+        player.addListener(
+            object : Player.Listener {
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    when (playbackState) {
+
+                        Player.STATE_BUFFERING -> {
+‎                            // الشاشة الكاملة فقط عند بداية التشغيل،
+‎                            // بعدها PlayerView يعرض دائرة التحميل لوحده
+                            if (
+                                playingChannel != null &&
+                                !finalPlaybackError &&
+                                !playbackStarted
+                            ) {
+                                showStatus(
+‎                                    "جاري تحميل البث…",
+                                    playingChannel?.name ?: "",
+                                    false
+                                )
+                            }
+                        }
+
+                        Player.STATE_READY -> {
+                            retryCount = 0
+                            liveWindowRetries = 0
+                            finalPlaybackError = false
+                            playbackStarted = true
+
+                            hideStatus()
+
+                            livePill.visibility = View.VISIBLE
+                        }
+
+                        Player.STATE_ENDED -> {
+                            if (playingChannel != null && !finalPlaybackError) {
+                                showStatus(
+‎                                    "انتهى البث",
+‎                                    "تم إنهاء مصدر البث",
+                                    true
+                                )
+                            }
+                        }
+
+                        else -> {
+                        }
+                    }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    handlePlayerError(error)
+                }
+            }
+        )
+    }
+
+    // =========================
+    // Source parsing / detection
+    // =========================
+
+    /*
+‎     * يدعم صيغة Kodi الشائعة في قوائم IPTV:
+     * http://server/live/1.m3u8|User-Agent=VLC&Referer=http://site.com/
+     */
+    private fun parseSource(raw: String): Source {
+
+        val trimmed = raw.trim()
+
+        val idx = trimmed.indexOf('|')
+
+        if (idx < 0) {
+            return Source(trimmed, emptyMap())
+        }
+
+        val url = trimmed.substring(0, idx).trim()
+
+        val map = linkedMapOf<String, String>()
+
+        trimmed
+            .substring(idx + 1)
+            .split('&')
+            .forEach { part ->
+                val eq = part.indexOf('=')
+                if (eq > 0) {
+                    val k = Uri.decode(part.substring(0, eq)).trim()
+                    val v = Uri.decode(part.substring(eq + 1)).trim()
+                    if (k.isNotEmpty()) {
+                        map[k] = v
+                    }
                 }
             }
 
-            override fun onPlayerError(error: PlaybackException) {
-                handlePlayerError()
-            }
-        })
+        return Source(url, map)
     }
 
-    private fun handlePlayerError() {
-        val channel = playingChannel ?: return
+    private fun detectKind(rawUrl: String): StreamKind {
 
-        if (retryCount < 2) {
-            retryCount++
-            showStatus("جاري إعادة المحاولة…", channel.name, false)
-            mainHandler.removeCallbacks(retryRunnable)
-            mainHandler.postDelayed(retryRunnable, 2000)
-        } else {
-            showStatus(
-                Txt.ERR_TITLE,
-                Txt.ERR_SUB,
-                true
+        val lower =
+            rawUrl
+                .trim()
+                .lowercase(Locale.US)
+                .substringBefore("#")
+
+        val path = lower.substringBefore("?")
+
+        return when {
+
+            lower.startsWith("rtsp://") || lower.startsWith("rtsps://") ->
+                StreamKind.RTSP
+
+            path.endsWith(".m3u8") || path.contains(".m3u8/") ->
+                StreamKind.HLS
+
+            path.endsWith(".mpd") ->
+                StreamKind.DASH
+
+            path.endsWith(".ism") ||
+                    path.endsWith(".isml") ||
+                    path.contains(".ism/manifest") ||
+                    path.contains(".isml/manifest") ->
+                StreamKind.SS
+
+            path.endsWith(".ts") ->
+                StreamKind.TS
+
+‎            // الامتداد داخل الـ query مثل: play.php?file=abc.m3u8
+            lower.contains(".m3u8") ->
+                StreamKind.HLS
+
+            lower.contains(".mpd") ->
+                StreamKind.DASH
+
+            else ->
+                StreamKind.AUTO
+        }
+    }
+
+    /*
+‎     * ترتيب المحاولات:
+‎     * - رابط بدون امتداد (مثل روابط Xtream): تلقائي ← HLS ← TS ← DASH
+‎     * - رابط بامتداد واضح: الصيغة نفسها ← تلقائي
+     */
+    private fun attemptsFor(url: String): List<StreamKind> =
+        when (val kind = detectKind(url)) {
+
+            StreamKind.AUTO ->
+                listOf(
+                    StreamKind.AUTO,
+                    StreamKind.HLS,
+                    StreamKind.TS,
+                    StreamKind.DASH
+                )
+
+            StreamKind.RTSP,
+            StreamKind.SS ->
+                listOf(kind)
+
+            else ->
+                listOf(kind, StreamKind.AUTO)
+        }
+
+    private fun createMediaItem(url: String, kind: StreamKind): MediaItem {
+
+        val builder = MediaItem.Builder().setUri(Uri.parse(url))
+
+        kind.mime?.let {
+            builder.setMimeType(it)
+        }
+
+        return builder.build()
+    }
+
+    private fun applyRequestHeaders(channel: Channel, source: Source) {
+
+        val headers =
+            linkedMapOf(
+                "Accept" to "*/*",
+                "Accept-Language" to "ar-IQ,ar;q=0.9,en;q=0.8"
             )
+
+        var userAgent =
+            channel.userAgent.ifBlank {
+                defaultUserAgent
+            }
+
+        if (channel.referer.isNotBlank()) {
+
+            headers["Referer"] = channel.referer
+
+            val ref = Uri.parse(channel.referer)
+
+            if (ref.scheme != null && ref.authority != null) {
+                headers["Origin"] = "${ref.scheme}://${ref.authority}"
+            }
+        }
+
+‎        // الهيدرات داخل الرابط (بعد |) تتغلب على الباقي
+        source.headers.forEach { (k, v) ->
+            if (k.equals("user-agent", ignoreCase = true)) {
+                userAgent = v
+            } else {
+                headers[k] = v
+            }
+        }
+
+        httpFactory.setUserAgent(userAgent)
+        httpFactory.setDefaultRequestProperties(headers)
+    }
+
+    private fun startCurrentAttempt(channel: Channel) {
+
+        val source = currentSource ?: return
+
+        val kind =
+            attempts.getOrElse(attemptIndex) {
+                StreamKind.AUTO
+            }
+
+        try {
+
+            if (attemptIndex > 0) {
+                showStatus(
+‎                    "تجربة صيغة ${kind.label}…",
+                    channel.name,
+                    false
+                )
+            }
+
+            applyRequestHeaders(channel, source)
+
+            player.setMediaItem(createMediaItem(source.url, kind))
+
+            player.prepare()
+
+            player.playWhenReady = true
+
+        } catch (e: Exception) {
+
+            finalPlaybackError = true
+
             livePill.visibility = View.GONE
+
+            showDetailedPlaybackError(null, e)
+        }
+    }
+
+    // =========================
+    // Playback error handling
+    // =========================
+
+    private fun handlePlayerError(error: PlaybackException) {
+
+        val channel = playingChannel
+
+        val detailedMessage = buildPlaybackErrorMessage(error)
+
+        android.util.Log.e(
+            "NIYATI_PLAYER",
+            "Channel=${channel?.name} " +
+                    "URL=${channel?.url} " +
+                    "Code=${error.errorCodeName} " +
+                    "Attempt=${attempts.getOrNull(attemptIndex)?.label}\n" +
+                    detailedMessage,
+            error
+        )
+
+        if (channel == null) {
+            return
+        }
+
+‎        // 1) البث الحي تجاوزنا نافذته: نقفز لأحدث نقطة بدل الفشل
+        if (
+            error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW &&
+            liveWindowRetries < 3
+        ) {
+            liveWindowRetries++
+            player.seekToDefaultPosition()
+            player.prepare()
+            return
+        }
+
+‎        // 2) الصيغة غلط: جرّب الصيغة التالية (فقط قبل بدء التشغيل)
+        if (
+            error.errorCode in formatErrors &&
+            !playbackStarted &&
+            attemptIndex + 1 < attempts.size
+        ) {
+            if (firstError == null) {
+                firstError = error
+            }
+            attemptIndex++
+            startCurrentAttempt(channel)
+            return
+        }
+
+‎        // 3) أخطاء شبكة/سيرفر: إعادة محاولة
+        if (retryCount < 3 && !finalPlaybackError) {
+
+            retryCount++
+
+            showStatus(
+‎                "إعادة المحاولة $retryCount/3",
+                detailedMessage,
+                false
+            )
+
+            mainHandler.removeCallbacks(retryRunnable)
+
+            mainHandler.postDelayed(retryRunnable, 1500L * retryCount)
+
+            return
+        }
+
+        finalPlaybackError = true
+
+        livePill.visibility = View.GONE
+
+        val shown =
+            if (error.errorCode in formatErrors) {
+                firstError ?: error
+            } else {
+                error
+            }
+
+        val tried =
+            if (attempts.size > 1) {
+                "\nالصيغ المجرّبة: " +
+                        attempts
+                            .take(attemptIndex + 1)
+                            .joinToString(" ، ") { it.label }
+            } else {
+                ""
+            }
+
+        showStatus(
+‎            "خطأ تشغيل البث",
+            buildPlaybackErrorMessage(shown) + tried,
+            true
+        )
+    }
+
+    private fun buildPlaybackErrorMessage(error: PlaybackException): String {
+
+        val lines = mutableListOf<String>()
+
+        lines.add("نوع الخطأ: ${error.errorCodeName}")
+
+        val httpException = findHttpException(error)
+
+        if (httpException != null) {
+
+            val code = httpException.responseCode
+
+            val responseMessage = httpException.responseMessage
+
+            lines.add(
+                "HTTP: $code" +
+                        (if (!responseMessage.isNullOrBlank()) " $responseMessage" else "")
+            )
+
+            when (code) {
+                401 -> lines.add("الخادم يطلب مصادقة أو صلاحية.")
+                403 -> lines.add("الخادم رفض الطلب 403 (جرب Referer أو User-Agent).")
+                404 -> lines.add("الرابط غير موجود 404.")
+                429 -> lines.add("الخادم رفض الطلبات مؤقتاً 429.")
+                in 500..599 -> lines.add("مشكلة من خادم البث.")
+            }
+        }
+
+        val dataSourceException = findDataSourceException(error)
+
+        if (dataSourceException != null) {
+            lines.add("DataSource: ${dataSourceException.reason}")
+        }
+
+        val cause = error.cause
+
+        if (cause != null) {
+
+            val simpleName = cause.javaClass.simpleName
+
+            val message = cause.message
+
+            if (!message.isNullOrBlank()) {
+                lines.add("$simpleName: " + shortenError(message))
+            } else {
+                lines.add("السبب: $simpleName")
+            }
+        }
+
+        if (lines.size == 1) {
+            lines.add("السبب: ${error.message ?: "غير معروف"}")
+        }
+
+        return lines.joinToString("\n")
+    }
+
+    private fun findHttpException(
+        error: PlaybackException
+    ): HttpDataSource.InvalidResponseCodeException? {
+
+        var current: Throwable? = error
+
+        while (current != null) {
+            if (current is HttpDataSource.InvalidResponseCodeException) {
+                return current
+            }
+            current = current.cause
+        }
+
+        return null
+    }
+
+    private fun findDataSourceException(
+        error: PlaybackException
+    ): DataSourceException? {
+
+        var current: Throwable? = error
+
+        while (current != null) {
+            if (current is DataSourceException) {
+                return current
+            }
+            current = current.cause
+        }
+
+        return null
+    }
+
+    private fun shortenError(text: String): String {
+
+        val cleaned = text.replace("\n", " ").trim()
+
+        return if (cleaned.length > 180) {
+            cleaned.take(177) + "..."
+        } else {
+            cleaned
         }
     }
 
@@ -325,6 +816,7 @@ class MainActivity : Activity() {
     private fun buildInterface() {
 
         root = FrameLayout(this)
+
         root.layoutDirection = View.LAYOUT_DIRECTION_LTR
 
         root.addView(
@@ -333,6 +825,7 @@ class MainActivity : Activity() {
         )
 
         normalScreen = LinearLayout(this)
+
         normalScreen.orientation = LinearLayout.VERTICAL
 
         root.addView(
@@ -343,7 +836,9 @@ class MainActivity : Activity() {
         normalScreen.addView(buildHeader(), lp(matchParent, dp(66)))
 
         val contentRow = LinearLayout(this)
+
         contentRow.orientation = LinearLayout.HORIZONTAL
+
         contentRow.setPadding(dp(18), dp(4), dp(18), dp(16))
 
         normalScreen.addView(contentRow, lp(matchParent, 0, 1f))
@@ -353,11 +848,15 @@ class MainActivity : Activity() {
         val packagesPanel = createPanel()
 
         packagesHeader = SectionHeader("الباقات", "PACKAGES", accentFor(0))
+
         packagesPanel.addView(packagesHeader, lp(matchParent, dp(64)))
 
         val packageScroll = createScroll()
+
         packagesList = createList()
+
         packageScroll.addView(packagesList)
+
         packagesPanel.addView(packageScroll, lp(matchParent, 0, 1f))
 
         contentRow.addView(packagesPanel, panelParams(0.23f))
@@ -367,11 +866,15 @@ class MainActivity : Activity() {
         val channelsPanel = createPanel()
 
         channelsHeader = SectionHeader("القنوات", "CHANNELS", accentFor(1))
+
         channelsPanel.addView(channelsHeader, lp(matchParent, dp(64)))
 
         channelScroll = createScroll()
+
         channelsList = createList()
+
         channelScroll.addView(channelsList)
+
         channelsPanel.addView(channelScroll, lp(matchParent, 0, 1f))
 
         contentRow.addView(channelsPanel, panelParams(0.30f))
@@ -386,75 +889,101 @@ class MainActivity : Activity() {
         )
 
         playerFrame = FrameLayout(this)
+
         playerFrame.setPadding(dp(4), dp(4), dp(4), dp(4))
+
         playerFrame.isFocusable = true
+
         playerFrame.isFocusableInTouchMode = true
+
         playerFrame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
         applyPlayerFrameBackground(false)
+
         playerFrame.setOnFocusChangeListener { _, hasFocus ->
             applyPlayerFrameBackground(hasFocus)
         }
-        playerFrame.setOnClickListener { enterFullscreen() }
+
+        playerFrame.setOnClickListener {
+            enterFullscreen()
+        }
 
         playerPanel.addView(
             playerFrame,
-            lp(matchParent, 0, 1f).apply { setMargins(dp(6), dp(4), dp(6), 0) }
+            lp(matchParent, 0, 1f).apply {
+                setMargins(dp(6), dp(4), dp(6), 0)
+            }
         )
 
         playerPanel.addView(
             buildInfoBar(),
-            lp(matchParent, dp(60)).apply { setMargins(dp(6), dp(8), dp(6), 0) }
+            lp(matchParent, dp(60)).apply {
+                setMargins(dp(6), dp(8), dp(6), 0)
+            }
         )
 
-        val hint = label(
-            Txt.HINT,
-            11f,
-            gray,
-            false,
-            Gravity.CENTER
-        )
+        val hint = label(Txt.HINT, 11f, gray, false, Gravity.CENTER)
+
         playerPanel.addView(hint, lp(matchParent, dp(30)))
 
         contentRow.addView(playerPanel, panelParams(0.47f))
 
-        // ---- Video + status overlay ----
+        // ---- Video + status ----
 
         playerView = PlayerView(this)
+
         playerView.useController = false
+
         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+
         playerView.setBackgroundColor(Color.BLACK)
+
         playerView.isFocusable = false
+
         playerView.player = player
 
         buildStatusOverlay()
+
         moveVideoTo(playerFrame)
-        showStatus(
-            Txt.IDLE_TITLE,
-            Txt.IDLE_SUB,
-            false
-        )
+
+        showStatus(Txt.IDLE_TITLE, Txt.IDLE_SUB, false)
 
         // ---- Fullscreen ----
 
         fullscreenContainer = FrameLayout(this)
+
         fullscreenContainer.setBackgroundColor(Color.BLACK)
+
         fullscreenContainer.visibility = View.GONE
 
         zapOverlay = TextView(this)
+
         zapOverlay.textSize = 20f
+
         zapOverlay.setTextColor(white)
+
         zapOverlay.typeface = Typeface.DEFAULT_BOLD
+
         zapOverlay.setPadding(dp(20), dp(10), dp(20), dp(10))
+
         zapOverlay.visibility = View.GONE
-        zapOverlay.background = GradientDrawable().apply {
-            cornerRadius = dp(18).toFloat()
-            setColor(Color.argb(190, 8, 10, 28))
-            setStroke(dp(1), withAlpha(cyan, 140))
-        }
+
+        zapOverlay.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(Color.argb(190, 8, 10, 28))
+                setStroke(dp(1), withAlpha(cyan, 140))
+            }
+
         fullscreenContainer.addView(
             zapOverlay,
-            FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.RIGHT)
-                .apply { setMargins(dp(40), dp(32), dp(40), 0) }
+            FrameLayout.LayoutParams(
+                wrap,
+                wrap,
+                Gravity.TOP or Gravity.RIGHT
+            ).apply {
+                setMargins(dp(40), dp(32), dp(40), 0)
+            }
         )
 
         root.addView(
@@ -466,51 +995,77 @@ class MainActivity : Activity() {
     }
 
     private fun panelParams(weight: Float): LinearLayout.LayoutParams =
-        lp(0, matchParent, weight).apply { setMargins(dp(7), 0, dp(7), 0) }
+        lp(0, matchParent, weight).apply {
+            setMargins(dp(7), 0, dp(7), 0)
+        }
 
     private fun buildHeader(): View {
 
         val header = LinearLayout(this)
+
         header.orientation = LinearLayout.HORIZONTAL
+
         header.gravity = Gravity.CENTER_VERTICAL
+
         header.setPadding(dp(34), dp(10), dp(34), dp(6))
 
         val mark = TextView(this)
+
         mark.text = "N"
         mark.textSize = 22f
         mark.setTextColor(white)
         mark.typeface = Typeface.DEFAULT_BOLD
         mark.gravity = Gravity.CENTER
-        mark.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(cyan, violet)
-        ).apply { cornerRadius = dp(14).toFloat() }
+
+        mark.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(cyan, violet)
+            ).apply {
+                cornerRadius = dp(14).toFloat()
+            }
+
         header.addView(mark, lp(dp(44), dp(44)))
 
         val brandCol = LinearLayout(this)
+
         brandCol.orientation = LinearLayout.VERTICAL
+
         brandCol.setPadding(dp(12), 0, 0, 0)
 
         val brand = label("NIYATI", 22f, white, true, Gravity.LEFT)
+
         brand.letterSpacing = 0.14f
+
         val sport = label("SPORTS IPTV", 10.5f, cyan, true, Gravity.LEFT)
+
         sport.letterSpacing = 0.28f
 
         brandCol.addView(brand, lp(wrap, wrap))
+
         brandCol.addView(sport, lp(wrap, wrap))
+
         header.addView(brandCol, lp(0, wrap, 1f))
 
         header.addView(createLivePill(), lp(wrap, wrap))
 
         val clock = TextClock(this)
+
         clock.format12Hour = "hh:mm a"
+
         clock.format24Hour = "hh:mm a"
+
         clock.textSize = 20f
+
         clock.setTextColor(white)
+
         clock.typeface = Typeface.DEFAULT_BOLD
+
         header.addView(
             clock,
-            lp(wrap, wrap).apply { setMargins(dp(18), 0, 0, 0) }
+            lp(wrap, wrap).apply {
+                setMargins(dp(18), 0, 0, 0)
+            }
         )
 
         return header
@@ -519,31 +1074,49 @@ class MainActivity : Activity() {
     private fun createLivePill(): LinearLayout {
 
         val pill = LinearLayout(this)
+
         pill.orientation = LinearLayout.HORIZONTAL
+
         pill.gravity = Gravity.CENTER_VERTICAL
+
         pill.setPadding(dp(10), dp(4), dp(12), dp(4))
-        pill.background = GradientDrawable().apply {
-            cornerRadius = dp(20).toFloat()
-            setColor(Color.argb(46, 255, 59, 92))
-            setStroke(dp(1), Color.argb(150, 255, 59, 92))
-        }
+
+        pill.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat()
+                setColor(Color.argb(46, 255, 59, 92))
+                setStroke(dp(1), Color.argb(150, 255, 59, 92))
+            }
 
         val dot = View(this)
-        dot.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.rgb(255, 59, 92))
-        }
-        val blink = AlphaAnimation(1f, 0.2f).apply {
-            duration = 800
-            repeatMode = Animation.REVERSE
-            repeatCount = Animation.INFINITE
-        }
+
+        dot.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(255, 59, 92))
+            }
+
+        val blink =
+            AlphaAnimation(1f, 0.2f).apply {
+                duration = 800
+                repeatMode = Animation.REVERSE
+                repeatCount = Animation.INFINITE
+            }
+
         dot.startAnimation(blink)
+
         pill.addView(dot, lp(dp(8), dp(8)))
 
         val text = label("LIVE", 11f, white, true, Gravity.CENTER)
+
         text.letterSpacing = 0.12f
-        pill.addView(text, lp(wrap, wrap).apply { setMargins(dp(7), 0, 0, 0) })
+
+        pill.addView(
+            text,
+            lp(wrap, wrap).apply {
+                setMargins(dp(7), 0, 0, 0)
+            }
+        )
 
         return pill
     }
@@ -551,27 +1124,38 @@ class MainActivity : Activity() {
     private fun buildInfoBar(): LinearLayout {
 
         val bar = LinearLayout(this)
+
         bar.orientation = LinearLayout.HORIZONTAL
+
         bar.gravity = Gravity.CENTER_VERTICAL
+
         bar.setPadding(dp(14), 0, dp(14), 0)
-        bar.background = GradientDrawable().apply {
-            cornerRadius = dp(16).toFloat()
-            setColor(Color.argb(22, 255, 255, 255))
-            setStroke(dp(1), Color.argb(26, 255, 255, 255))
-        }
+
+        bar.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.argb(22, 255, 255, 255))
+                setStroke(dp(1), Color.argb(26, 255, 255, 255))
+            }
 
         livePill = createLivePill()
+
         livePill.visibility = View.GONE
+
         bar.addView(livePill, lp(wrap, wrap))
 
         val col = LinearLayout(this)
+
         col.orientation = LinearLayout.VERTICAL
+
         col.gravity = Gravity.CENTER_VERTICAL
 
         nowTitle = label("لم يتم اختيار قناة", 16f, white, true)
+
         nowSub = label("اختر قناة من القائمة", 12f, gray)
 
         col.addView(nowTitle, lp(matchParent, wrap))
+
         col.addView(nowSub, lp(matchParent, wrap))
 
         bar.addView(col, lp(0, wrap, 1f))
@@ -582,17 +1166,28 @@ class MainActivity : Activity() {
     private fun buildStatusOverlay() {
 
         statusOverlay = LinearLayout(this)
+
         statusOverlay.orientation = LinearLayout.VERTICAL
+
         statusOverlay.gravity = Gravity.CENTER
+
         statusOverlay.setPadding(dp(16), dp(16), dp(16), dp(16))
-        statusOverlay.background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.rgb(12, 16, 38), Color.rgb(7, 9, 22))
-        )
+
+        statusOverlay.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.rgb(12, 16, 38),
+                    Color.rgb(7, 9, 22)
+                )
+            )
 
         statusIcon = FrameLayout(this)
+
         statusPlay = PlayIcon(Color.WHITE)
+
         statusBang = TextView(this)
+
         statusBang.text = "!"
         statusBang.textSize = 26f
         statusBang.setTextColor(white)
@@ -602,9 +1197,11 @@ class MainActivity : Activity() {
 
         statusIcon.addView(
             statusPlay,
-            FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
-                .apply { leftMargin = dp(4) }
+            FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply {
+                leftMargin = dp(4)
+            }
         )
+
         statusIcon.addView(
             statusBang,
             FrameLayout.LayoutParams(matchParent, matchParent)
@@ -612,34 +1209,48 @@ class MainActivity : Activity() {
 
         statusOverlay.addView(statusIcon, lp(dp(58), dp(58)))
 
-        statusTitle = label("", 17f, white, true, Gravity.CENTER, 2)
-        statusSub = label("", 12f, gray, false, Gravity.CENTER, 3)
+        statusTitle = label("", 17f, white, true, Gravity.CENTER, 3)
+
+        statusSub = label("", 12f, gray, false, Gravity.CENTER, 7)
 
         statusOverlay.addView(
             statusTitle,
-            lp(matchParent, wrap).apply { topMargin = dp(14) }
+            lp(matchParent, wrap).apply {
+                topMargin = dp(14)
+            }
         )
+
         statusOverlay.addView(
             statusSub,
-            lp(matchParent, wrap).apply { topMargin = dp(4) }
+            lp(matchParent, wrap).apply {
+                topMargin = dp(4)
+            }
         )
     }
 
     private fun showStatus(title: String, sub: String, error: Boolean) {
+
         statusTitle.text = title
+
         statusSub.text = sub
 
-        val colors = if (error) {
-            intArrayOf(Color.rgb(255, 82, 82), Color.rgb(244, 63, 94))
-        } else {
-            intArrayOf(cyan, violet)
-        }
-        statusIcon.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            colors
-        ).apply { shape = GradientDrawable.OVAL }
+        val colors =
+            if (error) {
+                intArrayOf(Color.rgb(255, 82, 82), Color.rgb(244, 63, 94))
+            } else {
+                intArrayOf(cyan, violet)
+            }
+
+        statusIcon.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                colors
+            ).apply {
+                shape = GradientDrawable.OVAL
+            }
 
         statusPlay.visibility = if (error) View.GONE else View.VISIBLE
+
         statusBang.visibility = if (error) View.VISIBLE else View.GONE
 
         statusOverlay.visibility = View.VISIBLE
@@ -650,7 +1261,9 @@ class MainActivity : Activity() {
     }
 
     private fun moveVideoTo(container: FrameLayout) {
+
         (playerView.parent as? ViewGroup)?.removeView(playerView)
+
         (statusOverlay.parent as? ViewGroup)?.removeView(statusOverlay)
 
         container.addView(
@@ -658,6 +1271,7 @@ class MainActivity : Activity() {
             0,
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
+
         container.addView(
             statusOverlay,
             1,
@@ -666,51 +1280,73 @@ class MainActivity : Activity() {
     }
 
     private fun applyPlayerFrameBackground(focused: Boolean) {
-        playerFrame.background = GradientDrawable().apply {
-            cornerRadius = dp(10).toFloat()
-            setColor(Color.BLACK)
-            setStroke(
-                if (focused) dp(3) else dp(1),
-                if (focused) cyan else Color.argb(45, 255, 255, 255)
-            )
-        }
+
+        playerFrame.background =
+            GradientDrawable().apply {
+
+                cornerRadius = dp(10).toFloat()
+
+                setColor(Color.BLACK)
+
+                setStroke(
+                    if (focused) dp(3) else dp(1),
+                    if (focused) cyan else Color.argb(45, 255, 255, 255)
+                )
+            }
     }
 
     private fun createPanel(): LinearLayout {
 
         val panel = LinearLayout(this)
+
         panel.orientation = LinearLayout.VERTICAL
+
         panel.setPadding(dp(4), dp(6), dp(4), dp(6))
+
         panel.clipChildren = false
-        panel.background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(
-                Color.argb(30, 255, 255, 255),
-                Color.argb(12, 255, 255, 255)
-            )
-        ).apply {
-            cornerRadius = dp(24).toFloat()
-            setStroke(dp(1), Color.argb(38, 255, 255, 255))
-        }
+
+        panel.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.argb(30, 255, 255, 255),
+                    Color.argb(12, 255, 255, 255)
+                )
+            ).apply {
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), Color.argb(38, 255, 255, 255))
+            }
 
         return panel
     }
 
     private fun createScroll(): ScrollView {
+
         val scroll = ScrollView(this)
+
         scroll.isFillViewport = true
+
         scroll.isVerticalScrollBarEnabled = false
+
         scroll.overScrollMode = View.OVER_SCROLL_NEVER
+
         scroll.clipToPadding = false
+
         scroll.clipChildren = false
+
         return scroll
     }
 
     private fun createList(): LinearLayout {
+
         val list = LinearLayout(this)
+
         list.orientation = LinearLayout.VERTICAL
+
         list.setPadding(dp(10), dp(4), dp(10), dp(10))
+
         list.clipChildren = false
+
         return list
     }
 
@@ -721,46 +1357,61 @@ class MainActivity : Activity() {
     private inner class AmbientBackground : View(this@MainActivity) {
 
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
         private var base: Shader? = null
         private var glowA: Shader? = null
         private var glowB: Shader? = null
 
         override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+
             super.onSizeChanged(w, h, oldw, oldh)
 
             val fw = w.toFloat()
+
             val fh = h.toFloat()
 
-            base = LinearGradient(
-                0f, 0f, fw, fh,
-                intArrayOf(bgTop, bgMid, bgBottom),
-                floatArrayOf(0f, 0.5f, 1f),
-                Shader.TileMode.CLAMP
-            )
+            base =
+                LinearGradient(
+                    0f,
+                    0f,
+                    fw,
+                    fh,
+                    intArrayOf(bgTop, bgMid, bgBottom),
+                    floatArrayOf(0f, 0.5f, 1f),
+                    Shader.TileMode.CLAMP
+                )
 
-            glowA = RadialGradient(
-                fw * 0.88f, fh * 0.08f, fw * 0.55f,
-                intArrayOf(
-                    Color.argb(95, 168, 85, 247),
-                    Color.argb(0, 168, 85, 247)
-                ),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            glowA =
+                RadialGradient(
+                    fw * 0.88f,
+                    fh * 0.08f,
+                    fw * 0.55f,
+                    intArrayOf(
+                        Color.argb(95, 168, 85, 247),
+                        Color.argb(0, 168, 85, 247)
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
 
-            glowB = RadialGradient(
-                fw * 0.08f, fh * 0.98f, fw * 0.5f,
-                intArrayOf(
-                    Color.argb(80, 0, 229, 255),
-                    Color.argb(0, 0, 229, 255)
-                ),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            glowB =
+                RadialGradient(
+                    fw * 0.08f,
+                    fh * 0.98f,
+                    fw * 0.5f,
+                    intArrayOf(
+                        Color.argb(80, 0, 229, 255),
+                        Color.argb(0, 0, 229, 255)
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
         }
 
         override fun onDraw(canvas: Canvas) {
+
             val w = width.toFloat()
+
             val h = height.toFloat()
 
             paint.shader = base
@@ -777,6 +1428,7 @@ class MainActivity : Activity() {
     private inner class PlayIcon(tint: Int) : View(this@MainActivity) {
 
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
         private val path = Path()
 
         init {
@@ -789,13 +1441,19 @@ class MainActivity : Activity() {
         }
 
         override fun onDraw(canvas: Canvas) {
+
             val w = width.toFloat()
+
             val h = height.toFloat()
 
             path.reset()
+
             path.moveTo(w * 0.2f, h * 0.08f)
+
             path.lineTo(w * 0.95f, h * 0.5f)
+
             path.lineTo(w * 0.2f, h * 0.92f)
+
             path.close()
 
             canvas.drawPath(path, paint)
@@ -810,35 +1468,46 @@ class MainActivity : Activity() {
     ) : LinearLayout(this@MainActivity) {
 
         private val countChip = TextView(this@MainActivity)
+
         private val subtitle = label(english, 10.5f, accent.start)
 
         init {
+
             orientation = LinearLayout.HORIZONTAL
+
             gravity = Gravity.CENTER_VERTICAL
+
             setPadding(dp(14), 0, dp(14), 0)
 
             countChip.textSize = 12f
-            countChip.setTextColor(white)
-            countChip.typeface = Typeface.DEFAULT_BOLD
-            countChip.gravity = Gravity.CENTER
-            countChip.minWidth = dp(30)
-            countChip.setPadding(dp(10), dp(4), dp(10), dp(4))
-            countChip.background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(withAlpha(accent.start, 60))
-                setStroke(dp(1), withAlpha(accent.start, 140))
-            }
-            countChip.visibility =
-                if (showCount) View.VISIBLE else View.GONE
 
-            addView(
-                countChip,
-                LinearLayout.LayoutParams(wrap, wrap)
-            )
+            countChip.setTextColor(white)
+
+            countChip.typeface = Typeface.DEFAULT_BOLD
+
+            countChip.gravity = Gravity.CENTER
+
+            countChip.minWidth = dp(30)
+
+            countChip.setPadding(dp(10), dp(4), dp(10), dp(4))
+
+            countChip.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(withAlpha(accent.start, 60))
+                    setStroke(dp(1), withAlpha(accent.start, 140))
+                }
+
+            countChip.visibility = if (showCount) View.VISIBLE else View.GONE
+
+            addView(countChip, LinearLayout.LayoutParams(wrap, wrap))
 
             val col = LinearLayout(this@MainActivity)
+
             col.orientation = LinearLayout.VERTICAL
+
             col.gravity = Gravity.CENTER_VERTICAL
+
             col.setPadding(dp(10), 0, dp(12), 0)
 
             col.addView(
@@ -848,28 +1517,21 @@ class MainActivity : Activity() {
 
             subtitle.letterSpacing = 0.15f
 
-            col.addView(
-                subtitle,
-                LinearLayout.LayoutParams(matchParent, wrap)
-            )
+            col.addView(subtitle, LinearLayout.LayoutParams(matchParent, wrap))
 
-            addView(
-                col,
-                LinearLayout.LayoutParams(0, wrap, 1f)
-            )
+            addView(col, LinearLayout.LayoutParams(0, wrap, 1f))
 
             val bar = View(this@MainActivity)
-            bar.background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(accent.start, accent.end)
-            ).apply {
-                cornerRadius = dp(2).toFloat()
-            }
 
-            addView(
-                bar,
-                LinearLayout.LayoutParams(dp(4), dp(36))
-            )
+            bar.background =
+                GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(accent.start, accent.end)
+                ).apply {
+                    cornerRadius = dp(2).toFloat()
+                }
+
+            addView(bar, LinearLayout.LayoutParams(dp(4), dp(36)))
         }
 
         fun setCount(count: Int) {
@@ -877,13 +1539,12 @@ class MainActivity : Activity() {
         }
 
         fun setSubtitle(text: String) {
+
             subtitle.text = text
 
-            val hasArabic =
-                text.any { it in '\u0600'..'\u06FF' }
+            val hasArabic = text.any { it in '\u0600'..'\u06FF' }
 
-            subtitle.letterSpacing =
-                if (hasArabic) 0f else 0.15f
+            subtitle.letterSpacing = if (hasArabic) 0f else 0.15f
         }
     }
 
@@ -893,65 +1554,77 @@ class MainActivity : Activity() {
     ) : FrameLayout(this@MainActivity) {
 
         private val image = ImageView(this@MainActivity)
+
         private val letter = TextView(this@MainActivity)
+
         private val radius = dp(sizeDp / 3).toFloat()
+
         private var currentUrl = ""
 
         init {
+
             image.scaleType = ImageView.ScaleType.FIT_CENTER
+
             image.setPadding(dp(5), dp(5), dp(5), dp(5))
+
             image.visibility = View.GONE
 
             letter.textSize = sizeDp * 0.42f
+
             letter.setTextColor(Color.WHITE)
+
             letter.typeface = Typeface.DEFAULT_BOLD
+
             letter.gravity = Gravity.CENTER
 
-            addView(
-                image,
-                FrameLayout.LayoutParams(matchParent, matchParent)
-            )
+            addView(image, FrameLayout.LayoutParams(matchParent, matchParent))
 
-            addView(
-                letter,
-                FrameLayout.LayoutParams(matchParent, matchParent)
-            )
+            addView(letter, FrameLayout.LayoutParams(matchParent, matchParent))
 
             showFallback()
         }
 
         private fun showFallback() {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(accent.start, accent.end)
-            ).apply {
-                cornerRadius = radius
-            }
+
+            background =
+                GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(accent.start, accent.end)
+                ).apply {
+                    cornerRadius = radius
+                }
 
             image.visibility = View.GONE
+
             letter.visibility = View.VISIBLE
         }
 
         private fun showImage(bitmap: Bitmap) {
+
             image.setImageBitmap(bitmap)
+
             image.visibility = View.VISIBLE
+
             letter.visibility = View.GONE
 
-            background = GradientDrawable().apply {
-                cornerRadius = radius
-                setColor(Color.argb(242, 250, 250, 255))
-            }
+            background =
+                GradientDrawable().apply {
+                    cornerRadius = radius
+                    setColor(Color.argb(242, 250, 250, 255))
+                }
         }
 
         fun bind(name: String, url: String) {
+
             currentUrl = url
 
-            letter.text =
-                name.trim().take(1).uppercase()
+            letter.text = name.trim().take(1).uppercase()
 
             showFallback()
 
-            if (!url.startsWith("http", ignoreCase = true)) return
+            if (!url.startsWith("http", ignoreCase = true)) {
+                return
+            }
 
             val cached = imageCache.get(url)
 
@@ -961,10 +1634,13 @@ class MainActivity : Activity() {
             }
 
             try {
+
                 ioExecutor.execute {
+
                     val bitmap = downloadBitmap(url)
 
                     if (bitmap != null) {
+
                         imageCache.put(url, bitmap)
 
                         post {
@@ -974,8 +1650,8 @@ class MainActivity : Activity() {
                         }
                     }
                 }
-            } catch (e: Exception) {
-                // executor already shut down
+
+            } catch (_: Exception) {
             }
         }
     }
@@ -987,11 +1663,15 @@ class MainActivity : Activity() {
     ) : LinearLayout(this@MainActivity) {
 
         val lead = FrameLayout(this@MainActivity)
+
         val badge = LogoBadge(badgeSizeDp, accent)
+
         val nameView = label("", 16f, white, true)
+
         val subView = label("", 11.5f, gray)
 
         var stateListener: ((Boolean, Boolean) -> Unit)? = null
+
         var onFocused: (() -> Unit)? = null
 
         var focusedNow = false
@@ -1004,59 +1684,43 @@ class MainActivity : Activity() {
             }
 
         init {
+
             orientation = LinearLayout.HORIZONTAL
+
             gravity = Gravity.CENTER_VERTICAL
+
             setPadding(dp(10), 0, dp(12), 0)
+
             isFocusable = true
+
             isFocusableInTouchMode = true
+
             clipChildren = false
 
-            addView(
-                lead,
-                LinearLayout.LayoutParams(
-                    dp(leadWidthDp),
-                    matchParent
-                )
-            )
+            addView(lead, LinearLayout.LayoutParams(dp(leadWidthDp), matchParent))
 
             val texts = LinearLayout(this@MainActivity)
+
             texts.orientation = LinearLayout.VERTICAL
+
             texts.gravity = Gravity.CENTER_VERTICAL
+
             texts.setPadding(dp(8), 0, dp(12), 0)
 
-            texts.addView(
-                nameView,
-                LinearLayout.LayoutParams(
-                    matchParent,
-                    wrap
-                )
-            )
+            texts.addView(nameView, LinearLayout.LayoutParams(matchParent, wrap))
 
             texts.addView(
                 subView,
-                LinearLayout.LayoutParams(
-                    matchParent,
-                    wrap
-                ).apply {
+                LinearLayout.LayoutParams(matchParent, wrap).apply {
                     topMargin = dp(2)
                 }
             )
 
-            addView(
-                texts,
-                LinearLayout.LayoutParams(
-                    0,
-                    matchParent,
-                    1f
-                )
-            )
+            addView(texts, LinearLayout.LayoutParams(0, matchParent, 1f))
 
             addView(
                 badge,
-                LinearLayout.LayoutParams(
-                    dp(badgeSizeDp),
-                    dp(badgeSizeDp)
-                )
+                LinearLayout.LayoutParams(dp(badgeSizeDp), dp(badgeSizeDp))
             )
 
             refresh()
@@ -1067,11 +1731,8 @@ class MainActivity : Activity() {
             direction: Int,
             previouslyFocusedRect: Rect?
         ) {
-            super.onFocusChanged(
-                gainFocus,
-                direction,
-                previouslyFocusedRect
-            )
+
+            super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
 
             focusedNow = gainFocus
 
@@ -1096,48 +1757,43 @@ class MainActivity : Activity() {
 
             if (focusedNow) {
 
-                d = GradientDrawable(
-                    GradientDrawable.Orientation.LEFT_RIGHT,
-                    intArrayOf(
-                        mix(accent.start, bgMid, 0.62f),
-                        mix(accent.end, bgMid, 0.62f)
+                d =
+                    GradientDrawable(
+                        GradientDrawable.Orientation.LEFT_RIGHT,
+                        intArrayOf(
+                            mix(accent.start, bgMid, 0.62f),
+                            mix(accent.end, bgMid, 0.62f)
+                        )
                     )
-                )
 
                 d.setStroke(dp(2), Color.WHITE)
 
             } else if (chosen) {
 
                 d = GradientDrawable()
+
                 d.setColor(withAlpha(accent.start, 46))
-                d.setStroke(
-                    dp(1),
-                    withAlpha(accent.start, 190)
-                )
+
+                d.setStroke(dp(1), withAlpha(accent.start, 190))
 
             } else {
 
                 d = GradientDrawable()
+
                 d.setColor(Color.argb(20, 255, 255, 255))
-                d.setStroke(
-                    dp(1),
-                    Color.argb(26, 255, 255, 255)
-                )
+
+                d.setStroke(dp(1), Color.argb(26, 255, 255, 255))
             }
 
             d.cornerRadius = dp(18).toFloat()
+
             background = d
 
             nameView.setTextColor(white)
 
-            subView.setTextColor(
-                if (focusedNow) dimWhite else gray
-            )
+            subView.setTextColor(if (focusedNow) dimWhite else gray)
 
-            stateListener?.invoke(
-                focusedNow,
-                chosen
-            )
+            stateListener?.invoke(focusedNow, chosen)
         }
     }
 
@@ -1145,49 +1801,42 @@ class MainActivity : Activity() {
     // Card factories
     // =========================
 
-    private fun createPackageCard(
-        item: PackageItem,
-        index: Int
-    ): TvCard {
+    private fun createPackageCard(item: PackageItem, index: Int): TvCard {
 
         val accent = accentFor(index)
+
         val card = TvCard(accent, 44, 18)
 
-        val count =
-            channels.count { belongs(it, item) }
+        val count = channels.count { belongs(it, item) }
 
         card.nameView.text = item.name
+
         card.subView.text = "$count قناة"
+
         card.badge.bind(item.name, item.logo)
 
         val dot = View(this)
 
-        dot.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(accent.start)
-        }
+        dot.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(accent.start)
+            }
 
         dot.visibility = View.INVISIBLE
 
         card.lead.addView(
             dot,
-            FrameLayout.LayoutParams(
-                dp(8),
-                dp(8),
-                Gravity.CENTER
-            )
+            FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER)
         )
 
         card.stateListener = { focused, chosen ->
 
-            dot.visibility =
-                if (chosen) View.VISIBLE else View.INVISIBLE
+            dot.visibility = if (chosen) View.VISIBLE else View.INVISIBLE
 
-            (dot.background as GradientDrawable)
-                .setColor(
-                    if (focused) Color.WHITE
-                    else accent.start
-                )
+            (dot.background as GradientDrawable).setColor(
+                if (focused) Color.WHITE else accent.start
+            )
         }
 
         return card
@@ -1200,37 +1849,34 @@ class MainActivity : Activity() {
     ): ChannelRow {
 
         val card = TvCard(accent, 46, 34)
+
         val hasUrl = channel.url.isNotBlank()
 
         card.nameView.text = channel.name
+
         card.badge.bind(channel.name, channel.logo)
 
-        val numberView = label(
-            String.format(Locale.US, "%02d", number),
-            12f,
-            gray,
-            true,
-            Gravity.CENTER
-        )
+        val numberView =
+            label(
+                String.format(Locale.US, "%02d", number),
+                12f,
+                gray,
+                true,
+                Gravity.CENTER
+            )
 
         val playIcon = PlayIcon(accent.start)
+
         playIcon.visibility = View.GONE
 
         card.lead.addView(
             numberView,
-            FrameLayout.LayoutParams(
-                matchParent,
-                matchParent
-            )
+            FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
         card.lead.addView(
             playIcon,
-            FrameLayout.LayoutParams(
-                dp(15),
-                dp(15),
-                Gravity.CENTER
-            )
+            FrameLayout.LayoutParams(dp(15), dp(15), Gravity.CENTER)
         )
 
         var playing = false
@@ -1239,20 +1885,13 @@ class MainActivity : Activity() {
 
             val focused = card.focusedNow
 
-            numberView.visibility =
-                if (playing) View.GONE else View.VISIBLE
+            numberView.visibility = if (playing) View.GONE else View.VISIBLE
 
-            playIcon.visibility =
-                if (playing) View.VISIBLE else View.GONE
+            playIcon.visibility = if (playing) View.VISIBLE else View.GONE
 
-            playIcon.setTint(
-                if (focused) Color.WHITE
-                else accent.start
-            )
+            playIcon.setTint(if (focused) Color.WHITE else accent.start)
 
-            numberView.setTextColor(
-                if (focused) dimWhite else gray
-            )
+            numberView.setTextColor(if (focused) dimWhite else gray)
 
             card.subView.text =
                 when {
@@ -1269,8 +1908,7 @@ class MainActivity : Activity() {
                 }
             )
 
-            card.alpha =
-                if (hasUrl) 1f else 0.55f
+            card.alpha = if (hasUrl) 1f else 0.55f
         }
 
         card.stateListener = { _, _ ->
@@ -1295,10 +1933,7 @@ class MainActivity : Activity() {
             }
         }
 
-        return ChannelRow(
-            channel,
-            card
-        ) { value ->
+        return ChannelRow(channel, card) { value ->
             playing = value
             applyState()
         }
@@ -1312,11 +1947,7 @@ class MainActivity : Activity() {
 
         if (!dataReady) {
 
-            showListMessage(
-                packagesList,
-                "لا يوجد اتصال",
-                "تحقق من الإنترنت"
-            )
+            showListMessage(packagesList, "لا يوجد اتصال", "تحقق من الإنترنت")
 
             showListMessage(
                 channelsList,
@@ -1328,98 +1959,68 @@ class MainActivity : Activity() {
 
     private fun startFirebase() {
 
-        showListMessage(
-            packagesList,
-            "جاري التحميل",
-            "يرجى الانتظار"
-        )
+        showListMessage(packagesList, "جاري التحميل", "يرجى الانتظار")
 
-        showListMessage(
-            channelsList,
-            "جاري تحميل القنوات",
-            "يرجى الانتظار"
-        )
+        showListMessage(channelsList, "جاري تحميل القنوات", "يرجى الانتظار")
 
-        mainHandler.postDelayed(
-            loadTimeout,
-            12000
-        )
+        mainHandler.postDelayed(loadTimeout, 12000)
 
-        val listener = object : ValueEventListener {
+        val listener =
+            object : ValueEventListener {
 
-            override fun onDataChange(
-                snapshot: DataSnapshot
-            ) {
-                onDataLoaded(snapshot)
-            }
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    onDataLoaded(snapshot)
+                }
 
-            override fun onCancelled(
-                error: DatabaseError
-            ) {
+                override fun onCancelled(error: DatabaseError) {
 
-                mainHandler.removeCallbacks(
-                    loadTimeout
-                )
+                    mainHandler.removeCallbacks(loadTimeout)
 
-                Toast.makeText(
-                    this@MainActivity,
-                    Txt.DB_ERROR,
-                    Toast.LENGTH_LONG
-                ).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        Txt.DB_ERROR,
+                        Toast.LENGTH_LONG
+                    ).show()
 
-                if (!dataReady) {
+                    if (!dataReady) {
 
-                    showListMessage(
-                        packagesList,
-                        "تعذر الاتصال",
-                        "تحقق من الإعدادات"
-                    )
+                        showListMessage(
+                            packagesList,
+‎                            "تعذر الاتصال",
+‎                            "تحقق من الإعدادات"
+                        )
 
-                    showListMessage(
-                        channelsList,
-                        "تعذر الاتصال",
-                        "بقاعدة البيانات"
-                    )
+                        showListMessage(
+                            channelsList,
+‎                            "تعذر الاتصال",
+‎                            "بقاعدة البيانات"
+                        )
+                    }
                 }
             }
-        }
 
         dataListener = listener
 
         rootRef.addValueEventListener(listener)
     }
 
-    private fun onDataLoaded(
-        snapshot: DataSnapshot
-    ) {
+    private fun onDataLoaded(snapshot: DataSnapshot) {
 
-        mainHandler.removeCallbacks(
-            loadTimeout
-        )
+        mainHandler.removeCallbacks(loadTimeout)
 
-        val newChannels =
-            parseChannels(snapshot)
+        val newChannels = parseChannels(snapshot)
 
-        var newPackages =
-            parsePackages(snapshot)
+        var newPackages = parsePackages(snapshot)
 
-        if (
-            newPackages.isEmpty() &&
-            newChannels.isNotEmpty()
-        ) {
+        if (newPackages.isEmpty() && newChannels.isNotEmpty()) {
 
-            newPackages = newChannels
-                .map { it.group }
-                .distinct()
-                .mapIndexed { i, g ->
-                    PackageItem(
-                        g,
-                        g,
-                        "",
-                        true,
-                        i
-                    )
-                }
+            newPackages =
+                newChannels
+                    .map { it.group }
+                    .distinct()
+                    .mapIndexed { i, g ->
+                        PackageItem(g, g, "", true, i)
+                    }
         }
 
         if (
@@ -1433,256 +2034,164 @@ class MainActivity : Activity() {
         dataReady = true
 
         packages = newPackages
+
         channels = newChannels
 
         renderPackages()
 
         val keep =
-            packages.firstOrNull {
-                it.id == selectedPackage
-            } ?: packages.firstOrNull()
+            packages.firstOrNull { it.id == selectedPackage }
+                ?: packages.firstOrNull()
 
         if (keep != null) {
-            selectPackage(
-                keep.id,
-                true
-            )
+
+            selectPackage(keep.id, true)
+
         } else {
+
             selectedPackage = ""
+
             renderChannels()
         }
 
-        if (
-            currentFocus == null &&
-            !isFullscreen
-        ) {
+        if (currentFocus == null && !isFullscreen) {
             focusSelectedPackage()
         }
     }
 
-    private fun DataSnapshot.readString(
-        key: String
-    ): String? =
+    private fun DataSnapshot.readString(key: String): String? =
         child(key)
             .value
             ?.toString()
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
 
-    private fun DataSnapshot.readBool(
-        key: String,
-        default: Boolean
-    ): Boolean {
+    private fun DataSnapshot.readBool(key: String, default: Boolean): Boolean {
 
-        return when (
-            val v = child(key).value
-        ) {
+        return when (val v = child(key).value) {
+
             is Boolean -> v
+
             is Number -> v.toInt() != 0
-            is String ->
-                !(
-                    v.equals("false", true) ||
-                            v == "0"
-                    )
+
+            is String -> !(v.equals("false", true) || v == "0")
+
             else -> default
         }
     }
 
-    private fun DataSnapshot.readInt(
-        key: String,
-        default: Int
-    ): Int {
+    private fun DataSnapshot.readInt(key: String, default: Int): Int {
 
-        return when (
-            val v = child(key).value
-        ) {
+        return when (val v = child(key).value) {
+
             is Number -> v.toInt()
-            is String ->
-                v.trim().toIntOrNull()
-                    ?: default
+
+            is String -> v.trim().toIntOrNull() ?: default
+
             else -> default
         }
     }
 
-    private fun parsePackages(
-        snapshot: DataSnapshot
-    ): List<PackageItem> {
+    private fun parsePackages(snapshot: DataSnapshot): List<PackageItem> {
 
-        val result =
-            mutableListOf<PackageItem>()
+        val result = mutableListOf<PackageItem>()
 
-        for (
-            child in snapshot
-                .child("packages")
-                .children
-        ) {
+        for (child in snapshot.child("packages").children) {
 
-            val id =
-                child.key ?: continue
+            val id = child.key ?: continue
 
-            if (
-                !child.readBool(
-                    "enabled",
-                    true
-                )
-            ) continue
+            if (!child.readBool("enabled", true)) {
+                continue
+            }
 
             result.add(
                 PackageItem(
                     id = id,
-                    name =
-                        child.readString("name")
-                            ?: id,
-                    logo =
-                        child.readString("logo")
-                            ?: "",
+                    name = child.readString("name") ?: id,
+                    logo = child.readString("logo") ?: "",
                     enabled = true,
-                    order =
-                        child.readInt(
-                            "order",
-                            999
-                        )
+                    order = child.readInt("order", 999)
                 )
             )
         }
 
-        return result.sortedBy {
-            it.order
-        }
+        return result.sortedBy { it.order }
     }
 
-    private fun parseChannels(
-        snapshot: DataSnapshot
-    ): List<Channel> {
+    private fun parseChannels(snapshot: DataSnapshot): List<Channel> {
 
-        val result =
-            mutableListOf<Channel>()
+        val result = mutableListOf<Channel>()
 
-        for (
-            child in snapshot
-                .child("channels")
-                .children
-        ) {
+        for (child in snapshot.child("channels").children) {
 
-            val name =
-                child.readString("name")
-                    ?: continue
+            val name = child.readString("name") ?: continue
 
-            val group =
-                child.readString("group")
-                    ?: continue
+            val group = child.readString("group") ?: continue
 
-            if (
-                !child.readBool(
-                    "enabled",
-                    true
-                )
-            ) continue
+            if (!child.readBool("enabled", true)) {
+                continue
+            }
 
             result.add(
                 Channel(
                     name = name,
                     group = group,
-                    url =
-                        child.readString("url")
-                            ?: "",
-                    logo =
-                        child.readString("logo")
-                            ?: "",
+                    url = child.readString("url") ?: "",
+                    logo = child.readString("logo") ?: "",
                     enabled = true,
-                    order =
-                        child.readInt(
-                            "order",
-                            999
-                        )
+                    order = child.readInt("order", 999),
+                    userAgent =
+                        child.readString("userAgent")
+                            ?: child.readString("user_agent")
+                            ?: "",
+                    referer = child.readString("referer") ?: ""
                 )
             )
         }
 
-        return result.sortedBy {
-            it.order
-        }
+        return result.sortedBy { it.order }
     }
 
-    private fun belongs(
-        channel: Channel,
-        pkg: PackageItem
-    ): Boolean =
-        channel.group.equals(
-            pkg.id,
-            ignoreCase = true
-        ) ||
-                channel.group.equals(
-                    pkg.name,
-                    ignoreCase = true
-                )
+    private fun belongs(channel: Channel, pkg: PackageItem): Boolean =
+        channel.group.equals(pkg.id, ignoreCase = true) ||
+                channel.group.equals(pkg.name, ignoreCase = true)
 
     // =========================
     // Render lists
     // =========================
 
-    private fun showListMessage(
-        list: LinearLayout,
-        title: String,
-        sub: String
-    ) {
+    private fun showListMessage(list: LinearLayout, title: String, sub: String) {
 
         list.removeAllViews()
 
         val box = LinearLayout(this)
 
-        box.orientation =
-            LinearLayout.VERTICAL
+        box.orientation = LinearLayout.VERTICAL
 
-        box.gravity =
-            Gravity.CENTER
+        box.gravity = Gravity.CENTER
 
-        box.setPadding(
-            dp(12),
-            dp(36),
-            dp(12),
-            dp(36)
-        )
+        box.setPadding(dp(12), dp(36), dp(12), dp(36))
 
         box.addView(
-            label(
-                title,
-                16f,
-                white,
-                true,
-                Gravity.CENTER,
-                2
-            ),
+            label(title, 16f, white, true, Gravity.CENTER, 2),
             lp(matchParent, wrap)
         )
 
         box.addView(
-            label(
-                sub,
-                12f,
-                gray,
-                false,
-                Gravity.CENTER,
-                3
-            ),
+            label(sub, 12f, gray, false, Gravity.CENTER, 3),
             lp(matchParent, wrap).apply {
                 topMargin = dp(6)
             }
         )
 
-        list.addView(
-            box,
-            lp(matchParent, wrap)
-        )
+        list.addView(box, lp(matchParent, wrap))
     }
 
     private fun renderPackages() {
 
         val focusedId =
             packageRows
-                .firstOrNull {
-                    it.card.hasFocus()
-                }
+                .firstOrNull { it.card.hasFocus() }
                 ?.item
                 ?.id
 
@@ -1691,14 +2200,9 @@ class MainActivity : Activity() {
 
         packages.forEachIndexed { index, item ->
 
-            val card =
-                createPackageCard(
-                    item,
-                    index
-                )
+            val card = createPackageCard(item, index)
 
-            card.chosen =
-                item.id == selectedPackage
+            card.chosen = item.id == selectedPackage
 
             card.onFocused = {
                 scheduleSelect(item.id)
@@ -1706,9 +2210,7 @@ class MainActivity : Activity() {
 
             card.setOnClickListener {
 
-                mainHandler.removeCallbacks(
-                    selectRunnable
-                )
+                mainHandler.removeCallbacks(selectRunnable)
 
                 pendingPackageId = null
 
@@ -1719,76 +2221,28 @@ class MainActivity : Activity() {
 
             packagesList.addView(
                 card,
-                lp(
-                    matchParent,
-                    dp(66)
-                ).apply {
-                    setMargins(
-                        0,
-                        dp(5),
-                        0,
-                        dp(5)
-                    )
+                lp(matchParent, dp(66)).apply {
+                    setMargins(0, dp(5), 0, dp(5))
                 }
             )
 
-            packageRows.add(
-                PackageRow(
-                    item,
-                    card
-                )
-            )
+            packageRows.add(PackageRow(item, card))
         }
 
-        packagesHeader.setCount(
-            packages.size
-        )
+        packagesHeader.setCount(packages.size)
 
         if (focusedId != null) {
 
             packageRows
-                .firstOrNull {
-                    it.item.id == focusedId
-                }
+                .firstOrNull { it.item.id == focusedId }
                 ?.card
                 ?.requestFocus()
         }
     }
 
-    private val selectRunnable =
-        Runnable {
-            val id =
-                pendingPackageId
+    private val selectRunnable = Runnable {
 
-            pendingPackageId = null
-
-            if (id != null) {
-                selectPackage(id)
-            }
-        }
-
-    private fun scheduleSelect(id: String) {
-
-        pendingPackageId = id
-
-        mainHandler.removeCallbacks(
-            selectRunnable
-        )
-
-        mainHandler.postDelayed(
-            selectRunnable,
-            180
-        )
-    }
-
-    private fun flushPendingSelect() {
-
-        mainHandler.removeCallbacks(
-            selectRunnable
-        )
-
-        val id =
-            pendingPackageId
+        val id = pendingPackageId
 
         pendingPackageId = null
 
@@ -1797,23 +2251,38 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun selectPackage(
-        id: String,
-        force: Boolean = false
-    ) {
+    private fun scheduleSelect(id: String) {
 
-        if (
-            !force &&
-            id == selectedPackage
-        ) {
+        pendingPackageId = id
+
+        mainHandler.removeCallbacks(selectRunnable)
+
+        mainHandler.postDelayed(selectRunnable, 180)
+    }
+
+    private fun flushPendingSelect() {
+
+        mainHandler.removeCallbacks(selectRunnable)
+
+        val id = pendingPackageId
+
+        pendingPackageId = null
+
+        if (id != null) {
+            selectPackage(id)
+        }
+    }
+
+    private fun selectPackage(id: String, force: Boolean = false) {
+
+        if (!force && id == selectedPackage) {
             return
         }
 
         selectedPackage = id
 
         packageRows.forEach {
-            it.card.chosen =
-                it.item.id == id
+            it.card.chosen = it.item.id == id
         }
 
         renderChannels()
@@ -1821,49 +2290,31 @@ class MainActivity : Activity() {
 
     private fun renderChannels() {
 
-        val restoreIndex =
-            channelRows.indexOfFirst {
-                it.card.hasFocus()
-            }
+        val restoreIndex = channelRows.indexOfFirst { it.card.hasFocus() }
 
         channelsList.removeAllViews()
         channelRows.clear()
 
         lastFocusedChannel = null
 
-        val pkgIndex =
-            packages.indexOfFirst {
-                it.id == selectedPackage
-            }
+        val pkgIndex = packages.indexOfFirst { it.id == selectedPackage }
 
-        val pkg =
-            packages.getOrNull(pkgIndex)
+        val pkg = packages.getOrNull(pkgIndex)
 
-        channelsHeader.setSubtitle(
-            pkg?.name ?: "CHANNELS"
-        )
+        channelsHeader.setSubtitle(pkg?.name ?: "CHANNELS")
 
         visibleChannels =
             if (pkg == null) {
                 emptyList()
             } else {
                 channels
-                    .filter {
-                        belongs(it, pkg)
-                    }
-                    .sortedBy {
-                        it.order
-                    }
+                    .filter { belongs(it, pkg) }
+                    .sortedBy { it.order }
             }
 
-        channelsHeader.setCount(
-            visibleChannels.size
-        )
+        channelsHeader.setCount(visibleChannels.size)
 
-        channelScroll.scrollTo(
-            0,
-            0
-        )
+        channelScroll.scrollTo(0, 0)
 
         if (visibleChannels.isEmpty()) {
 
@@ -1876,36 +2327,18 @@ class MainActivity : Activity() {
             return
         }
 
-        val accent =
-            accentFor(pkgIndex)
+        val accent = accentFor(pkgIndex)
 
-        visibleChannels.forEachIndexed {
-                i,
-                channel ->
+        visibleChannels.forEachIndexed { i, channel ->
 
-            val row =
-                createChannelRow(
-                    channel,
-                    i + 1,
-                    accent
-                )
+            val row = createChannelRow(channel, i + 1, accent)
 
-            row.setPlaying(
-                channel == playingChannel
-            )
+            row.setPlaying(channel == playingChannel)
 
             channelsList.addView(
                 row.card,
-                lp(
-                    matchParent,
-                    dp(66)
-                ).apply {
-                    setMargins(
-                        0,
-                        dp(5),
-                        0,
-                        dp(5)
-                    )
+                lp(matchParent, dp(66)).apply {
+                    setMargins(0, dp(5), 0, dp(5))
                 }
             )
 
@@ -1915,12 +2348,7 @@ class MainActivity : Activity() {
         if (restoreIndex >= 0) {
 
             channelRows
-                .getOrNull(
-                    minOf(
-                        restoreIndex,
-                        channelRows.size - 1
-                    )
-                )
+                .getOrNull(minOf(restoreIndex, channelRows.size - 1))
                 ?.card
                 ?.requestFocus()
         }
@@ -1930,142 +2358,122 @@ class MainActivity : Activity() {
     // Playback
     // =========================
 
-    private fun playChannel(
-        channel: Channel
-    ) {
+    private fun playChannel(channel: Channel) {
 
-        if (channel.url.isBlank()) {
+        val source = parseSource(channel.url)
 
-            Toast.makeText(
-                this,
-                Txt.NO_URL,
-                Toast.LENGTH_SHORT
-            ).show()
+        if (source.url.isBlank()) {
+
+            Toast.makeText(this, Txt.NO_URL, Toast.LENGTH_SHORT).show()
 
             return
         }
 
-        try {
+        retryCount = 0
+        liveWindowRetries = 0
+        finalPlaybackError = false
+        playbackStarted = false
+        firstError = null
 
-            retryCount = 0
+        mainHandler.removeCallbacks(retryRunnable)
 
-            mainHandler.removeCallbacks(
-                retryRunnable
-            )
+        playingChannel = channel
 
-            playingChannel = channel
-            playingList = visibleChannels
+        playingList = visibleChannels
 
-            updatePlayingMarks()
-            updateNowPlaying(channel)
+        updatePlayingMarks()
 
-            showStatus(
-                "جاري تشغيل القناة…",
-                channel.name,
-                false
-            )
+        updateNowPlaying(channel)
 
-            // Media3 determines the source type automatically.
-            // Examples:
-            // .m3u8 -> HLS
-            // .mpd  -> DASH
-            // .mp4  -> Progressive
-            // .ts   -> MPEG-TS
-            //
-            // The same ExoPlayer and PlayerView are preserved.
-            player.setMediaItem(
-                MediaItem.fromUri(
-                    Uri.parse(channel.url)
-                )
-            )
+        currentSource = source
 
-            player.prepare()
-            player.playWhenReady = true
+        attempts = attemptsFor(source.url)
 
-        } catch (e: Exception) {
+        attemptIndex = 0
 
-            showStatus(
-                Txt.ERR_TITLE,
-                Txt.ERR_SUB,
-                true
-            )
+        showStatus(
+‎            "جاري تشغيل القناة…",
+            "${channel.name}\nالمصدر: ${attempts[0].label}",
+            false
+        )
 
-            livePill.visibility =
-                View.GONE
-        }
+        startCurrentAttempt(channel)
+    }
+
+    private fun showDetailedPlaybackError(
+        error: PlaybackException?,
+        exception: Throwable?
+    ) {
+
+        val message =
+            if (error != null) {
+
+                buildPlaybackErrorMessage(error)
+
+            } else {
+
+                val cause = exception?.cause
+
+                val text =
+                    exception?.message
+                        ?: cause?.message
+                        ?: exception?.javaClass?.simpleName
+‎                        ?: "خطأ غير معروف"
+
+‎                "خطأ داخلي\n${shortenError(text)}"
+            }
+
+        showStatus("تعذر تشغيل القناة", message, true)
     }
 
     private fun updatePlayingMarks() {
 
         channelRows.forEach {
-            it.setPlaying(
-                it.channel == playingChannel
-            )
+            it.setPlaying(it.channel == playingChannel)
         }
     }
 
-    private fun updateNowPlaying(
-        channel: Channel
-    ) {
+    private fun updateNowPlaying(channel: Channel) {
 
-        nowTitle.text =
-            channel.name
+        nowTitle.text = channel.name
 
         nowSub.text =
             packages
-                .firstOrNull {
-                    belongs(channel, it)
-                }
+                .firstOrNull { belongs(channel, it) }
                 ?.name
                 ?: channel.group
 
-        livePill.visibility =
-            View.VISIBLE
+        livePill.visibility = View.VISIBLE
     }
 
     private fun zap(delta: Int) {
 
-        val list =
-            playingList
+        val list = playingList
 
-        if (list.isEmpty()) return
+        if (list.isEmpty()) {
+            return
+        }
 
-        var index =
-            list.indexOf(
-                playingChannel
-            )
+        var index = list.indexOf(playingChannel)
 
         if (index < 0) {
-            index =
-                if (delta > 0) -1
-                else 0
+            index = if (delta > 0) -1 else 0
         }
 
         repeat(list.size) {
 
-            index =
-                (
-                    index +
-                            delta +
-                            list.size
-                    ) % list.size
+            index = (index + delta + list.size) % list.size
 
-            val candidate =
-                list[index]
+            val candidate = list[index]
 
             if (candidate.url.isNotBlank()) {
 
-                lastFocusedChannel =
-                    candidate
+                lastFocusedChannel = candidate
 
                 playChannel(candidate)
 
                 showZapOverlay(
-                    String.format(
-                        Locale.US,
-                        "%02d",
-                        index + 1
-                    ) +
+                    String.format(Locale.US, "%02d", index + 1) +
                             "  " +
                             candidate.name
                 )
@@ -2075,46 +2483,42 @@ class MainActivity : Activity() {
         }
     }
 
-    private val hideZapRunnable =
-        Runnable {
-            zapOverlay.visibility =
-                View.GONE
-        }
+    private val hideZapRunnable = Runnable {
+        zapOverlay.visibility = View.GONE
+    }
 
-    private fun showZapOverlay(
-        text: String
-    ) {
+    private fun showZapOverlay(text: String) {
 
         zapOverlay.text = text
 
-        zapOverlay.visibility =
-            View.VISIBLE
+        zapOverlay.visibility = View.VISIBLE
 
-        mainHandler.removeCallbacks(
-            hideZapRunnable
-        )
+        mainHandler.removeCallbacks(hideZapRunnable)
 
-        mainHandler.postDelayed(
-            hideZapRunnable,
-            2600
-        )
+        mainHandler.postDelayed(hideZapRunnable, 2600)
     }
 
     // =========================
     // Focus helpers
     // =========================
 
-    private fun columnOf(
-        view: View?
-    ): Int {
+    private fun columnOf(view: View?): Int {
 
         var v: View? = view
 
         while (v != null) {
 
-            if (v === packagesList) return 0
-            if (v === channelsList) return 1
-            if (v === playerFrame) return 2
+            if (v === packagesList) {
+                return 0
+            }
+
+            if (v === channelsList) {
+                return 1
+            }
+
+            if (v === playerFrame) {
+                return 2
+            }
 
             v = v.parent as? View
         }
@@ -2125,9 +2529,8 @@ class MainActivity : Activity() {
     private fun focusSelectedPackage() {
 
         val row =
-            packageRows.firstOrNull {
-                it.item.id == selectedPackage
-            } ?: packageRows.firstOrNull()
+            packageRows.firstOrNull { it.item.id == selectedPackage }
+                ?: packageRows.firstOrNull()
 
         row?.card?.requestFocus()
     }
@@ -2135,12 +2538,8 @@ class MainActivity : Activity() {
     private fun focusChannelsColumn() {
 
         val target =
-            channelRows.firstOrNull {
-                it.channel == lastFocusedChannel
-            }
-                ?: channelRows.firstOrNull {
-                    it.channel == playingChannel
-                }
+            channelRows.firstOrNull { it.channel == lastFocusedChannel }
+                ?: channelRows.firstOrNull { it.channel == playingChannel }
                 ?: channelRows.firstOrNull()
 
         if (target != null) {
@@ -2154,23 +2553,17 @@ class MainActivity : Activity() {
     // D-PAD
     // =========================
 
-    override fun dispatchKeyEvent(
-        event: KeyEvent
-    ): Boolean {
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
         if (isFullscreen) {
             return handleFullscreenKey(event)
         }
 
-        if (
-            event.action !=
-            KeyEvent.ACTION_DOWN
-        ) {
+        if (event.action != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event)
         }
 
-        val key =
-            event.keyCode
+        val key = event.keyCode
 
         val isDpad =
             key == KeyEvent.KEYCODE_DPAD_LEFT ||
@@ -2182,8 +2575,7 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
-        val column =
-            columnOf(currentFocus)
+        val column = columnOf(currentFocus)
 
         if (column == -1) {
 
@@ -2195,10 +2587,7 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
-        if (
-            key ==
-            KeyEvent.KEYCODE_DPAD_RIGHT
-        ) {
+        if (key == KeyEvent.KEYCODE_DPAD_RIGHT) {
 
             if (column == 0) {
 
@@ -2214,31 +2603,22 @@ class MainActivity : Activity() {
             }
 
             if (column == 1) {
-
                 playerFrame.requestFocus()
-
                 return true
             }
 
             return true
         }
 
-        if (
-            key ==
-            KeyEvent.KEYCODE_DPAD_LEFT
-        ) {
+        if (key == KeyEvent.KEYCODE_DPAD_LEFT) {
 
             if (column == 2) {
-
                 focusChannelsColumn()
-
                 return true
             }
 
             if (column == 1) {
-
                 focusSelectedPackage()
-
                 return true
             }
 
@@ -2248,13 +2628,9 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun handleFullscreenKey(
-        event: KeyEvent
-    ): Boolean {
+    private fun handleFullscreenKey(event: KeyEvent): Boolean {
 
-        if (
-            playerView.isControllerFullyVisible
-        ) {
+        if (playerView.isControllerFullyVisible) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -2273,8 +2649,7 @@ class MainActivity : Activity() {
         if (delta != 0) {
 
             if (
-                event.action ==
-                KeyEvent.ACTION_DOWN &&
+                event.action == KeyEvent.ACTION_DOWN &&
                 event.repeatCount == 0
             ) {
                 zap(delta)
@@ -2284,16 +2659,11 @@ class MainActivity : Activity() {
         }
 
         if (
-            event.keyCode ==
-            KeyEvent.KEYCODE_DPAD_CENTER ||
-            event.keyCode ==
-            KeyEvent.KEYCODE_ENTER
+            event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            event.keyCode == KeyEvent.KEYCODE_ENTER
         ) {
 
-            if (
-                event.action ==
-                KeyEvent.ACTION_DOWN
-            ) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
                 playerView.showController()
             }
 
@@ -2303,16 +2673,11 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    @Suppress(
-        "DEPRECATION",
-        "OVERRIDE_DEPRECATION"
-    )
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
 
         if (isFullscreen) {
-
             exitFullscreen()
-
             return
         }
 
@@ -2329,12 +2694,9 @@ class MainActivity : Activity() {
             }
         }
 
-        val now =
-            System.currentTimeMillis()
+        val now = System.currentTimeMillis()
 
-        if (
-            now - backPressedAt < 2000
-        ) {
+        if (now - backPressedAt < 2000) {
 
             super.onBackPressed()
 
@@ -2344,7 +2706,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "اضغط رجوع مرة أخرى للخروج",
+‎                "اضغط رجوع مرة أخرى للخروج",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -2356,24 +2718,26 @@ class MainActivity : Activity() {
 
     private fun enterFullscreen() {
 
-        if (isFullscreen) return
+        if (isFullscreen) {
+            return
+        }
 
         isFullscreen = true
 
-        moveVideoTo(
-            fullscreenContainer
-        )
+        moveVideoTo(fullscreenContainer)
 
-        normalScreen.visibility =
-            View.GONE
+        normalScreen.visibility = View.GONE
 
-        fullscreenContainer.visibility =
-            View.VISIBLE
+        fullscreenContainer.visibility = View.VISIBLE
 
         playerView.useController = true
+
         playerView.controllerShowTimeoutMs = 4000
+
         playerView.isFocusable = true
+
         playerView.isFocusableInTouchMode = true
+
         playerView.requestFocus()
 
         hideSystemBars()
@@ -2385,40 +2749,37 @@ class MainActivity : Activity() {
 
     private fun exitFullscreen() {
 
-        if (!isFullscreen) return
+        if (!isFullscreen) {
+            return
+        }
 
         isFullscreen = false
 
         playerView.hideController()
+
         playerView.useController = false
+
         playerView.isFocusable = false
 
-        mainHandler.removeCallbacks(
-            hideZapRunnable
-        )
+        mainHandler.removeCallbacks(hideZapRunnable)
 
-        zapOverlay.visibility =
-            View.GONE
+        zapOverlay.visibility = View.GONE
 
         moveVideoTo(playerFrame)
 
-        fullscreenContainer.visibility =
-            View.GONE
+        fullscreenContainer.visibility = View.GONE
 
-        normalScreen.visibility =
-            View.VISIBLE
+        normalScreen.visibility = View.VISIBLE
 
         showSystemBars()
 
         playerFrame.requestFocus()
     }
 
+    @Suppress("DEPRECATION")
     private fun hideSystemBars() {
 
-        if (
-            Build.VERSION.SDK_INT >=
-            Build.VERSION_CODES.R
-        ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 
             window.insetsController?.let {
 
@@ -2428,13 +2789,11 @@ class MainActivity : Activity() {
                 )
 
                 it.systemBarsBehavior =
-                    WindowInsetsController
-                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
 
         } else {
 
-            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
                         View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
@@ -2445,12 +2804,10 @@ class MainActivity : Activity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun showSystemBars() {
 
-        if (
-            Build.VERSION.SDK_INT >=
-            Build.VERSION_CODES.R
-        ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 
             window.insetsController?.show(
                 WindowInsets.Type.statusBars() or
@@ -2459,7 +2816,6 @@ class MainActivity : Activity() {
 
         } else {
 
-            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
@@ -2469,48 +2825,32 @@ class MainActivity : Activity() {
     // Logo download
     // =========================
 
-    private fun downloadBitmap(
-        urlString: String
-    ): Bitmap? {
+    private fun downloadBitmap(urlString: String): Bitmap? {
 
-        var connection:
-                HttpURLConnection? = null
+        var connection: HttpURLConnection? = null
 
         return try {
 
-            connection =
-                URL(urlString)
-                    .openConnection()
-                        as HttpURLConnection
+            connection = URL(urlString).openConnection() as HttpURLConnection
 
             connection.connectTimeout = 6000
+
             connection.readTimeout = 8000
+
             connection.instanceFollowRedirects = true
 
-            if (
-                connection.responseCode
-                !in 200..299
-            ) {
+            if (connection.responseCode !in 200..299) {
                 return null
             }
 
-            val bytes =
-                connection.inputStream.use {
-                    it.readBytes()
-                }
+            val bytes = connection.inputStream.use { it.readBytes() }
 
             val bounds =
-                BitmapFactory.Options()
-                    .apply {
-                        inJustDecodeBounds = true
-                    }
+                BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
 
-            BitmapFactory.decodeByteArray(
-                bytes,
-                0,
-                bytes.size,
-                bounds
-            )
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
 
             var sample = 1
 
@@ -2522,19 +2862,13 @@ class MainActivity : Activity() {
             }
 
             val options =
-                BitmapFactory.Options()
-                    .apply {
-                        inSampleSize = sample
-                    }
+                BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                }
 
-            BitmapFactory.decodeByteArray(
-                bytes,
-                0,
-                bytes.size,
-                options
-            )
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
 
             null
 
@@ -2552,14 +2886,9 @@ class MainActivity : Activity() {
 
         super.onStart()
 
-        if (
-            resumeOnStart &&
-            ::player.isInitialized
-        ) {
+        if (resumeOnStart && ::player.isInitialized) {
 
-            if (
-                player.isCurrentMediaItemLive
-            ) {
+            if (player.isCurrentMediaItemLive) {
                 player.seekToDefaultPosition()
             }
 
@@ -2575,8 +2904,7 @@ class MainActivity : Activity() {
 
             resumeOnStart =
                 player.playWhenReady &&
-                        player.playbackState !=
-                        Player.STATE_IDLE
+                        player.playbackState != Player.STATE_IDLE
 
             player.pause()
         }
@@ -2584,9 +2912,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
 
-        mainHandler.removeCallbacksAndMessages(
-            null
-        )
+        mainHandler.removeCallbacksAndMessages(null)
 
         dataListener?.let {
             rootRef.removeEventListener(it)
@@ -2602,39 +2928,31 @@ class MainActivity : Activity() {
     }
 }
 
-// Arabic texts: one per line, each line starts with English code.
+// =========================
+// Arabic texts
+// =========================
+
 private object Txt {
 
-    const val DB_ERROR =
-        "تعذر الاتصال بقاعدة البيانات"
+    const val DB_ERROR = "تعذر الاتصال بقاعدة البيانات"
 
-    const val ERR_SUB =
-        "تحقق من رابط البث أو من اتصال الإنترنت"
+    const val ERR_SUB = "تحقق من رابط البث أو من اتصال الإنترنت"
 
-    const val ERR_TITLE =
-        "تعذر تشغيل القناة"
+    const val ERR_TITLE = "تعذر تشغيل القناة"
 
-    const val HINT =
-        "اضغط OK لملء الشاشة  •  أعلى / أسفل لتبديل القناة"
+    const val HINT = "اضغط OK لملء الشاشة  •  أعلى / أسفل لتبديل القناة"
 
-    const val IDLE_SUB =
-        "تنقّل بالأسهم بين الباقات والقنوات"
+    const val IDLE_SUB = "تنقّل بالأسهم بين الباقات والقنوات"
 
-    const val IDLE_TITLE =
-        "اختر قناة للمشاهدة"
+    const val IDLE_TITLE = "اختر قناة للمشاهدة"
 
-    const val LOAD_FAIL_SUB =
-        "سيتم التحديث تلقائياً عند عودة الاتصال"
+    const val LOAD_FAIL_SUB = "سيتم التحديث تلقائياً عند عودة الاتصال"
 
-    const val LOAD_FAIL_TITLE =
-        "تعذر تحميل البيانات"
+    const val LOAD_FAIL_TITLE = "تعذر تحميل البيانات"
 
-    const val NO_CHANNELS =
-        "لا توجد قنوات"
+    const val NO_CHANNELS = "لا توجد قنوات"
 
-    const val NO_CHANNELS_SUB =
-        "لهذه الباقة حالياً"
+    const val NO_CHANNELS_SUB = "لهذه الباقة حالياً"
 
-    const val NO_URL =
-        "هذه القناة لا تحتوي على رابط بث حالياً"
+    const val NO_URL = "هذه القناة لا تحتوي على رابط بث حالياً"
 }
