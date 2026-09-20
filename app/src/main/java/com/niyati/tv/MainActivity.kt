@@ -170,7 +170,7 @@ class MainActivity : Activity() {
     private var retryCount = 0
     private var backPressedAt = 0L
 
-‎    // يمنع إعادة المحاولة بعد ظهور الخطأ النهائي
+    // prevents retry after the final error is shown
     private var finalPlaybackError = false
 
     // =========================
@@ -285,7 +285,7 @@ class MainActivity : Activity() {
         val label: String,
         val mime: String?
     ) {
-        AUTO("تلقائي", null),
+        AUTO("\u062a\u0644\u0642\u0627\u0626\u064a", null),
         HLS("HLS / M3U8", MimeTypes.APPLICATION_M3U8),
         DASH("DASH / MPD", MimeTypes.APPLICATION_MPD),
         SS("Smooth Streaming", MimeTypes.APPLICATION_SS),
@@ -312,7 +312,7 @@ class MainActivity : Activity() {
                 "AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/120.0.0.0 Safari/537.36"
 
-‎    // أخطاء تعني أن الصيغة المتوقعة غلط (نجرب صيغة ثانية)
+    // errors meaning the guessed format is wrong (we try another format)
     private val formatErrors = setOf(
         PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
         PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
@@ -335,7 +335,7 @@ class MainActivity : Activity() {
 
     private fun initPlayer() {
 
-        // HTTP / HTTPS + redirects + headers قابلة للتغيير لكل قناة
+        // HTTP / HTTPS + redirects + per-channel headers
         httpFactory =
             DefaultHttpDataSource.Factory()
                 .setUserAgent(defaultUserAgent)
@@ -346,7 +346,7 @@ class MainActivity : Activity() {
         // DefaultDataSource = http + https + rtmp + udp + file + content
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
 
-‎        // إعدادات تساعد بث TS الحي (يمنع شاشة سوداء مع صوت)
+        // helps live TS streams (avoids black screen with audio)
         val extractorsFactory =
             DefaultExtractorsFactory()
                 .setTsExtractorFlags(
@@ -357,7 +357,7 @@ class MainActivity : Activity() {
         val mediaSourceFactory =
             DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
-‎        // إذا فشل ديكودر الجهاز يجرب ديكودر ثاني تلقائياً
+        // fall back to another decoder if the primary one fails
         val renderersFactory =
             DefaultRenderersFactory(this)
                 .setEnableDecoderFallback(true)
@@ -377,15 +377,15 @@ class MainActivity : Activity() {
                     when (playbackState) {
 
                         Player.STATE_BUFFERING -> {
-‎                            // الشاشة الكاملة فقط عند بداية التشغيل،
-‎                            // بعدها PlayerView يعرض دائرة التحميل لوحده
+                            // full-screen status only at the start of playback,
+                            // after that PlayerView shows its own buffering spinner
                             if (
                                 playingChannel != null &&
                                 !finalPlaybackError &&
                                 !playbackStarted
                             ) {
                                 showStatus(
-‎                                    "جاري تحميل البث…",
+                                    "\u062c\u0627\u0631\u064a \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0628\u062b\u2026",
                                     playingChannel?.name ?: "",
                                     false
                                 )
@@ -406,8 +406,8 @@ class MainActivity : Activity() {
                         Player.STATE_ENDED -> {
                             if (playingChannel != null && !finalPlaybackError) {
                                 showStatus(
-‎                                    "انتهى البث",
-‎                                    "تم إنهاء مصدر البث",
+                                    "\u0627\u0646\u062a\u0647\u0649 \u0627\u0644\u0628\u062b",
+                                    "\u062a\u0645 \u0625\u0646\u0647\u0627\u0621 \u0645\u0635\u062f\u0631 \u0627\u0644\u0628\u062b",
                                     true
                                 )
                             }
@@ -430,7 +430,7 @@ class MainActivity : Activity() {
     // =========================
 
     /*
-‎     * يدعم صيغة Kodi الشائعة في قوائم IPTV:
+     * Supports the common Kodi format used in IPTV lists:
      * http://server/live/1.m3u8|User-Agent=VLC&Referer=http://site.com/
      */
     private fun parseSource(raw: String): Source {
@@ -494,7 +494,7 @@ class MainActivity : Activity() {
             path.endsWith(".ts") ->
                 StreamKind.TS
 
-‎            // الامتداد داخل الـ query مثل: play.php?file=abc.m3u8
+            // extension inside the query, e.g. play.php?file=abc.m3u8
             lower.contains(".m3u8") ->
                 StreamKind.HLS
 
@@ -507,9 +507,9 @@ class MainActivity : Activity() {
     }
 
     /*
-‎     * ترتيب المحاولات:
-‎     * - رابط بدون امتداد (مثل روابط Xtream): تلقائي ← HLS ← TS ← DASH
-‎     * - رابط بامتداد واضح: الصيغة نفسها ← تلقائي
+     * Attempt order:
+     * - URL without extension (e.g. Xtream): auto -> HLS -> TS -> DASH
+     * - URL with a clear extension: that format -> auto
      */
     private fun attemptsFor(url: String): List<StreamKind> =
         when (val kind = detectKind(url)) {
@@ -565,7 +565,7 @@ class MainActivity : Activity() {
             }
         }
 
-‎        // الهيدرات داخل الرابط (بعد |) تتغلب على الباقي
+        // headers inside the URL (after |) override the others
         source.headers.forEach { (k, v) ->
             if (k.equals("user-agent", ignoreCase = true)) {
                 userAgent = v
@@ -591,7 +591,7 @@ class MainActivity : Activity() {
 
             if (attemptIndex > 0) {
                 showStatus(
-‎                    "تجربة صيغة ${kind.label}…",
+                    "\u062a\u062c\u0631\u0628\u0629 \u0635\u064a\u063a\u0629 ${kind.label}\u2026",
                     channel.name,
                     false
                 )
@@ -639,7 +639,7 @@ class MainActivity : Activity() {
             return
         }
 
-‎        // 1) البث الحي تجاوزنا نافذته: نقفز لأحدث نقطة بدل الفشل
+        // 1) live window passed: seek to the newest point instead of failing
         if (
             error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW &&
             liveWindowRetries < 3
@@ -650,7 +650,7 @@ class MainActivity : Activity() {
             return
         }
 
-‎        // 2) الصيغة غلط: جرّب الصيغة التالية (فقط قبل بدء التشغيل)
+        // 2) wrong format: try the next one (only before playback started)
         if (
             error.errorCode in formatErrors &&
             !playbackStarted &&
@@ -664,13 +664,13 @@ class MainActivity : Activity() {
             return
         }
 
-‎        // 3) أخطاء شبكة/سيرفر: إعادة محاولة
+        // 3) network/server errors: retry
         if (retryCount < 3 && !finalPlaybackError) {
 
             retryCount++
 
             showStatus(
-‎                "إعادة المحاولة $retryCount/3",
+                "\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629 $retryCount/3",
                 detailedMessage,
                 false
             )
@@ -695,16 +695,16 @@ class MainActivity : Activity() {
 
         val tried =
             if (attempts.size > 1) {
-                "\nالصيغ المجرّبة: " +
+                "\n\u0627\u0644\u0635\u064a\u063a \u0627\u0644\u0645\u062c\u0631\u0651\u0628\u0629: " +
                         attempts
                             .take(attemptIndex + 1)
-                            .joinToString(" ، ") { it.label }
+                            .joinToString(" \u060c ") { it.label }
             } else {
                 ""
             }
 
         showStatus(
-‎            "خطأ تشغيل البث",
+            "\u062e\u0637\u0623 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0628\u062b",
             buildPlaybackErrorMessage(shown) + tried,
             true
         )
@@ -714,7 +714,7 @@ class MainActivity : Activity() {
 
         val lines = mutableListOf<String>()
 
-        lines.add("نوع الخطأ: ${error.errorCodeName}")
+        lines.add("\u0646\u0648\u0639 \u0627\u0644\u062e\u0637\u0623: ${error.errorCodeName}")
 
         val httpException = findHttpException(error)
 
@@ -730,11 +730,11 @@ class MainActivity : Activity() {
             )
 
             when (code) {
-                401 -> lines.add("الخادم يطلب مصادقة أو صلاحية.")
-                403 -> lines.add("الخادم رفض الطلب 403 (جرب Referer أو User-Agent).")
-                404 -> lines.add("الرابط غير موجود 404.")
-                429 -> lines.add("الخادم رفض الطلبات مؤقتاً 429.")
-                in 500..599 -> lines.add("مشكلة من خادم البث.")
+                401 -> lines.add("\u0627\u0644\u062e\u0627\u062f\u0645 \u064a\u0637\u0644\u0628 \u0645\u0635\u0627\u062f\u0642\u0629 \u0623\u0648 \u0635\u0644\u0627\u062d\u064a\u0629.")
+                403 -> lines.add("\u0627\u0644\u062e\u0627\u062f\u0645 \u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628 403 (\u062c\u0631\u0628 Referer \u0623\u0648 User-Agent).")
+                404 -> lines.add("\u0627\u0644\u0631\u0627\u0628\u0637 \u063a\u064a\u0631 \u0645\u0648\u062c\u0648\u062f 404.")
+                429 -> lines.add("\u0627\u0644\u062e\u0627\u062f\u0645 \u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u0645\u0624\u0642\u062a\u0627\u064b 429.")
+                in 500..599 -> lines.add("\u0645\u0634\u0643\u0644\u0629 \u0645\u0646 \u062e\u0627\u062f\u0645 \u0627\u0644\u0628\u062b.")
             }
         }
 
@@ -755,12 +755,12 @@ class MainActivity : Activity() {
             if (!message.isNullOrBlank()) {
                 lines.add("$simpleName: " + shortenError(message))
             } else {
-                lines.add("السبب: $simpleName")
+                lines.add("\u0627\u0644\u0633\u0628\u0628: $simpleName")
             }
         }
 
         if (lines.size == 1) {
-            lines.add("السبب: ${error.message ?: "غير معروف"}")
+            lines.add("\u0627\u0644\u0633\u0628\u0628: ${error.message ?: "\u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641"}")
         }
 
         return lines.joinToString("\n")
@@ -847,7 +847,7 @@ class MainActivity : Activity() {
 
         val packagesPanel = createPanel()
 
-        packagesHeader = SectionHeader("الباقات", "PACKAGES", accentFor(0))
+        packagesHeader = SectionHeader("\u0627\u0644\u0628\u0627\u0642\u0627\u062a", "PACKAGES", accentFor(0))
 
         packagesPanel.addView(packagesHeader, lp(matchParent, dp(64)))
 
@@ -865,7 +865,7 @@ class MainActivity : Activity() {
 
         val channelsPanel = createPanel()
 
-        channelsHeader = SectionHeader("القنوات", "CHANNELS", accentFor(1))
+        channelsHeader = SectionHeader("\u0627\u0644\u0642\u0646\u0648\u0627\u062a", "CHANNELS", accentFor(1))
 
         channelsPanel.addView(channelsHeader, lp(matchParent, dp(64)))
 
@@ -884,7 +884,7 @@ class MainActivity : Activity() {
         val playerPanel = createPanel()
 
         playerPanel.addView(
-            SectionHeader("المشغل", "PLAYER", accentFor(2), false),
+            SectionHeader("\u0627\u0644\u0645\u0634\u063a\u0644", "PLAYER", accentFor(2), false),
             lp(matchParent, dp(64))
         )
 
@@ -1150,9 +1150,9 @@ class MainActivity : Activity() {
 
         col.gravity = Gravity.CENTER_VERTICAL
 
-        nowTitle = label("لم يتم اختيار قناة", 16f, white, true)
+        nowTitle = label("\u0644\u0645 \u064a\u062a\u0645 \u0627\u062e\u062a\u064a\u0627\u0631 \u0642\u0646\u0627\u0629", 16f, white, true)
 
-        nowSub = label("اختر قناة من القائمة", 12f, gray)
+        nowSub = label("\u0627\u062e\u062a\u0631 \u0642\u0646\u0627\u0629 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629", 12f, gray)
 
         col.addView(nowTitle, lp(matchParent, wrap))
 
@@ -1811,7 +1811,7 @@ class MainActivity : Activity() {
 
         card.nameView.text = item.name
 
-        card.subView.text = "$count قناة"
+        card.subView.text = "$count \u0642\u0646\u0627\u0629"
 
         card.badge.bind(item.name, item.logo)
 
@@ -1834,7 +1834,9 @@ class MainActivity : Activity() {
 
             dot.visibility = if (chosen) View.VISIBLE else View.INVISIBLE
 
-            (dot.background as GradientDrawable).setColor(
+            val dotBg = dot.background as GradientDrawable
+
+            dotBg.setColor(
                 if (focused) Color.WHITE else accent.start
             )
         }
@@ -1895,9 +1897,9 @@ class MainActivity : Activity() {
 
             card.subView.text =
                 when {
-                    !hasUrl -> "غير متاح حالياً"
-                    playing -> "يعرض الآن"
-                    else -> "بث مباشر"
+                    !hasUrl -> "\u063a\u064a\u0631 \u0645\u062a\u0627\u062d \u062d\u0627\u0644\u064a\u0627\u064b"
+                    playing -> "\u064a\u0639\u0631\u0636 \u0627\u0644\u0622\u0646"
+                    else -> "\u0628\u062b \u0645\u0628\u0627\u0634\u0631"
                 }
 
             card.subView.setTextColor(
@@ -1947,7 +1949,7 @@ class MainActivity : Activity() {
 
         if (!dataReady) {
 
-            showListMessage(packagesList, "لا يوجد اتصال", "تحقق من الإنترنت")
+            showListMessage(packagesList, "\u0644\u0627 \u064a\u0648\u062c\u062f \u0627\u062a\u0635\u0627\u0644", "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a")
 
             showListMessage(
                 channelsList,
@@ -1959,9 +1961,9 @@ class MainActivity : Activity() {
 
     private fun startFirebase() {
 
-        showListMessage(packagesList, "جاري التحميل", "يرجى الانتظار")
+        showListMessage(packagesList, "\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0645\u064a\u0644", "\u064a\u0631\u062c\u0649 \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631")
 
-        showListMessage(channelsList, "جاري تحميل القنوات", "يرجى الانتظار")
+        showListMessage(channelsList, "\u062c\u0627\u0631\u064a \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0642\u0646\u0648\u0627\u062a", "\u064a\u0631\u062c\u0649 \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631")
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
@@ -1986,14 +1988,14 @@ class MainActivity : Activity() {
 
                         showListMessage(
                             packagesList,
-‎                            "تعذر الاتصال",
-‎                            "تحقق من الإعدادات"
+                            "\u062a\u0639\u0630\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644",
+                            "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"
                         )
 
                         showListMessage(
                             channelsList,
-‎                            "تعذر الاتصال",
-‎                            "بقاعدة البيانات"
+                            "\u062a\u0639\u0630\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644",
+                            "\u0628\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a"
                         )
                     }
                 }
@@ -2392,8 +2394,8 @@ class MainActivity : Activity() {
         attemptIndex = 0
 
         showStatus(
-‎            "جاري تشغيل القناة…",
-            "${channel.name}\nالمصدر: ${attempts[0].label}",
+            "\u062c\u0627\u0631\u064a \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629\u2026",
+            "${channel.name}\n\u0627\u0644\u0645\u0635\u062f\u0631: ${attempts[0].label}",
             false
         )
 
@@ -2418,12 +2420,12 @@ class MainActivity : Activity() {
                     exception?.message
                         ?: cause?.message
                         ?: exception?.javaClass?.simpleName
-‎                        ?: "خطأ غير معروف"
+                        ?: "\u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641"
 
-‎                "خطأ داخلي\n${shortenError(text)}"
+                "\u062e\u0637\u0623 \u062f\u0627\u062e\u0644\u064a\n${shortenError(text)}"
             }
 
-        showStatus("تعذر تشغيل القناة", message, true)
+        showStatus("\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629", message, true)
     }
 
     private fun updatePlayingMarks() {
@@ -2706,7 +2708,7 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-‎                "اضغط رجوع مرة أخرى للخروج",
+                "\u0627\u0636\u063a\u0637 \u0631\u062c\u0648\u0639 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649 \u0644\u0644\u062e\u0631\u0648\u062c",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -2934,25 +2936,25 @@ class MainActivity : Activity() {
 
 private object Txt {
 
-    const val DB_ERROR = "تعذر الاتصال بقاعدة البيانات"
+    const val DB_ERROR = "\u062a\u0639\u0630\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a"
 
-    const val ERR_SUB = "تحقق من رابط البث أو من اتصال الإنترنت"
+    const val ERR_SUB = "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0631\u0627\u0628\u0637 \u0627\u0644\u0628\u062b \u0623\u0648 \u0645\u0646 \u0627\u062a\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a"
 
-    const val ERR_TITLE = "تعذر تشغيل القناة"
+    const val ERR_TITLE = "\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629"
 
-    const val HINT = "اضغط OK لملء الشاشة  •  أعلى / أسفل لتبديل القناة"
+    const val HINT = "\u0627\u0636\u063a\u0637 OK \u0644\u0645\u0644\u0621 \u0627\u0644\u0634\u0627\u0634\u0629  \u2022  \u0623\u0639\u0644\u0649 / \u0623\u0633\u0641\u0644 \u0644\u062a\u0628\u062f\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629"
 
-    const val IDLE_SUB = "تنقّل بالأسهم بين الباقات والقنوات"
+    const val IDLE_SUB = "\u062a\u0646\u0642\u0651\u0644 \u0628\u0627\u0644\u0623\u0633\u0647\u0645 \u0628\u064a\u0646 \u0627\u0644\u0628\u0627\u0642\u0627\u062a \u0648\u0627\u0644\u0642\u0646\u0648\u0627\u062a"
 
-    const val IDLE_TITLE = "اختر قناة للمشاهدة"
+    const val IDLE_TITLE = "\u0627\u062e\u062a\u0631 \u0642\u0646\u0627\u0629 \u0644\u0644\u0645\u0634\u0627\u0647\u062f\u0629"
 
-    const val LOAD_FAIL_SUB = "سيتم التحديث تلقائياً عند عودة الاتصال"
+    const val LOAD_FAIL_SUB = "\u0633\u064a\u062a\u0645 \u0627\u0644\u062a\u062d\u062f\u064a\u062b \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b \u0639\u0646\u062f \u0639\u0648\u062f\u0629 \u0627\u0644\u0627\u062a\u0635\u0627\u0644"
 
-    const val LOAD_FAIL_TITLE = "تعذر تحميل البيانات"
+    const val LOAD_FAIL_TITLE = "\u062a\u0639\u0630\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a"
 
-    const val NO_CHANNELS = "لا توجد قنوات"
+    const val NO_CHANNELS = "\u0644\u0627 \u062a\u0648\u062c\u062f \u0642\u0646\u0648\u0627\u062a"
 
-    const val NO_CHANNELS_SUB = "لهذه الباقة حالياً"
+    const val NO_CHANNELS_SUB = "\u0644\u0647\u0630\u0647 \u0627\u0644\u0628\u0627\u0642\u0629 \u062d\u0627\u0644\u064a\u0627\u064b"
 
-    const val NO_URL = "هذه القناة لا تحتوي على رابط بث حالياً"
+    const val NO_URL = "\u0647\u0630\u0647 \u0627\u0644\u0642\u0646\u0627\u0629 \u0644\u0627 \u062a\u062d\u062a\u0648\u064a \u0639\u0644\u0649 \u0631\u0627\u0628\u0637 \u0628\u062b \u062d\u0627\u0644\u064a\u0627\u064b"
 }
