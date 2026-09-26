@@ -9,13 +9,17 @@
       content="width=device-width, initial-scale=1.0">
 
 <meta name="theme-color"
-      content="#070a10">
+      content="#0a0c10">
 
 <title>Niyati TV</title>
 
 <link rel="icon"
       type="image/png"
       href="logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 
 
 <style>
@@ -32,21 +36,27 @@
 
 :root{
 
-    --bg:#070a10;
-    --panel:#101722;
+    --bg:#0a0c10;
+    --panel:#12151c;
 
-    --card:rgba(21,30,43,.85);
-    --card2:rgba(12,18,27,.85);
+    --card:rgba(19,22,29,.9);
+    --card2:rgba(11,13,18,.9);
 
-    --line:rgba(255,255,255,.07);
+    --line:rgba(205,161,90,.13);
+    --line-soft:rgba(255,255,255,.06);
 
-    --text:#f7f9fc;
-    --muted:#8994a6;
+    --text:#efe9dd;
+    --muted:#8a8f9c;
+    --faint:#565c6a;
 
-    --gold:#e7b45a;
-    --gold-light:#f5d796;
+    --gold:#cda15a;
+    --gold-soft:#e2c791;
+    --gold-deep:#8a6a37;
 
-    --green:#27df88;
+    --emerald:#3fae7d;
+
+    --serif:'Amiri', 'Times New Roman', serif;
+    --sans:'Tajawal', Arial, Tahoma, sans-serif;
 }
 
 html,
@@ -61,14 +71,18 @@ body{
         var(--text);
 
     font-family:
-        Arial,
-        Tahoma,
-        sans-serif;
+        var(--sans);
 }
 
 body{
 
     background-image:
+        linear-gradient(
+            180deg,
+            rgba(10,12,16,.94),
+            rgba(10,12,16,.86) 40%,
+            rgba(10,12,16,.96)
+        ),
         url(
         'https://raw.githubusercontent.com/hussenwww1010-sys/-NiyatiTV/refs/heads/main/app/src/main/res/drawable/bg_main.png'
         );
@@ -95,6 +109,13 @@ button{
     color:inherit;
 }
 
+a{ color:inherit; }
+
+:focus-visible{
+    outline: 1px solid var(--gold);
+    outline-offset: 2px;
+}
+
 ::-webkit-scrollbar{
     width:6px;
 }
@@ -102,10 +123,14 @@ button{
 ::-webkit-scrollbar-thumb{
 
     background:
-        #293344;
+        #2b2116;
 
     border-radius:
         20px;
+}
+
+@media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
 }
 
 
@@ -115,20 +140,20 @@ button{
 
 header{
 
-    height:74px;
+    height:78px;
 
     display:flex;
 
     align-items:center;
 
     padding:
-        0 28px;
+        0 30px;
 
     background:
-        rgba(7,10,16,.85);
+        rgba(9,11,15,.82);
 
     border-bottom:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
     position:
         sticky;
@@ -138,7 +163,7 @@ header{
     z-index:20;
 
     backdrop-filter:
-        blur(18px);
+        blur(20px);
 }
 
 .brand{
@@ -147,44 +172,46 @@ header{
 
     align-items:center;
 
-    gap:12px;
+    gap:14px;
 }
 
 .logo-img{
 
-    width:46px;
-    height:46px;
+    width:44px;
+    height:44px;
 
-    border-radius:14px;
+    border-radius:11px;
 
     object-fit:cover;
 
     border:
-        1px solid var(--gold);
+        1px solid rgba(205,161,90,.5);
 
     box-shadow:
-        0 8px 28px
-        rgba(231,180,90,.18);
+        0 6px 22px
+        rgba(205,161,90,.12);
 }
 
 .brand h1{
 
-    font-size:20px;
-
-    font-weight:900;
+    font-family: var(--serif);
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:.2px;
 }
 
 .brand small{
 
     display:block;
 
-    color:#687386;
+    color:var(--muted);
 
-    font-size:8px;
+    font-family: var(--serif);
+    font-style:italic;
 
-    letter-spacing:2px;
+    font-size:11px;
 
-    margin-top:3px;
+    margin-top:4px;
 }
 
 .status{
@@ -195,39 +222,39 @@ header{
 
     align-items:center;
 
-    gap:8px;
+    gap:9px;
 
     padding:
-        9px 13px;
+        9px 14px;
 
     border:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
-    border-radius:10px;
+    border-radius:9px;
 
     background:
-        rgba(255,255,255,.025);
+        rgba(255,255,255,.02);
 
-    color:#8d98aa;
+    color:var(--muted);
 
-    font-size:10px;
+    font-size:11px;
 
-    font-weight:700;
+    font-weight:500;
 }
 
 .status i{
 
-    width:7px;
-    height:7px;
+    width:6px;
+    height:6px;
 
     border-radius:50%;
 
     background:
-        var(--green);
+        var(--emerald);
 
     box-shadow:
-        0 0 12px
-        rgba(39,223,136,.7);
+        0 0 10px
+        rgba(63,174,125,.8);
 }
 
 
@@ -240,10 +267,10 @@ header{
     display:grid;
 
     grid-template-columns:
-        245px
+        228px
         minmax(0,1fr);
 
-    gap:18px;
+    gap:20px;
 
     max-width:
         1700px;
@@ -251,9 +278,9 @@ header{
     margin:auto;
 
     padding:
-        18px
         22px
-        30px;
+        26px
+        36px;
 }
 
 
@@ -264,7 +291,7 @@ header{
 .sidebar{
 
     height:
-        calc(100vh - 112px);
+        calc(100vh - 120px);
 
     min-height:
         480px;
@@ -273,60 +300,60 @@ header{
         sticky;
 
     top:
-        92px;
+        98px;
 
     overflow:auto;
 
     padding:
-        14px;
+        18px 12px;
 
     border:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
     border-radius:
-        18px;
+        4px;
 
     background:
         linear-gradient(
             180deg,
-            rgba(18,25,35,.85),
-            rgba(10,15,22,.85)
+            rgba(16,19,26,.82),
+            rgba(9,11,15,.82)
         );
 
     backdrop-filter:
         blur(10px);
-
-    box-shadow:
-        0 24px 70px
-        rgba(0,0,0,.25);
 }
 
 .side-title{
 
     padding:
-        5px
-        8px
-        14px;
+        4px
+        12px
+        16px;
+
+    border-bottom:
+        1px solid var(--line-soft);
+
+    margin-bottom:
+        10px;
 }
 
 .side-title b{
 
-    font-size:
-        14px;
+    font-family: var(--serif);
+    font-size:15px;
+    font-weight:700;
 }
 
 .side-title span{
 
     display:block;
 
-    color:
-        #5e697a;
+    color:var(--faint);
 
-    font-size:
-        9px;
+    font-size:10px;
 
-    margin-top:
-        5px;
+    margin-top:5px;
 }
 
 .package{
@@ -334,117 +361,92 @@ header{
     width:100%;
 
     min-height:
-        49px;
+        44px;
 
-    border:
-        1px solid transparent;
+    border:0;
+    border-right:
+        2px solid transparent;
 
     border-radius:
-        12px;
+        3px;
 
     background:
-        rgba(255,255,255,.035);
+        transparent;
 
     display:flex;
 
     align-items:center;
 
-    gap:10px;
+    gap:11px;
 
     padding:
-        0 11px;
+        0 12px;
 
     margin-bottom:
-        7px;
+        2px;
 
     text-align:right;
 
     cursor:pointer;
 
+    color:var(--muted);
+
     transition:
-        .15s;
+        color .15s, background-color .15s, border-color .15s;
 }
 
 .package .ico{
 
-    width:28px;
-    height:28px;
+    width:20px;
 
-    border-radius:8px;
+    text-align:center;
 
-    display:grid;
-
-    place-items:center;
-
-    background:
-        rgba(255,255,255,.06);
+    color:var(--gold-deep);
 
     font-size:13px;
+
+    transition: color .15s;
 }
 
 .package .name{
 
     flex:1;
 
-    font-size:11px;
+    font-size:12px;
 
-    font-weight:800;
+    font-weight:500;
 }
 
 .package .arrow{
 
-    color:
-        #566173;
+    color:var(--faint);
+
+    font-size:12px;
 }
 
 .package:hover,
-.package:focus{
+.package:focus-visible{
 
-    outline:none;
-
-    color:#fff;
-
-    border-color:
-        rgba(231,180,90,.55);
+    color:var(--text);
 
     background:
-        rgba(255,255,255,.07);
-
-    box-shadow:
-        0 0 0 3px
-        rgba(231,180,90,.08);
+        rgba(255,255,255,.035);
 }
 
 .package.active{
 
-    color:
-        #17120a;
+    color:var(--gold-soft);
 
     background:
-        linear-gradient(
-            135deg,
-            var(--gold-light),
-            var(--gold)
-        );
+        rgba(205,161,90,.08);
 
-    border-color:
-        rgba(255,255,255,.25);
-
-    box-shadow:
-        0 12px 28px
-        rgba(231,180,90,.12);
+    border-right-color:
+        var(--gold);
 }
 
 .package.active .ico{
 
-    background:
-        rgba(0,0,0,.1);
-}
-
-.package.active .arrow{
-
-    color:
-        #342716;
+    color:var(--gold);
 }
 
 
@@ -460,7 +462,7 @@ header{
 
     flex-direction:column;
 
-    gap:16px;
+    gap:20px;
 }
 
 
@@ -473,21 +475,17 @@ header{
     position:relative;
 
     min-height:
-        330px;
+        340px;
 
     border:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
     border-radius:
-        20px;
+        6px;
 
     overflow:hidden;
 
     background:#000;
-
-    box-shadow:
-        0 24px 70px
-        rgba(0,0,0,.3);
 }
 
 #videoContainer{
@@ -495,7 +493,7 @@ header{
     position:relative;
 
     min-height:
-        330px;
+        340px;
 
     background:#000;
 }
@@ -507,7 +505,7 @@ video{
     height:100%;
 
     min-height:
-        330px;
+        340px;
 
     display:block;
 
@@ -536,9 +534,9 @@ video{
 
     background:
         radial-gradient(
-            circle,
-            rgba(231,180,90,.07),
-            transparent 45%
+            circle at 50% 45%,
+            rgba(205,161,90,.06),
+            transparent 50%
         );
 
     z-index:3;
@@ -551,33 +549,32 @@ video{
 
 .empty-logo-img{
 
-    width:70px;
-    height:70px;
+    width:64px;
+    height:64px;
 
     margin:
         auto
         auto
-        12px;
+        16px;
 
     border-radius:
-        20px;
+        16px;
 
     object-fit:
         cover;
 
     border:
         1px solid
-        rgba(231,180,90,.4);
+        rgba(205,161,90,.35);
 
-    box-shadow:
-        0 0 20px
-        rgba(231,180,90,.2);
+    opacity:.85;
 }
 
 .empty b{
 
-    font-size:
-        14px;
+    font-family: var(--serif);
+    font-size:16px;
+    font-weight:400;
 }
 
 .empty small{
@@ -585,13 +582,11 @@ video{
     display:block;
 
     margin-top:
-        6px;
+        7px;
 
-    color:
-        #667184;
+    color:var(--faint);
 
-    font-size:
-        10px;
+    font-size:11px;
 }
 
 
@@ -611,14 +606,14 @@ video{
 
         linear-gradient(
             90deg,
-            rgba(0,0,0,.62),
-            transparent 45%
+            rgba(0,0,0,.6),
+            transparent 42%
         ),
 
         linear-gradient(
             0deg,
-            rgba(0,0,0,.65),
-            transparent 35%
+            rgba(0,0,0,.68),
+            transparent 32%
         );
 
     z-index:1;
@@ -633,13 +628,13 @@ video{
 
     position:absolute;
 
-    right:22px;
+    right:24px;
 
-    top:20px;
+    top:22px;
 
     z-index:2;
 
-    max-width:50%;
+    max-width:55%;
 }
 
 .live{
@@ -648,26 +643,28 @@ video{
 
     align-items:center;
 
-    gap:6px;
+    gap:7px;
 
     padding:
-        6px 9px;
+        6px 10px;
 
     border-radius:
-        7px;
+        3px;
 
     background:
-        rgba(8,11,16,.72);
+        rgba(6,8,12,.65);
 
     border:
         1px solid
-        rgba(255,255,255,.09);
+        var(--line-soft);
 
-    font-size:
-        9px;
+    font-size:10px;
 
-    font-weight:
-        900;
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+    color:var(--muted);
 }
 
 .live i{
@@ -679,31 +676,38 @@ video{
         50%;
 
     background:
-        var(--green);
+        var(--emerald);
+
+    box-shadow:
+        0 0 8px rgba(63,174,125,.8);
 }
 
 .now h2{
 
-    font-size:
-        24px;
+    font-family: var(--serif);
+    font-weight:700;
 
-    margin-top:
-        12px;
+    font-size:26px;
+
+    margin-top:14px;
 
     text-shadow:
-        0 4px 20px #000;
+        0 4px 18px #000;
 }
 
 .now p{
 
-    font-size:
-        10px;
+    font-size:11px;
 
-    color:
-        #b4bdca;
+    color:var(--muted);
 
-    margin-top:
-        5px;
+    margin-top:6px;
+
+    padding-top:8px;
+
+    border-top:1px solid var(--line-soft);
+
+    display:inline-block;
 }
 
 
@@ -715,41 +719,39 @@ video{
 
     position:absolute;
 
-    left:18px;
+    left:20px;
 
-    bottom:18px;
+    bottom:20px;
 
     z-index:5;
 
-    width:42px;
-    height:42px;
+    width:40px;
+    height:40px;
 
     border:
         1px solid
-        rgba(255,255,255,.13);
+        var(--line-soft);
 
     border-radius:
-        11px;
+        3px;
 
     background:
-        rgba(8,11,16,.72);
+        rgba(6,8,12,.65);
 
     cursor:pointer;
 
-    font-size:
-        17px;
+    font-size:16px;
+
+    color:var(--gold-soft);
+
+    transition: border-color .15s, background-color .15s;
 }
 
-.fullscreen:focus{
+.fullscreen:hover,
+.fullscreen:focus-visible{
 
-    outline:none;
-
-    border-color:
-        var(--gold);
-
-    box-shadow:
-        0 0 0 3px
-        rgba(231,180,90,.16);
+    border-color: var(--gold);
+    background: rgba(6,8,12,.85);
 }
 
 
@@ -775,31 +777,31 @@ video{
     width:min(90%,420px);
 
     padding:
-        18px;
+        20px;
 
     text-align:center;
 
     border:
         1px solid
-        rgba(231,180,90,.25);
+        var(--line);
 
     border-radius:
-        14px;
+        4px;
 
     background:
-        rgba(5,8,13,.92);
+        rgba(5,7,11,.94);
 
     backdrop-filter:
         blur(12px);
 
-    color:
-        #e8edf5;
+    color:var(--text);
 
-    font-size:
-        11px;
+    font-size:12px;
 
     line-height:
         1.8;
+
+    white-space:pre-line;
 }
 
 
@@ -816,16 +818,22 @@ video{
     justify-content:space-between;
 
     padding:
-        0 3px;
+        4px 4px 8px;
+
+    border-bottom:
+        1px solid var(--line-soft);
 }
 
 .head h2{
 
-    font-size:
-        18px;
+    font-family: var(--serif);
+    font-size:19px;
 
-    font-weight:
-        900;
+    font-weight:700;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
 }
 
 .head h2:before{
@@ -834,42 +842,33 @@ video{
 
     display:inline-block;
 
-    width:7px;
-    height:7px;
+    width:6px;
+    height:6px;
 
     border-radius:
         50%;
 
     background:
         var(--gold);
-
-    box-shadow:
-        0 0 12px
-        rgba(231,180,90,.7);
-
-    margin-left:
-        9px;
 }
 
 .count{
 
     padding:
-        7px 10px;
+        6px 11px;
 
     border:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
     border-radius:
-        8px;
+        3px;
 
     background:
-        rgba(255,255,255,.025);
+        transparent;
 
-    color:
-        #718096;
+    color:var(--faint);
 
-    font-size:
-        9px;
+    font-size:10px;
 }
 
 
@@ -887,28 +886,28 @@ video{
             minmax(0,1fr)
         );
 
-    gap:9px;
+    gap:10px;
 }
 
 .channel{
 
     min-height:
-        72px;
+        76px;
 
     display:flex;
 
     align-items:center;
 
-    gap:12px;
+    gap:13px;
 
     padding:
-        9px 12px;
+        10px 13px;
 
     border:
-        1px solid var(--line);
+        1px solid var(--line-soft);
 
     border-radius:
-        14px;
+        5px;
 
     background:
         linear-gradient(
@@ -917,66 +916,58 @@ video{
             var(--card2)
         );
 
-    backdrop-filter:
-        blur(8px);
-
     cursor:pointer;
 
     transition:
-        .15s;
+        border-color .15s, background-color .15s;
 
     text-align:right;
 }
 
 .channel:hover,
-.channel:focus{
-
-    outline:none;
-
-    transform:
-        translateY(-2px);
+.channel:focus-visible{
 
     border-color:
-        rgba(231,180,90,.6);
+        rgba(205,161,90,.45);
 
-    box-shadow:
-        0 10px 30px
-        rgba(0,0,0,.22),
-
-        0 0 0 3px
-        rgba(231,180,90,.08);
+    background:
+        linear-gradient(
+            135deg,
+            rgba(26,22,15,.9),
+            rgba(12,14,19,.9)
+        );
 }
 
 .channel.active{
 
     border-color:
-        rgba(231,180,90,.75);
+        var(--gold);
 
     background:
         linear-gradient(
             135deg,
-            rgba(44,37,26,.9),
-            rgba(16,23,32,.9)
+            rgba(35,28,15,.92),
+            rgba(13,15,20,.92)
         );
 }
 
 .channel-logo{
 
-    width:48px;
-    height:48px;
+    width:46px;
+    height:46px;
 
     flex:
-        0 0 48px;
+        0 0 46px;
 
     border-radius:
-        12px;
+        4px;
 
     background:
-        rgba(255,255,255,.055);
+        rgba(255,255,255,.04);
 
     border:
         1px solid
-        rgba(255,255,255,.08);
+        var(--line-soft);
 
     display:grid;
 
@@ -984,14 +975,11 @@ video{
 
     overflow:hidden;
 
-    color:
-        #dce2eb;
+    color:var(--gold-soft);
 
-    font-size:
-        12px;
+    font-size:12px;
 
-    font-weight:
-        900;
+    font-weight:700;
 }
 
 .channel-logo img{
@@ -1014,11 +1002,9 @@ video{
 
     display:block;
 
-    font-size:
-        12px;
+    font-size:13px;
 
-    font-weight:
-        900;
+    font-weight:700;
 
     white-space:
         nowrap;
@@ -1034,91 +1020,110 @@ video{
 
     display:block;
 
-    font-size:
-        8px;
+    font-size:10px;
 
-    color:
-        #667285;
+    color:var(--faint);
 
-    margin-top:
-        5px;
+    margin-top:5px;
 }
 
 .quality-row{
 
     display:flex;
 
-    gap:4px;
+    gap:5px;
 
-    margin-top:
-        6px;
+    margin-top:7px;
 }
 
 .quality{
 
     padding:
-        3px 6px;
+        3px 7px;
 
     border-radius:
-        5px;
+        3px;
 
     background:
-        rgba(255,255,255,.055);
+        rgba(255,255,255,.04);
 
-    color:
-        #8e99aa;
+    border:
+        1px solid var(--line-soft);
 
-    font-size:
-        7px;
+    color:var(--muted);
 
-    font-weight:
-        900;
+    font-size:9px;
+
+    font-weight:700;
 }
 
 .quality:first-child{
 
-    color:
-        #e9c57f;
+    color:var(--gold-soft);
+
+    border-color:
+        rgba(205,161,90,.3);
 }
 
 .play{
 
-    width:30px;
-    height:30px;
+    width:28px;
+    height:28px;
 
     border-radius:
-        9px;
+        4px;
 
     display:grid;
 
     place-items:center;
 
     background:
-        rgba(231,180,90,.09);
+        transparent;
 
-    color:
-        var(--gold);
+    border:1px solid var(--line-soft);
 
-    font-size:
-        12px;
+    color:var(--gold);
+
+    font-size:11px;
 }
 
 .empty-list{
 
     padding:
-        35px;
+        40px;
 
     text-align:center;
 
-    color:
-        #647083;
+    color:var(--faint);
+
+    font-size:12px;
 
     border:
         1px dashed
-        var(--line);
+        var(--line-soft);
 
     border-radius:
-        14px;
+        5px;
+}
+
+
+/* =========================================================
+   FOOTER NOTE
+========================================================= */
+
+.foot-note{
+
+    text-align:center;
+
+    padding:
+        10px 0 4px;
+
+    color:var(--faint);
+
+    font-size:10px;
+
+    font-family: var(--serif);
+    font-style:italic;
 }
 
 
@@ -1159,13 +1164,13 @@ video{
     header{
 
         padding:
-            0 15px;
+            0 16px;
     }
 
     .layout{
 
         padding:
-            12px;
+            14px;
     }
 
     .status{
@@ -1181,10 +1186,14 @@ video{
             220px;
     }
 
+    .now{
+        max-width:70%;
+    }
+
     .now h2{
 
         font-size:
-            18px;
+            19px;
     }
 }
 
@@ -1217,7 +1226,7 @@ video{
             </h1>
 
             <small>
-                PREMIUM LIVE TELEVISION
+‎                بثّ حي فاخر، بلا انقطاع
             </small>
 
         </div>
@@ -1230,7 +1239,7 @@ video{
         <i></i>
 
         <span>
-            البث المباشر متاح
+‎            البث المباشر متاح
         </span>
 
     </div>
@@ -1256,11 +1265,11 @@ video{
         <div class="side-title">
 
             <b>
-                الباقات
+‎                الباقات
             </b>
 
             <span>
-                اختر باقة لمشاهدة القنوات
+‎                اختر باقة لمشاهدة القنوات
             </span>
 
         </div>
@@ -1305,11 +1314,11 @@ video{
                         >
 
                         <b>
-                            اختر قناة للبدء
+‎                            اختر قناة للبدء
                         </b>
 
                         <small>
-                            اختر القناة ثم اضغط تشغيل
+‎                            اختر القناة ثم اضغط تشغيل
                         </small>
 
                     </div>
@@ -1326,7 +1335,7 @@ video{
 
                         <i></i>
 
-                        LIVE
+‎                        مباشر
 
                     </span>
 
@@ -1337,7 +1346,7 @@ video{
 
 
                     <p id="nowPlayingSub">
-                        جاهز للبث المباشر
+‎                        جاهز للبث المباشر
                     </p>
 
                 </div>
@@ -1373,14 +1382,14 @@ video{
             <div class="head">
 
                 <h2 id="channelTitle">
-                    كل القنوات
+‎                    كل القنوات
                 </h2>
 
                 <span
                     class="count"
                     id="channelCount"
                 >
-                    0 قناة
+‎                    0 قناة
                 </span>
 
             </div>
@@ -1392,6 +1401,11 @@ video{
             ></div>
 
         </section>
+
+
+        <div class="foot-note">
+            Niyati TV — تجربة مشاهدة فاخرة
+        </div>
 
 
     </main>
@@ -1593,7 +1607,7 @@ function loadScript(src){
 
                     reject(
                         new Error(
-                            "تعذر تحميل مكتبة المشغل"
+‎                            "تعذر تحميل مكتبة المشغل"
                         )
                     );
 
@@ -1722,7 +1736,7 @@ function playNative(
 
                 reject(
                     new Error(
-                        "عنصر الفيديو غير موجود"
+‎                        "عنصر الفيديو غير موجود"
                     )
                 );
 
@@ -1784,7 +1798,7 @@ function playNative(
 
                 reject(
                     new Error(
-                        "المتصفح رفض تشغيل مصدر الفيديو"
+‎                        "المتصفح رفض تشغيل مصدر الفيديو"
                     )
                 );
             }
@@ -2154,7 +2168,7 @@ function scheduleRetry(url){
     ){
 
         showPlayerError(
-            "تعذر تشغيل البث بعد عدة محاولات."
+‎            "تعذر تشغيل البث بعد عدة محاولات."
         );
 
         return;
@@ -2196,7 +2210,7 @@ async function playChannel(
     if(!url){
 
         showPlayerError(
-            "رابط البث فارغ."
+‎            "رابط البث فارغ."
         );
 
         return;
@@ -2319,11 +2333,11 @@ async function playChannel(
             default:
 
                 /*
-                 * الرابط بدون امتداد.
+‎                 * الرابط بدون امتداد.
                  *
-                 * نحاول أولاً HLS،
-                 * ثم MPEG-TS،
-                 * ثم Native.
+‎                 * نحاول أولاً HLS،
+‎                 * ثم MPEG-TS،
+‎                 * ثم Native.
                  */
 
                 try{
@@ -2427,7 +2441,7 @@ function readableError(
         error &&
         error.message
             ? error.message
-            : "خطأ غير معروف";
+‎            : "خطأ غير معروف";
 
 
     if(
@@ -2435,7 +2449,7 @@ function readableError(
     ){
 
         return(
-            "هذا الرابط RTSP ولا يمكن للمتصفح تشغيله مباشرة."
+‎            "هذا الرابط RTSP ولا يمكن للمتصفح تشغيله مباشرة."
         );
     }
 
@@ -2445,14 +2459,14 @@ function readableError(
     ){
 
         return(
-            "هذا الرابط RTMP ولا يمكن للمتصفح تشغيله مباشرة."
+‎            "هذا الرابط RTMP ولا يمكن للمتصفح تشغيله مباشرة."
         );
     }
 
 
     return(
-        "تعذر تشغيل البث.\n\n" +
-        "النوع: " +
+‎        "تعذر تشغيل البث.\n\n" +
+‎        "النوع: " +
         type +
         "\n\n" +
         message
@@ -2677,11 +2691,11 @@ window.NiyatiPlayer = {
 
             '<div class="empty-list">' +
 
-            'تعذر تحميل القنوات.' +
+‎            'تعذر تحميل القنوات.' +
 
             '<br><br>' +
 
-            'تأكد من ملف channels.js' +
+‎            'تأكد من ملف channels.js' +
 
             '</div>';
 
@@ -2891,7 +2905,7 @@ window.NiyatiPlayer = {
             selectedPackage ===
             "ALL"
 
-                ? "كل القنوات"
+‎                ? "كل القنوات"
 
                 : selectedPackage;
 
@@ -2899,7 +2913,7 @@ window.NiyatiPlayer = {
         channelCount.textContent =
 
             list.length +
-            " قناة";
+‎            " قناة";
 
 
         if(!list.length){
@@ -2908,7 +2922,7 @@ window.NiyatiPlayer = {
 
                 '<div class="empty-list">' +
 
-                'لا توجد قنوات في هذه الباقة.' +
+‎                'لا توجد قنوات في هذه الباقة.' +
 
                 '</div>';
 
@@ -3027,7 +3041,7 @@ window.NiyatiPlayer = {
 
                             (
                                 channel.name ||
-                                "قناة"
+‎                                "قناة"
                             ) +
 
                         '</span>' +
@@ -3178,7 +3192,7 @@ window.NiyatiPlayer = {
         ){
 
             showPlayerError(
-                "هذه القناة لا تحتوي على رابط بث صالح."
+‎                "هذه القناة لا تحتوي على رابط بث صالح."
             );
 
             return;
@@ -3231,7 +3245,7 @@ window.NiyatiPlayer = {
 
 
         /*
-         * تشغيل المشغل الشامل
+‎         * تشغيل المشغل الشامل
          */
 
         playChannel(
