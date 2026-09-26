@@ -15,7 +15,7 @@ const channels = [
             },
             {
                 name: "HD 2",
-                url: "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1660413&extension=ts"
+                url: "https://stream.alabbassia.com/live/alabbassia/index.m3u8"
             }
         ]
     },
