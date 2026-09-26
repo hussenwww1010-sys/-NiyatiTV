@@ -1,1411 +1,1834 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>NIYATI TV | SPORTS IPTV</title>
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dashjs@5.0.0/dist/modern/umd/dash.all.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js"></script>
+<meta name="theme-color"
+      content="#0a0c10">
+
+<title>Niyati TV</title>
+
+<link rel="icon"
+      type="image/png"
+      href="logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
 
 <style>
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
 *{
     box-sizing:border-box;
     margin:0;
     padding:0;
 }
 
-html,body{
-    width:100%;
-    height:100%;
-    background:#050505;
-    color:#fff;
-    font-family:Arial,Tahoma,sans-serif;
-    overflow:hidden;
+:root{
+
+    --bg:#0a0c10;
+    --panel:#12151c;
+
+    --card:rgba(19,22,29,.9);
+    --card2:rgba(11,13,18,.9);
+
+    --line:rgba(205,161,90,.13);
+    --line-soft:rgba(255,255,255,.06);
+
+    --text:#efe9dd;
+    --muted:#8a8f9c;
+    --faint:#565c6a;
+
+    --gold:#cda15a;
+    --gold-soft:#e2c791;
+    --gold-deep:#8a6a37;
+
+    --emerald:#3fae7d;
+
+    --serif:'Amiri', 'Times New Roman', serif;
+    --sans:'Tajawal', Arial, Tahoma, sans-serif;
+}
+
+html,
+body{
+
+    min-height:100%;
+
+    background:
+        var(--bg);
+
+    color:
+        var(--text);
+
+    font-family:
+        var(--sans);
 }
 
 body{
-    background:
-        radial-gradient(circle at 80% 10%,rgba(212,170,70,.10),transparent 30%),
-        linear-gradient(135deg,#050505,#0c0c0c 55%,#111 100%);
+
+    background-image:
+        linear-gradient(
+            180deg,
+            rgba(10,12,16,.94),
+            rgba(10,12,16,.86) 40%,
+            rgba(10,12,16,.96)
+        ),
+        url(
+        'https://raw.githubusercontent.com/hussenwww1010-sys/-NiyatiTV/refs/heads/main/app/src/main/res/drawable/bg_main.png'
+        );
+
+    background-size:
+        cover;
+
+    background-position:
+        center;
+
+    background-repeat:
+        no-repeat;
+
+    background-attachment:
+        fixed;
+
+    background-color:
+        var(--bg);
 }
 
-/* ================= HEADER ================= */
+button{
 
-.header{
-    height:68px;
+    font:inherit;
+    color:inherit;
+}
+
+a{ color:inherit; }
+
+:focus-visible{
+    outline: 1px solid var(--gold);
+    outline-offset: 2px;
+}
+
+::-webkit-scrollbar{
+    width:6px;
+}
+
+::-webkit-scrollbar-thumb{
+
+    background:
+        #2b2116;
+
+    border-radius:
+        20px;
+}
+
+@media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+header{
+
+    height:78px;
+
     display:flex;
+
     align-items:center;
-    justify-content:space-between;
-    padding:0 24px;
-    border-bottom:1px solid rgba(212,170,70,.20);
-    background:rgba(5,5,5,.92);
-    backdrop-filter:blur(15px);
-    position:relative;
-    z-index:10;
+
+    padding:
+        0 30px;
+
+    background:
+        rgba(9,11,15,.82);
+
+    border-bottom:
+        1px solid var(--line-soft);
+
+    position:
+        sticky;
+
+    top:0;
+
+    z-index:20;
+
+    backdrop-filter:
+        blur(20px);
 }
 
 .brand{
+
     display:flex;
+
     align-items:center;
-    gap:12px;
+
+    gap:14px;
 }
 
-.logoMark{
-    width:42px;
-    height:42px;
-    border-radius:12px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:18px;
-    font-weight:900;
-    color:#050505;
-    background:linear-gradient(135deg,#f7d774,#a97a16);
-    box-shadow:0 0 22px rgba(212,170,70,.22);
+.logo-img{
+
+    width:44px;
+    height:44px;
+
+    border-radius:11px;
+
+    object-fit:cover;
+
+    border:
+        1px solid rgba(205,161,90,.5);
+
+    box-shadow:
+        0 6px 22px
+        rgba(205,161,90,.12);
 }
 
-.brandText{
-    line-height:1.05;
+.brand h1{
+
+    font-family: var(--serif);
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:.2px;
 }
 
-.brandText strong{
+.brand small{
+
     display:block;
-    font-size:19px;
-    letter-spacing:2px;
+
+    color:var(--muted);
+
+    font-family: var(--serif);
+    font-style:italic;
+
+    font-size:11px;
+
+    margin-top:4px;
 }
 
-.brandText span{
-    color:#c7a94d;
-    font-size:10px;
-    letter-spacing:2px;
-}
+.status{
 
-.liveStatus{
+    margin-right:auto;
+
     display:flex;
+
     align-items:center;
-    gap:7px;
-    color:#aaa;
-    font-size:12px;
+
+    gap:9px;
+
+    padding:
+        9px 14px;
+
+    border:
+        1px solid var(--line-soft);
+
+    border-radius:9px;
+
+    background:
+        rgba(255,255,255,.02);
+
+    color:var(--muted);
+
+    font-size:11px;
+
+    font-weight:500;
 }
 
-.liveDot{
-    width:8px;
-    height:8px;
+.status i{
+
+    width:6px;
+    height:6px;
+
     border-radius:50%;
-    background:#28d17c;
-    box-shadow:0 0 10px #28d17c;
+
+    background:
+        var(--emerald);
+
+    box-shadow:
+        0 0 10px
+        rgba(63,174,125,.8);
 }
 
-/* ================= APP ================= */
 
-.app{
-    height:calc(100vh - 68px);
+/* =========================================================
+   MAIN
+========================================================= */
+
+.layout{
+
     display:grid;
-    grid-template-columns:230px 1fr;
-    min-height:0;
+
+    grid-template-columns:
+        228px
+        minmax(0,1fr);
+
+    gap:20px;
+
+    max-width:
+        1700px;
+
+    margin:auto;
+
+    padding:
+        22px
+        26px
+        36px;
 }
 
-/* ================= SIDEBAR ================= */
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
 .sidebar{
-    border-left:1px solid rgba(255,255,255,.07);
-    background:rgba(8,8,8,.92);
-    padding:18px 12px;
-    overflow-y:auto;
+
+    height:
+        calc(100vh - 120px);
+
+    min-height:
+        480px;
+
+    position:
+        sticky;
+
+    top:
+        98px;
+
+    overflow:auto;
+
+    padding:
+        18px 12px;
+
+    border:
+        1px solid var(--line-soft);
+
+    border-radius:
+        4px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(16,19,26,.82),
+            rgba(9,11,15,.82)
+        );
+
+    backdrop-filter:
+        blur(10px);
 }
 
-.sidebarTitle{
-    color:#888;
-    font-size:11px;
-    margin:0 8px 12px;
-    letter-spacing:1px;
+.side-title{
+
+    padding:
+        4px
+        12px
+        16px;
+
+    border-bottom:
+        1px solid var(--line-soft);
+
+    margin-bottom:
+        10px;
 }
 
-.packageList{
-    display:flex;
-    flex-direction:column;
-    gap:7px;
+.side-title b{
+
+    font-family: var(--serif);
+    font-size:15px;
+    font-weight:700;
 }
 
-.packageBtn{
-    width:100%;
-    border:1px solid transparent;
-    background:rgba(255,255,255,.035);
-    color:#aaa;
-    border-radius:12px;
-    padding:12px 13px;
-    cursor:pointer;
-    text-align:right;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    transition:.2s;
-}
+.side-title span{
 
-.packageBtn:hover,
-.packageBtn:focus{
-    outline:none;
-    background:rgba(212,170,70,.09);
-    border-color:rgba(212,170,70,.35);
-    color:#fff;
-}
+    display:block;
 
-.packageBtn.active{
-    background:linear-gradient(135deg,rgba(212,170,70,.22),rgba(212,170,70,.06));
-    border-color:rgba(212,170,70,.55);
-    color:#f4d67b;
-}
+    color:var(--faint);
 
-.packageLogo{
-    width:32px;
-    height:32px;
-    object-fit:contain;
-    border-radius:8px;
-    background:#111;
-    flex:none;
-}
-
-.packageName{
-    flex:1;
-    font-size:13px;
-    font-weight:bold;
-}
-
-.packageCount{
     font-size:10px;
-    color:#777;
+
+    margin-top:5px;
 }
 
-/* ================= CONTENT ================= */
+.package{
+
+    width:100%;
+
+    min-height:
+        44px;
+
+    border:0;
+    border-right:
+        2px solid transparent;
+
+    border-radius:
+        3px;
+
+    background:
+        transparent;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:11px;
+
+    padding:
+        0 12px;
+
+    margin-bottom:
+        2px;
+
+    text-align:right;
+
+    cursor:pointer;
+
+    color:var(--muted);
+
+    transition:
+        color .15s, background-color .15s, border-color .15s;
+}
+
+.package .ico{
+
+    width:20px;
+
+    text-align:center;
+
+    color:var(--gold-deep);
+
+    font-size:13px;
+
+    transition: color .15s;
+}
+
+.package .name{
+
+    flex:1;
+
+    font-size:12px;
+
+    font-weight:500;
+}
+
+.package .arrow{
+
+    color:var(--faint);
+
+    font-size:12px;
+}
+
+.package:hover,
+.package:focus-visible{
+
+    color:var(--text);
+
+    background:
+        rgba(255,255,255,.035);
+}
+
+.package.active{
+
+    color:var(--gold-soft);
+
+    background:
+        rgba(205,161,90,.08);
+
+    border-right-color:
+        var(--gold);
+}
+
+.package.active .ico{
+
+    color:var(--gold);
+}
+
+
+/* =========================================================
+   CONTENT
+========================================================= */
 
 .content{
+
     min-width:0;
-    min-height:0;
-    overflow:hidden;
-    padding:18px;
+
     display:flex;
+
     flex-direction:column;
-    gap:15px;
+
+    gap:20px;
 }
 
-/* ================= PLAYER ================= */
 
-.playerBox{
+/* =========================================================
+   PLAYER
+========================================================= */
+
+.hero{
+
     position:relative;
-    width:100%;
-    height:45vh;
-    min-height:260px;
-    max-height:600px;
-    background:#000;
-    border-radius:18px;
+
+    min-height:
+        340px;
+
+    border:
+        1px solid var(--line-soft);
+
+    border-radius:
+        6px;
+
     overflow:hidden;
-    border:1px solid rgba(212,170,70,.20);
-    box-shadow:
-        0 20px 60px rgba(0,0,0,.45),
-        inset 0 0 40px rgba(255,255,255,.015);
+
+    background:#000;
 }
 
-#video{
+#videoContainer{
+
+    position:relative;
+
+    min-height:
+        340px;
+
+    background:#000;
+}
+
+video{
+
     width:100%;
+
     height:100%;
+
+    min-height:
+        340px;
+
     display:block;
+
+    object-fit:
+        contain;
+
     background:#000;
-    object-fit:contain;
 }
 
-.playerOverlay{
+
+/* =========================================================
+   EMPTY PLAYER
+========================================================= */
+
+.empty{
+
     position:absolute;
+
     inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+
+    display:grid;
+
+    place-items:center;
+
     pointer-events:none;
+
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            rgba(205,161,90,.06),
+            transparent 50%
+        );
+
+    z-index:3;
 }
 
-.playerMessage{
-    padding:15px 22px;
-    border-radius:12px;
-    background:rgba(0,0,0,.72);
-    border:1px solid rgba(212,170,70,.25);
-    color:#aaa;
+.empty div{
+
     text-align:center;
-    backdrop-filter:blur(10px);
 }
 
-.playerMessage strong{
+.empty-logo-img{
+
+    width:64px;
+    height:64px;
+
+    margin:
+        auto
+        auto
+        16px;
+
+    border-radius:
+        16px;
+
+    object-fit:
+        cover;
+
+    border:
+        1px solid
+        rgba(205,161,90,.35);
+
+    opacity:.85;
+}
+
+.empty b{
+
+    font-family: var(--serif);
+    font-size:16px;
+    font-weight:400;
+}
+
+.empty small{
+
     display:block;
-    color:#e7c968;
-    margin-bottom:5px;
+
+    margin-top:
+        7px;
+
+    color:var(--faint);
+
+    font-size:11px;
 }
 
-.playerTop{
+
+/* =========================================================
+   OVERLAY
+========================================================= */
+
+.overlay{
+
     position:absolute;
-    top:14px;
-    right:14px;
-    left:14px;
-    display:flex;
-    justify-content:space-between;
+
+    inset:0;
+
     pointer-events:none;
+
+    background:
+
+        linear-gradient(
+            90deg,
+            rgba(0,0,0,.6),
+            transparent 42%
+        ),
+
+        linear-gradient(
+            0deg,
+            rgba(0,0,0,.68),
+            transparent 32%
+        );
+
+    z-index:1;
 }
 
-.nowPlaying{
-    max-width:70%;
-    padding:8px 12px;
-    border-radius:9px;
-    background:rgba(0,0,0,.65);
-    font-size:12px;
-    color:#ddd;
-    overflow:hidden;
-    white-space:nowrap;
-    text-overflow:ellipsis;
+
+/* =========================================================
+   NOW PLAYING
+========================================================= */
+
+.now{
+
+    position:absolute;
+
+    right:24px;
+
+    top:22px;
+
+    z-index:2;
+
+    max-width:55%;
 }
 
-.fullscreenBtn{
-    pointer-events:auto;
-    border:1px solid rgba(212,170,70,.4);
-    background:rgba(0,0,0,.65);
-    color:#e6c75d;
-    border-radius:9px;
-    padding:8px 12px;
+.live{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    gap:7px;
+
+    padding:
+        6px 10px;
+
+    border-radius:
+        3px;
+
+    background:
+        rgba(6,8,12,.65);
+
+    border:
+        1px solid
+        var(--line-soft);
+
+    font-size:10px;
+
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+    color:var(--muted);
+}
+
+.live i{
+
+    width:6px;
+    height:6px;
+
+    border-radius:
+        50%;
+
+    background:
+        var(--emerald);
+
+    box-shadow:
+        0 0 8px rgba(63,174,125,.8);
+}
+
+.now h2{
+
+    font-family: var(--serif);
+    font-weight:700;
+
+    font-size:26px;
+
+    margin-top:14px;
+
+    text-shadow:
+        0 4px 18px #000;
+}
+
+.now p{
+
+    font-size:11px;
+
+    color:var(--muted);
+
+    margin-top:6px;
+
+    padding-top:8px;
+
+    border-top:1px solid var(--line-soft);
+
+    display:inline-block;
+}
+
+
+/* =========================================================
+   FULLSCREEN
+========================================================= */
+
+.fullscreen{
+
+    position:absolute;
+
+    left:20px;
+
+    bottom:20px;
+
+    z-index:5;
+
+    width:40px;
+    height:40px;
+
+    border:
+        1px solid
+        var(--line-soft);
+
+    border-radius:
+        3px;
+
+    background:
+        rgba(6,8,12,.65);
+
     cursor:pointer;
+
+    font-size:16px;
+
+    color:var(--gold-soft);
+
+    transition: border-color .15s, background-color .15s;
 }
 
-.fullscreenBtn:hover{
-    background:rgba(212,170,70,.16);
+.fullscreen:hover,
+.fullscreen:focus-visible{
+
+    border-color: var(--gold);
+    background: rgba(6,8,12,.85);
 }
 
-/* ================= CHANNEL HEADER ================= */
 
-.sectionHead{
+/* =========================================================
+   PLAYER ERROR
+========================================================= */
+
+#playerError{
+
+    display:none;
+
+    position:absolute;
+
+    left:50%;
+
+    top:50%;
+
+    transform:
+        translate(-50%,-50%);
+
+    z-index:10;
+
+    width:min(90%,420px);
+
+    padding:
+        20px;
+
+    text-align:center;
+
+    border:
+        1px solid
+        var(--line);
+
+    border-radius:
+        4px;
+
+    background:
+        rgba(5,7,11,.94);
+
+    backdrop-filter:
+        blur(12px);
+
+    color:var(--text);
+
+    font-size:12px;
+
+    line-height:
+        1.8;
+
+    white-space:pre-line;
+}
+
+
+/* =========================================================
+   CHANNEL HEADER
+========================================================= */
+
+.head{
+
     display:flex;
+
+    align-items:center;
+
     justify-content:space-between;
+
+    padding:
+        4px 4px 8px;
+
+    border-bottom:
+        1px solid var(--line-soft);
+}
+
+.head h2{
+
+    font-family: var(--serif);
+    font-size:19px;
+
+    font-weight:700;
+
+    display:flex;
     align-items:center;
     gap:10px;
 }
 
-.sectionHead h2{
-    font-size:18px;
+.head h2:before{
+
+    content:"";
+
+    display:inline-block;
+
+    width:6px;
+    height:6px;
+
+    border-radius:
+        50%;
+
+    background:
+        var(--gold);
 }
 
-.sectionHead span{
-    color:#777;
-    font-size:11px;
+.count{
+
+    padding:
+        6px 11px;
+
+    border:
+        1px solid var(--line-soft);
+
+    border-radius:
+        3px;
+
+    background:
+        transparent;
+
+    color:var(--faint);
+
+    font-size:10px;
 }
 
-/* ================= CHANNELS ================= */
+
+/* =========================================================
+   CHANNELS
+========================================================= */
 
 .channels{
-    min-height:0;
-    overflow-y:auto;
-    padding:2px 2px 20px;
-}
 
-.channelGrid{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-    gap:12px;
+
+    grid-template-columns:
+        repeat(
+            2,
+            minmax(0,1fr)
+        );
+
+    gap:10px;
 }
 
-.channelCard{
-    position:relative;
-    min-height:145px;
-    border:1px solid rgba(255,255,255,.07);
+.channel{
+
+    min-height:
+        76px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:13px;
+
+    padding:
+        10px 13px;
+
+    border:
+        1px solid var(--line-soft);
+
+    border-radius:
+        5px;
+
     background:
-        linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
-    border-radius:15px;
-    padding:13px;
+        linear-gradient(
+            135deg,
+            var(--card),
+            var(--card2)
+        );
+
     cursor:pointer;
-    transition:.2s;
-    outline:none;
+
+    transition:
+        border-color .15s, background-color .15s;
+
+    text-align:right;
+
+    width:100%;
 }
 
-.channelCard:hover,
-.channelCard:focus{
-    transform:translateY(-2px);
-    border-color:rgba(212,170,70,.48);
+.channel:hover,
+.channel:focus-visible{
+
+    border-color:
+        rgba(205,161,90,.45);
+
     background:
-        linear-gradient(145deg,rgba(212,170,70,.11),rgba(255,255,255,.025));
-    box-shadow:0 12px 35px rgba(0,0,0,.30);
+        linear-gradient(
+            135deg,
+            rgba(26,22,15,.9),
+            rgba(12,14,19,.9)
+        );
 }
 
-.channelCard.active{
-    border-color:#d4aa46;
-    box-shadow:
-        0 0 0 1px rgba(212,170,70,.22),
-        0 12px 35px rgba(0,0,0,.3);
+.channel.active{
+
+    border-color:
+        var(--gold);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(35,28,15,.92),
+            rgba(13,15,20,.92)
+        );
 }
 
-.channelLogoBox{
-    height:76px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    margin-bottom:10px;
-}
+.channel-logo{
 
-.channelLogo{
-    max-width:100%;
-    max-height:70px;
-    object-fit:contain;
-}
+    width:46px;
+    height:46px;
 
-.channelFallback{
-    width:60px;
-    height:60px;
-    border-radius:16px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:linear-gradient(135deg,#d4aa46,#765511);
-    color:#050505;
-    font-size:20px;
-    font-weight:900;
-}
+    flex:
+        0 0 46px;
 
-.channelName{
-    font-size:13px;
-    font-weight:bold;
-    margin-bottom:8px;
-    white-space:nowrap;
+    border-radius:
+        4px;
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid
+        var(--line-soft);
+
+    display:grid;
+
+    place-items:center;
+
     overflow:hidden;
-    text-overflow:ellipsis;
+
+    color:var(--gold-soft);
+
+    font-size:12px;
+
+    font-weight:700;
 }
 
-.qualityList{
+.channel-logo img{
+
+    width:100%;
+    height:100%;
+
+    object-fit:
+        contain;
+}
+
+.channel-main{
+
+    min-width:0;
+
+    flex:1;
+}
+
+.channel-name{
+
+    display:block;
+
+    font-size:13px;
+
+    font-weight:700;
+
+    white-space:
+        nowrap;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+}
+
+.channel-package{
+
+    display:block;
+
+    font-size:10px;
+
+    color:var(--faint);
+
+    margin-top:5px;
+}
+
+.quality-row{
+
     display:flex;
-    flex-wrap:wrap;
+
     gap:5px;
+
+    margin-top:7px;
 }
 
-.qualityBtn{
-    border:1px solid rgba(212,170,70,.25);
-    background:rgba(212,170,70,.06);
-    color:#cdb66e;
-    border-radius:6px;
-    padding:4px 7px;
+.quality{
+
+    padding:
+        3px 7px;
+
+    border-radius:
+        3px;
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid var(--line-soft);
+
+    color:var(--muted);
+
     font-size:9px;
+
+    font-weight:700;
+
     cursor:pointer;
+
+    font-family:inherit;
 }
 
-.qualityBtn:hover,
-.qualityBtn:focus{
-    outline:none;
-    background:#d4aa46;
-    color:#050505;
+.quality:hover,
+.quality:focus-visible{
+
+    color:var(--gold-soft);
+
+    border-color:
+        rgba(205,161,90,.45);
+
+    background:
+        rgba(205,161,90,.08);
 }
 
-.qualityBtn.active{
-    background:#d4aa46;
-    color:#050505;
+.quality:first-child{
+
+    color:var(--gold-soft);
+
+    border-color:
+        rgba(205,161,90,.3);
 }
 
-.noChannels{
-    padding:40px 20px;
+.play{
+
+    width:28px;
+    height:28px;
+
+    border-radius:
+        4px;
+
+    display:grid;
+
+    place-items:center;
+
+    background:
+        transparent;
+
+    border:1px solid var(--line-soft);
+
+    color:var(--gold);
+
+    font-size:11px;
+
+    flex:0 0 28px;
+}
+
+.empty-list{
+
+    padding:
+        40px;
+
     text-align:center;
-    color:#777;
-    border:1px dashed rgba(255,255,255,.1);
-    border-radius:15px;
+
+    color:var(--faint);
+
+    font-size:12px;
+
+    border:
+        1px dashed
+        var(--line-soft);
+
+    border-radius:
+        5px;
 }
 
-/* ================= LOADING ================= */
 
-.loading{
+/* =========================================================
+   FOOTER NOTE
+========================================================= */
+
+.foot-note{
+
     text-align:center;
-    padding:50px;
-    color:#777;
+
+    padding:
+        10px 0 4px;
+
+    color:var(--faint);
+
+    font-size:10px;
+
+    font-family: var(--serif);
+    font-style:italic;
 }
 
-.spinner{
-    width:35px;
-    height:35px;
-    border:3px solid rgba(212,170,70,.15);
-    border-top-color:#d4aa46;
-    border-radius:50%;
-    animation:spin .8s linear infinite;
-    margin:0 auto 15px;
-}
 
-@keyframes spin{
-    to{transform:rotate(360deg)}
-}
+/* =========================================================
+   RESPONSIVE
+========================================================= */
 
-/* ================= MOBILE ================= */
+@media(max-width:900px){
 
-@media(max-width:800px){
+    .layout{
 
-    html,body{
-        overflow:auto;
-    }
-
-    .header{
-        height:60px;
-        padding:0 12px;
-    }
-
-    .brandText strong{
-        font-size:16px;
-    }
-
-    .brandText span{
-        font-size:8px;
-    }
-
-    .liveStatus{
-        display:none;
-    }
-
-    .app{
-        height:auto;
-        min-height:calc(100vh - 60px);
-        display:block;
+        grid-template-columns:
+            1fr;
     }
 
     .sidebar{
-        border:0;
-        padding:10px;
-        overflow:hidden;
+
+        position:
+            relative;
+
+        top:auto;
+
+        height:auto;
+
+        min-height:
+            0;
     }
 
-    .sidebarTitle{
+    .channels{
+
+        grid-template-columns:
+            1fr;
+    }
+}
+
+@media(max-width:600px){
+
+    header{
+
+        padding:
+            0 16px;
+    }
+
+    .layout{
+
+        padding:
+            14px;
+    }
+
+    .status{
+
         display:none;
     }
 
-    .packageList{
-        flex-direction:row;
-        overflow-x:auto;
-        padding-bottom:4px;
+    .hero,
+    #videoContainer,
+    video{
+
+        min-height:
+            220px;
     }
 
-    .packageBtn{
-        width:auto;
-        min-width:max-content;
-        padding:8px 11px;
+    .now{
+        max-width:70%;
     }
 
-    .packageLogo{
-        width:26px;
-        height:26px;
-    }
+    .now h2{
 
-    .packageCount{
-        display:none;
-    }
-
-    .content{
-        padding:10px;
-        overflow:visible;
-    }
-
-    .playerBox{
-        height:30vh;
-        min-height:190px;
-        border-radius:13px;
-    }
-
-    .channelGrid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-    }
-
-    .channelCard{
-        min-height:130px;
-        padding:9px;
-        border-radius:12px;
-    }
-
-    .channelLogoBox{
-        height:58px;
-    }
-
-    .channelLogo{
-        max-height:55px;
-    }
-
-    .channelFallback{
-        width:45px;
-        height:45px;
-        font-size:16px;
-    }
-
-    .channelName{
-        font-size:11px;
-    }
-
-    .qualityBtn{
-        font-size:8px;
-        padding:3px 5px;
+        font-size:
+            19px;
     }
 }
 
-/* ================= FULLSCREEN ================= */
-
-.playerBox:fullscreen{
-    width:100vw;
-    height:100vh;
-    max-height:none;
-    border-radius:0;
-}
-
-.playerBox:fullscreen .playerTop{
-    z-index:20;
-}
-
-.playerBox:fullscreen #video{
-    width:100vw;
-    height:100vh;
-}
 </style>
+
 </head>
+
 
 <body>
 
-<header class="header">
+
+<header>
 
     <div class="brand">
-        <div class="logoMark">NT</div>
 
-        <div class="brandText">
-            <strong>NIYATI TV</strong>
-            <span>SPORTS IPTV</span>
+        <img
+            src="logo.png"
+            alt="Niyati TV Logo"
+            class="logo-img"
+        >
+
+        <div>
+
+            <h1>
+                Niyati TV
+            </h1>
+
+            <small>
+                بثّ حي فاخر، بلا انقطاع
+            </small>
+
         </div>
+
     </div>
 
-    <div class="liveStatus">
-        <span class="liveDot"></span>
-        LIVE
+
+    <div class="status">
+
+        <i></i>
+
+        <span>
+            البث المباشر متاح
+        </span>
+
     </div>
 
 </header>
 
 
-<div class="app">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
+<div class="layout">
 
-        <div class="sidebarTitle">
-            PACKAGES
-        </div>
 
-        <div id="packageList" class="packageList">
-            <div class="loading">
-                جاري التحميل...
-            </div>
+    <aside
+        class="sidebar"
+        id="packagesLayout"
+    >
+
+        <div class="side-title">
+
+            <b>
+                الباقات
+            </b>
+
+            <span>
+                اختر باقة لمشاهدة القنوات
+            </span>
+
         </div>
 
     </aside>
 
 
-    <!-- CONTENT -->
+
     <main class="content">
 
-        <!-- PLAYER -->
-        <section class="playerBox" id="playerBox">
 
-            <video
-                id="video"
-                playsinline
-                controls
-                preload="metadata">
-            </video>
+        <section class="hero">
 
-            <div class="playerTop">
+            <div id="videoContainer">
 
-                <div class="nowPlaying" id="nowPlaying">
-                    NIYATI TV
+
+                <video
+                    id="video"
+                    controls
+                    playsinline
+                    preload="none"
+                ></video>
+
+
+                <div
+                    class="empty"
+                    id="playerEmpty"
+                >
+
+                    <div>
+
+                        <img
+                            src="logo.png"
+                            alt="Niyati TV Logo"
+                            class="empty-logo-img"
+                        >
+
+                        <b>
+                            اختر قناة للبدء
+                        </b>
+
+                        <small>
+                            اختر القناة ثم اضغط تشغيل
+                        </small>
+
+                    </div>
+
                 </div>
 
+
+                <div class="overlay"></div>
+
+
+                <div class="now">
+
+                    <span class="live">
+
+                        <i></i>
+
+                        مباشر
+
+                    </span>
+
+
+                    <h2 id="nowPlaying">
+                        Niyati TV
+                    </h2>
+
+
+                    <p id="nowPlayingSub">
+                        جاهز للبث المباشر
+                    </p>
+
+                </div>
+
+
+                <div
+                    id="playerError"
+                ></div>
+
+
                 <button
-                    class="fullscreenBtn"
-                    id="fullscreenBtn">
+                    class="fullscreen"
+                    id="fullscreenButton"
+                    aria-label="ملء الشاشة"
+                    type="button"
+                >
                     ⛶
                 </button>
 
-            </div>
-
-            <div class="playerOverlay" id="playerOverlay">
-
-                <div class="playerMessage" id="playerMessage">
-                    <strong>NIYATI TV</strong>
-                    اختار قناة حتى يبدأ البث
-                </div>
 
             </div>
 
         </section>
 
 
-        <!-- SECTION HEADER -->
-        <div class="sectionHead">
 
-            <h2 id="packageTitle">
-                القنوات
-            </h2>
+        <section>
 
-            <span id="channelCount">
-                0 قناة
-            </span>
+            <div class="head">
 
+                <h2 id="channelTitle">
+                    كل القنوات
+                </h2>
+
+                <span
+                    class="count"
+                    id="channelCount"
+                >
+                    0 قناة
+                </span>
+
+            </div>
+
+
+            <div
+                class="channels"
+                id="channelsLayout"
+            ></div>
+
+        </section>
+
+
+        <div class="foot-note">
+            Niyati TV — تجربة مشاهدة فاخرة
         </div>
 
-
-        <!-- CHANNELS -->
-        <section class="channels">
-
-            <div id="channelGrid" class="channelGrid">
-
-                <div class="noChannels">
-                    اختار باقة من القائمة
-                </div>
-
-            </div>
-
-        </section>
 
     </main>
 
 </div>
 
 
-<!-- IMPORTANT:
-     channels.js must be in the SAME folder as index.html
--->
+
+<!-- =========================================================
+     CHANNEL DATA
+========================================================= -->
+
 <script src="./channels.js"></script>
 
 
+
+<!-- =========================================================
+     NIYATI TV PLAYER
+========================================================= -->
+
 <script>
-"use strict";
 
-/* =========================================================
-   NIYATI TV CONTROLLER
-   ========================================================= */
-
-const video = document.getElementById("video");
-const playerBox = document.getElementById("playerBox");
-const fullscreenBtn = document.getElementById("fullscreenBtn");
-const packageList = document.getElementById("packageList");
-const channelGrid = document.getElementById("channelGrid");
-const packageTitle = document.getElementById("packageTitle");
-const channelCount = document.getElementById("channelCount");
-const nowPlaying = document.getElementById("nowPlaying");
-const playerOverlay = document.getElementById("playerOverlay");
-const playerMessage = document.getElementById("playerMessage");
-
-
-/* =========================================================
-   CHECK CHANNELS.JS
-   ========================================================= */
-
-const channelData =
-    (typeof channels !== "undefined" && Array.isArray(channels))
-        ? channels
-        : [];
-
-if (!channelData.length) {
-
-    packageList.innerHTML = `
-        <div style="
-            padding:20px;
-            color:#d66;
-            font-size:12px;
-            line-height:1.8;
-        ">
-            ⚠️ ما لكيت القنوات.<br>
-            تأكد أن ملف <b>channels.js</b><br>
-            موجود بنفس مجلد index.html
-        </div>
-    `;
-
-    channelGrid.innerHTML = `
-        <div class="noChannels">
-            ملف channels.js لم يتم تحميله
-        </div>
-    `;
-
-    console.error(
-        "NIYATI TV: channels.js غير محمل أو channels ليست Array"
-    );
-
-} else {
-
-    console.log(
-        "NIYATI TV:",
-        channelData.length,
-        "channels loaded"
-    );
-
-}
-
-
-/* =========================================================
-   PLAYER STATE
-   ========================================================= */
-
-let hlsPlayer = null;
-let dashPlayer = null;
 let mpegPlayer = null;
 
+let hlsPlayer = null;
+
+let dashPlayer = null;
+
+let currentUrl = null;
+
 let retryTimer = null;
+
 let retryCount = 0;
 
 const MAX_RETRIES = 5;
+
 const RETRY_DELAY = 3000;
 
-let currentChannel = null;
-let currentQuality = 0;
+const video =
+    document.getElementById("video");
 
 
-/* =========================================================
-   PACKAGES
-   ========================================================= */
+function stopChannel(){
 
-let packages = [];
+    clearTimeout(
+        retryTimer
+    );
+
+    retryTimer = null;
 
 
-function buildPackages(){
+    try{
 
-    const map = new Map();
+        if(mpegPlayer){
 
-    channelData.forEach(channel => {
+            mpegPlayer.pause();
 
-        if (!channel) return;
+            mpegPlayer.unload();
 
-        const packageName =
-            channel.package ||
-            "OTHER";
+            mpegPlayer.detachMediaElement();
 
-        if (!map.has(packageName)) {
-
-            map.set(packageName,{
-                name:packageName,
-                logo:channel.logo || "",
-                channels:[]
-            });
-
+            mpegPlayer.destroy();
         }
 
-        map.get(packageName).channels.push(channel);
+    }catch(e){}
 
-    });
-
-    packages = Array.from(map.values());
-
-    renderPackages();
-
-    if(packages.length){
-
-        selectPackage(packages[0].name);
-
-    }
-
-}
+    mpegPlayer = null;
 
 
-/* =========================================================
-   RENDER PACKAGES
-   ========================================================= */
+    try{
 
-function renderPackages(){
+        if(hlsPlayer){
 
-    packageList.innerHTML = "";
-
-    packages.forEach(pkg => {
-
-        const button =
-            document.createElement("button");
-
-        button.className = "packageBtn";
-
-        button.type = "button";
-
-        button.dataset.package = pkg.name;
-
-        const logo = document.createElement("img");
-
-        logo.className = "packageLogo";
-
-        logo.alt = "";
-
-        if(pkg.logo){
-
-            logo.src = pkg.logo;
-
-            logo.onerror = () => {
-
-                logo.style.display = "none";
-
-            };
-
-        }else{
-
-            logo.style.display = "none";
-
+            hlsPlayer.destroy();
         }
 
+    }catch(e){}
 
-        const name =
-            document.createElement("span");
-
-        name.className = "packageName";
-
-        name.textContent = pkg.name;
+    hlsPlayer = null;
 
 
-        const count =
-            document.createElement("span");
+    try{
 
-        count.className = "packageCount";
+        if(dashPlayer){
 
-        count.textContent =
-            pkg.channels.length;
+            dashPlayer.reset();
+        }
 
+    }catch(e){}
 
-        button.appendChild(logo);
-        button.appendChild(name);
-        button.appendChild(count);
+    dashPlayer = null;
 
 
-        button.addEventListener(
-            "click",
-            () => selectPackage(pkg.name)
-        );
+    if(video){
 
+        try{
 
-        packageList.appendChild(button);
+            video.pause();
 
-    });
-
-}
-
-
-/* =========================================================
-   SELECT PACKAGE
-   ========================================================= */
-
-function selectPackage(packageName){
-
-    const pkg =
-        packages.find(
-            p => p.name === packageName
-        );
-
-    if(!pkg) return;
-
-
-    document
-        .querySelectorAll(".packageBtn")
-        .forEach(btn => {
-
-            btn.classList.toggle(
-                "active",
-                btn.dataset.package === packageName
+            video.removeAttribute(
+                "src"
             );
 
-        });
+            video.load();
 
-
-    packageTitle.textContent =
-        pkg.name;
-
-
-    channelCount.textContent =
-        `${pkg.channels.length} قناة`;
-
-
-    renderChannels(pkg.channels);
-
+        }catch(e){}
+    }
 }
 
 
-/* =========================================================
-   RENDER CHANNELS
-   ========================================================= */
+function loadScript(src){
 
-function renderChannels(list){
+    return new Promise(
+        function(resolve,reject){
 
-    channelGrid.innerHTML = "";
-
-
-    if(!list.length){
-
-        channelGrid.innerHTML = `
-            <div class="noChannels">
-                لا توجد قنوات بهذه الباقة
-            </div>
-        `;
-
-        return;
-
-    }
-
-
-    list.forEach((channel,index) => {
-
-        const card =
-            document.createElement("article");
-
-        card.className = "channelCard";
-
-        card.tabIndex = 0;
-
-        card.dataset.channelId =
-            channel.id || index;
-
-
-        /* ================= LOGO ================= */
-
-        const logoBox =
-            document.createElement("div");
-
-        logoBox.className =
-            "channelLogoBox";
-
-
-        if(channel.logo){
-
-            const img =
-                document.createElement("img");
-
-            img.className =
-                "channelLogo";
-
-            img.alt =
-                channel.name || "Channel";
-
-            img.src =
-                channel.logo;
-
-
-            img.onerror = () => {
-
-                img.remove();
-
-                const fallback =
-                    createFallbackLogo();
-
-                logoBox.appendChild(fallback);
-
-            };
-
-
-            logoBox.appendChild(img);
-
-        }else{
-
-            logoBox.appendChild(
-                createFallbackLogo()
-            );
-
-        }
-
-
-        /* ================= NAME ================= */
-
-        const name =
-            document.createElement("div");
-
-        name.className =
-            "channelName";
-
-        name.textContent =
-            channel.name ||
-            "Unknown Channel";
-
-
-        /* ================= QUALITY ================= */
-
-        const qualityList =
-            document.createElement("div");
-
-        qualityList.className =
-            "qualityList";
-
-
-        const qualities =
-            Array.isArray(channel.qualities)
-                ? channel.qualities
-                : [];
-
-
-        qualities.forEach((quality,qIndex) => {
-
-            if(!quality || !quality.url)
-                return;
-
-
-            const qualityBtn =
-                document.createElement("button");
-
-            qualityBtn.type = "button";
-
-            qualityBtn.className =
-                "qualityBtn";
-
-
-            if(qIndex === 0){
-
-                qualityBtn.classList.add(
-                    "active"
+            const old =
+                document.querySelector(
+                    `script[src="${src}"]`
                 );
 
-            }
 
-
-            qualityBtn.textContent =
-                quality.name ||
-                `Q${qIndex + 1}`;
-
-
-            qualityBtn.addEventListener(
-                "click",
-                event => {
-
-                    event.stopPropagation();
-
-                    playChannelFromUI(
-                        channel,
-                        qIndex
-                    );
-
-                    card
-                        .querySelectorAll(".qualityBtn")
-                        .forEach(
-                            b => b.classList.remove("active")
-                        );
-
-                    qualityBtn.classList.add("active");
-
-                }
-            );
-
-
-            qualityList.appendChild(
-                qualityBtn
-            );
-
-        });
-
-
-        card.appendChild(logoBox);
-        card.appendChild(name);
-        card.appendChild(qualityList);
-
-
-        /* ================= CARD CLICK ================= */
-
-        card.addEventListener(
-            "click",
-            () => {
-
-                playChannelFromUI(
-                    channel,
-                    0
-                );
-
-                document
-                    .querySelectorAll(".channelCard")
-                    .forEach(
-                        c => c.classList.remove("active")
-                    );
-
-                card.classList.add("active");
-
-            }
-        );
-
-
-        /* ================= KEYBOARD / TV ================= */
-
-        card.addEventListener(
-            "keydown",
-            event => {
+            if(old){
 
                 if(
-                    event.key === "Enter" ||
-                    event.key === " "
+                    src.includes("hls.js") &&
+                    window.Hls
                 ){
 
-                    event.preventDefault();
+                    resolve();
 
-                    playChannelFromUI(
-                        channel,
-                        0
-                    );
-
-                    card.classList.add("active");
-
+                    return;
                 }
 
+
+                if(
+                    src.includes("mpegts.js") &&
+                    window.mpegts
+                ){
+
+                    resolve();
+
+                    return;
+                }
+
+
+                if(
+                    src.includes("dash.all") &&
+                    window.dashjs
+                ){
+
+                    resolve();
+
+                    return;
+                }
+
+
+                old.addEventListener(
+                    "load",
+                    resolve,
+                    {once:true}
+                );
+
+                old.addEventListener(
+                    "error",
+                    reject,
+                    {once:true}
+                );
+
+                return;
             }
-        );
 
 
-        channelGrid.appendChild(card);
+            const script =
+                document.createElement(
+                    "script"
+                );
 
-    });
 
+            script.src = src;
+
+            script.async = true;
+
+
+            script.onload =
+                resolve;
+
+
+            script.onerror =
+                function(){
+
+                    reject(
+                        new Error(
+                            "تعذر تحميل مكتبة المشغل"
+                        )
+                    );
+
+                };
+
+
+            document.head.appendChild(
+                script
+            );
+
+        }
+    );
 }
 
 
-/* =========================================================
-   FALLBACK LOGO
-   ========================================================= */
+function detectStreamType(url){
 
-function createFallbackLogo(){
+    if(!url){
 
-    const fallback =
-        document.createElement("div");
-
-    fallback.className =
-        "channelFallback";
-
-    fallback.textContent =
-        "NT";
-
-    return fallback;
-
-}
-
-
-/* =========================================================
-   PLAY CHANNEL
-   ========================================================= */
-
-function playChannelFromUI(
-    channel,
-    qualityIndex = 0
-){
-
-    if(!channel)
-        return;
-
-
-    if(
-        !Array.isArray(channel.qualities) ||
-        !channel.qualities.length
-    ){
-
-        showPlayerMessage(
-            "خطأ",
-            "هذه القناة ما بيها رابط بث"
-        );
-
-        return;
-
+        return "unknown";
     }
 
 
-    const quality =
-        channel.qualities[qualityIndex] ||
-        channel.qualities[0];
-
-
-    if(!quality || !quality.url){
-
-        showPlayerMessage(
-            "خطأ",
-            "رابط البث غير موجود"
-        );
-
-        return;
-
-    }
-
-
-    currentChannel = channel;
-    currentQuality = qualityIndex;
-
-
-    nowPlaying.textContent =
-        `${channel.name || "Channel"} • ${quality.name || ""}`;
-
-
-    showPlayerMessage(
-        "جاري التشغيل",
-        channel.name || "Channel"
-    );
-
-
-    loadStream(
-        quality.url,
-        channel
-    );
-
-}
-
-
-/* =========================================================
-   LOAD STREAM
-   ========================================================= */
-
-async function loadStream(
-    url,
-    channel
-){
-
-    stopPlayers();
-
-    clearTimeout(retryTimer);
-
-    retryCount = 0;
-
-
-    const cleanUrl =
-        String(url || "").trim();
-
-
-    if(!cleanUrl){
-
-        showPlayerMessage(
-            "خطأ",
-            "الرابط فارغ"
-        );
-
-        return;
-
-    }
-
-
-    console.log(
-        "NIYATI PLAY:",
-        cleanUrl
-    );
+    const clean =
+        url
+            .split("#")[0]
+            .split("?")[0]
+            .toLowerCase();
 
 
     const lower =
-        cleanUrl.toLowerCase();
+        url.toLowerCase();
 
-
-    /* ================= RTSP ================= */
 
     if(
-        lower.startsWith("rtsp://")
+        clean.endsWith(".m3u8") ||
+        lower.includes(".m3u8?")
     ){
 
-        showPlayerMessage(
-            "غير مدعوم بالمتصفح",
-            "RTSP يحتاج سيرفر تحويل إلى HLS"
-        );
-
-        return;
-
+        return "hls";
     }
 
 
-    /* ================= RTMP ================= */
+    if(
+        clean.endsWith(".mpd") ||
+        lower.includes(".mpd?")
+    ){
+
+        return "dash";
+    }
+
+
+    if(
+        clean.endsWith(".ts") ||
+        clean.endsWith(".mpegts") ||
+        clean.endsWith(".m2ts")
+    ){
+
+        return "mpegts";
+    }
+
+
+    if(
+        clean.endsWith(".mp4") ||
+        clean.endsWith(".m4v")
+    ){
+
+        return "mp4";
+    }
+
+
+    if(
+        clean.endsWith(".webm")
+    ){
+
+        return "webm";
+    }
+
+
+    if(
+        clean.endsWith(".ogv") ||
+        clean.endsWith(".ogg")
+    ){
+
+        return "ogg";
+    }
+
 
     if(
         lower.startsWith("rtmp://")
     ){
 
-        showPlayerMessage(
-            "غير مدعوم بالمتصفح",
-            "RTMP يحتاج تحويل إلى HLS"
-        );
-
-        return;
-
+        return "rtmp";
     }
 
-
-    /* ================= HEADERS ================= */
-
-    const headers = {};
-
-
-    if(channel){
-
-        if(channel.userAgent){
-
-            headers[
-                "User-Agent"
-            ] = channel.userAgent;
-
-        }
-
-        if(channel.referer){
-
-            headers[
-                "Referer"
-            ] = channel.referer;
-
-        }
-
-    }
-
-
-    /* ================= HLS ================= */
 
     if(
-        lower.includes(".m3u8") ||
-        lower.includes("m3u8?")
+        lower.startsWith("rtsp://")
     ){
 
-        await playHLS(
-            cleanUrl,
-            headers
-        );
-
-        return;
-
+        return "rtsp";
     }
 
 
-    /* ================= DASH ================= */
-
-    if(
-        lower.includes(".mpd") ||
-        lower.includes("mpd?")
-    ){
-
-        await playDASH(
-            cleanUrl,
-            headers
-        );
-
-        return;
-
-    }
-
-
-    /* ================= MPEG TS ================= */
-
-    if(
-        lower.includes(".ts") ||
-        lower.includes("output=ts") ||
-        lower.includes("type=ts")
-    ){
-
-        await playMPEGTS(
-            cleanUrl,
-            headers
-        );
-
-        return;
-
-    }
-
-
-    /* ================= MP4 / WEBM ================= */
-
-    playNative(
-        cleanUrl
-    );
-
+    return "unknown";
 }
 
 
-/* =========================================================
-   HLS
-   ========================================================= */
-
-function playHLS(
+function playNative(
     url,
-    headers
+    mime
 ){
+
+    return new Promise(
+        function(resolve,reject){
+
+            if(!video){
+
+                reject(
+                    new Error(
+                        "عنصر الفيديو غير موجود"
+                    )
+                );
+
+                return;
+            }
+
+
+            let finished = false;
+
+
+            function cleanup(){
+
+                video.removeEventListener(
+                    "loadedmetadata",
+                    success
+                );
+
+                video.removeEventListener(
+                    "canplay",
+                    success
+                );
+
+                video.removeEventListener(
+                    "error",
+                    failed
+                );
+            }
+
+
+            function success(){
+
+                if(finished){
+                    return;
+                }
+
+                finished = true;
+
+                cleanup();
+
+                video
+                    .play()
+                    .catch(
+                        function(){}
+                    );
+
+                resolve();
+            }
+
+
+            function failed(){
+
+                if(finished){
+                    return;
+                }
+
+                finished = true;
+
+                cleanup();
+
+                reject(
+                    new Error(
+                        "المتصفح رفض تشغيل مصدر الفيديو"
+                    )
+                );
+            }
+
+
+            video.addEventListener(
+                "loadedmetadata",
+                success
+            );
+
+
+            video.addEventListener(
+                "canplay",
+                success
+            );
+
+
+            video.addEventListener(
+                "error",
+                failed
+            );
+
+
+            if(mime){
+
+                video.setAttribute(
+                    "type",
+                    mime
+                );
+            }
+
+
+            video.src = url;
+
+            video.load();
+
+        }
+    );
+}
+
+
+async function playHLS(url){
+
+    await loadScript(
+        "https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js"
+    );
+
 
     if(
         video.canPlayType(
@@ -1413,29 +1836,17 @@ function playHLS(
         )
     ){
 
-        video.src = url;
-
-        video.play()
-            .then(() => {
-
-                hidePlayerMessage();
-
-            })
-            .catch(error => {
-
-                handlePlaybackError(
-                    error
-                );
-
-            });
+        await playNative(
+            url,
+            "application/vnd.apple.mpegurl"
+        );
 
         return;
-
     }
 
 
     if(
-        typeof Hls !== "undefined" &&
+        window.Hls &&
         Hls.isSupported()
     ){
 
@@ -1446,48 +1857,36 @@ function playHLS(
 
                 lowLatencyMode:true,
 
+                backBufferLength:30,
+
                 maxBufferLength:30,
 
-                xhrSetup:function(
-                    xhr
-                ){
+                maxMaxBufferLength:60,
 
-                    Object.keys(headers)
-                        .forEach(key => {
+                liveSyncDurationCount:3,
 
-                            try{
-
-                                xhr.setRequestHeader(
-                                    key,
-                                    headers[key]
-                                );
-
-                            }catch(e){}
-
-                        });
-
-                }
-
+                liveMaxLatencyDurationCount:6
             });
 
 
-        hlsPlayer.loadSource(url);
+        hlsPlayer.loadSource(
+            url
+        );
 
-        hlsPlayer.attachMedia(video);
+
+        hlsPlayer.attachMedia(
+            video
+        );
 
 
         hlsPlayer.on(
             Hls.Events.MANIFEST_PARSED,
-            () => {
+            function(){
 
-                video.play()
-                    .then(() => {
-
-                        hidePlayerMessage();
-
-                    })
+                video
+                    .play()
                     .catch(
-                        handlePlaybackError
+                        function(){}
                     );
 
             }
@@ -1496,7 +1895,10 @@ function playHLS(
 
         hlsPlayer.on(
             Hls.Events.ERROR,
-            (event,data) => {
+            function(
+                event,
+                data
+            ){
 
                 console.error(
                     "HLS ERROR:",
@@ -1504,10 +1906,53 @@ function playHLS(
                 );
 
 
-                if(data.fatal){
+                if(!data.fatal){
+                    return;
+                }
 
-                    handlePlaybackError(
-                        data
+
+                if(
+                    data.type ===
+                    Hls.ErrorTypes.NETWORK_ERROR
+                ){
+
+                    try{
+
+                        hlsPlayer.startLoad();
+
+                    }catch(e){
+
+                        scheduleRetry(
+                            url
+                        );
+                    }
+
+                }
+
+
+                else if(
+                    data.type ===
+                    Hls.ErrorTypes.MEDIA_ERROR
+                ){
+
+                    try{
+
+                        hlsPlayer.recoverMediaError();
+
+                    }catch(e){
+
+                        scheduleRetry(
+                            url
+                        );
+                    }
+
+                }
+
+
+                else{
+
+                    scheduleRetry(
+                        url
                     );
 
                 }
@@ -1517,556 +1962,1457 @@ function playHLS(
 
 
         return;
-
     }
 
 
-    showPlayerMessage(
-        "غير مدعوم",
-        "المتصفح لا يدعم HLS"
+    throw new Error(
+        "HLS غير مدعوم في هذا المتصفح"
     );
-
 }
 
 
-/* =========================================================
-   DASH
-   ========================================================= */
+async function playDASH(url){
 
-function playDASH(
-    url,
-    headers
-){
-
-    if(
-        typeof dashjs === "undefined"
-    ){
-
-        showPlayerMessage(
-            "خطأ",
-            "مكتبة DASH لم يتم تحميلها"
-        );
-
-        return;
-
-    }
-
-
-    try{
-
-        dashPlayer =
-            dashjs.MediaPlayer().create();
-
-
-        dashPlayer.updateSettings({
-
-            streaming:{
-                requestModifier:{
-                    modifyRequestHeader:function(
-                        xhr
-                    ){
-
-                        Object.keys(headers)
-                            .forEach(key => {
-
-                                try{
-
-                                    xhr.setRequestHeader(
-                                        key,
-                                        headers[key]
-                                    );
-
-                                }catch(e){}
-
-                            });
-
-                        return xhr;
-
-                    }
-                }
-            }
-
-        });
-
-
-        dashPlayer.initialize(
-            video,
-            url,
-            true
-        );
-
-
-        dashPlayer.on(
-            dashjs.MediaPlayer.events.STREAM_INITIALIZED,
-            () => {
-
-                hidePlayerMessage();
-
-            }
-        );
-
-
-        dashPlayer.on(
-            dashjs.MediaPlayer.events.ERROR,
-            error => {
-
-                console.error(
-                    "DASH ERROR:",
-                    error
-                );
-
-                handlePlaybackError(
-                    error
-                );
-
-            }
-        );
-
-
-    }catch(error){
-
-        handlePlaybackError(
-            error
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   MPEG TS
-   ========================================================= */
-
-function playMPEGTS(
-    url,
-    headers
-){
-
-    if(
-        typeof mpegts === "undefined"
-    ){
-
-        showPlayerMessage(
-            "خطأ",
-            "مكتبة MPEG-TS لم يتم تحميلها"
-        );
-
-        return;
-
-    }
-
-
-    if(
-        !mpegts.isSupported()
-    ){
-
-        showPlayerMessage(
-            "غير مدعوم",
-            "المتصفح لا يدعم MPEG-TS"
-        );
-
-        return;
-
-    }
-
-
-    try{
-
-        mpegPlayer =
-            mpegts.createPlayer({
-
-                type:"mpegts",
-
-                isLive:true,
-
-                url:url
-
-            });
-
-
-        mpegPlayer.attachMediaElement(
-            video
-        );
-
-
-        mpegPlayer.load();
-
-
-        mpegPlayer.play()
-            .then(() => {
-
-                hidePlayerMessage();
-
-            })
-            .catch(
-                handlePlaybackError
-            );
-
-
-        mpegPlayer.on(
-            mpegts.Events.ERROR,
-            (type,details,error) => {
-
-                console.error(
-                    "MPEGTS ERROR:",
-                    type,
-                    details,
-                    error
-                );
-
-                handlePlaybackError(
-                    error || details
-                );
-
-            }
-        );
-
-
-    }catch(error){
-
-        handlePlaybackError(
-            error
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   NATIVE
-   ========================================================= */
-
-function playNative(url){
-
-    video.src = url;
-
-    video.load();
-
-
-    video.play()
-        .then(() => {
-
-            hidePlayerMessage();
-
-        })
-        .catch(
-            handlePlaybackError
-        );
-
-}
-
-
-/* =========================================================
-   ERROR
-   ========================================================= */
-
-function handlePlaybackError(error){
-
-    console.error(
-        "NIYATI PLAYBACK ERROR:",
-        error
+    await loadScript(
+        "https://cdn.jsdelivr.net/npm/dashjs@5.0.0/dist/modern/umd/dash.all.min.js"
     );
 
 
-    if(retryCount < MAX_RETRIES){
+    if(!window.dashjs){
 
-        retryCount++;
-
-
-        showPlayerMessage(
-            "إعادة الاتصال",
-            `المحاولة ${retryCount} من ${MAX_RETRIES}`
+        throw new Error(
+            "DASH.js غير متوفر"
         );
-
-
-        clearTimeout(
-            retryTimer
-        );
-
-
-        retryTimer =
-            setTimeout(() => {
-
-                if(currentChannel){
-
-                    const quality =
-                        currentChannel.qualities[
-                            currentQuality
-                        ] ||
-                        currentChannel.qualities[0];
-
-
-                    if(quality){
-
-                        loadStream(
-                            quality.url,
-                            currentChannel
-                        );
-
-                    }
-
-                }
-
-            }, RETRY_DELAY);
-
-
-        return;
-
     }
 
 
-    let reason =
-        "تعذر تشغيل البث";
+    dashPlayer =
+        dashjs
+            .MediaPlayer()
+            .create();
 
 
-    if(
-        location.protocol === "https:" &&
-        /^http:\/\//i.test(
-            getCurrentUrl()
-        )
-    ){
-
-        reason =
-            "الرابط HTTP والمتصفح يمنعه من صفحة HTTPS (Mixed Content)";
-
-    }
-
-
-    showPlayerMessage(
-        "فشل التشغيل",
-        reason
+    dashPlayer.initialize(
+        video,
+        url,
+        true
     );
 
-}
 
+    dashPlayer.updateSettings({
 
-/* =========================================================
-   CURRENT URL
-   ========================================================= */
+        streaming:{
 
-function getCurrentUrl(){
+            buffer:{
 
-    if(
-        currentChannel &&
-        currentChannel.qualities
-    ){
+                fastSwitchEnabled:true,
 
-        const q =
-            currentChannel.qualities[
-                currentQuality
-            ] ||
-            currentChannel.qualities[0];
+                stableBufferTime:12,
 
-        return q?.url || "";
+                bufferTimeAtTopQuality:20,
 
-    }
+                bufferTimeAtTopQualityLongForm:30
+            },
 
-    return "";
-
-}
-
-
-/* =========================================================
-   STOP PLAYERS
-   ========================================================= */
-
-function stopPlayers(){
-
-    try{
-
-        if(hlsPlayer){
-
-            hlsPlayer.destroy();
-            hlsPlayer = null;
-
+            lowLatencyEnabled:true
         }
 
-    }catch(e){}
+    });
 
 
-    try{
-
-        if(dashPlayer){
-
-            dashPlayer.reset();
-            dashPlayer = null;
-
-        }
-
-    }catch(e){}
-
-
-    try{
-
-        if(mpegPlayer){
-
-            mpegPlayer.pause();
-            mpegPlayer.unload();
-            mpegPlayer.detachMediaElement();
-            mpegPlayer.destroy();
-
-            mpegPlayer = null;
-
-        }
-
-    }catch(e){}
-
-
-    try{
-
-        video.pause();
-
-    }catch(e){}
-
-
-    video.removeAttribute("src");
-
-    try{
-
-        video.load();
-
-    }catch(e){}
-
-}
-
-
-/* =========================================================
-   PLAYER MESSAGE
-   ========================================================= */
-
-function showPlayerMessage(
-    title,
-    message
-){
-
-    playerOverlay.style.display =
-        "flex";
-
-
-    playerMessage.innerHTML = `
-        <strong>${escapeHtml(title)}</strong>
-        ${escapeHtml(message)}
-    `;
-
-}
-
-
-function hidePlayerMessage(){
-
-    playerOverlay.style.display =
-        "none";
-
-}
-
-
-/* =========================================================
-   ESCAPE HTML
-   ========================================================= */
-
-function escapeHtml(value){
-
-    return String(value)
-        .replace(/&/g,"&amp;")
-        .replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;")
-        .replace(/"/g,"&quot;")
-        .replace(/'/g,"&#039;");
-
-}
-
-
-/* =========================================================
-   FULLSCREEN
-   ========================================================= */
-
-fullscreenBtn.addEventListener(
-    "click",
-    async () => {
-
-        try{
-
-            if(
-                !document.fullscreenElement
-            ){
-
-                await playerBox.requestFullscreen();
-
-            }else{
-
-                await document.exitFullscreen();
-
-            }
-
-        }catch(error){
+    dashPlayer.on(
+        dashjs.MediaPlayer.events.ERROR,
+        function(error){
 
             console.error(
-                "Fullscreen error:",
+                "DASH ERROR:",
                 error
             );
 
         }
+    );
+}
 
+
+async function playMPEGTS(url){
+
+    await loadScript(
+        "https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js"
+    );
+
+
+    if(
+        !window.mpegts ||
+        !mpegts.isSupported()
+    ){
+
+        throw new Error(
+            "MPEG-TS غير مدعوم في هذا المتصفح"
+        );
     }
-);
 
 
-/* =========================================================
-   VIDEO EVENTS
-   ========================================================= */
+    mpegPlayer =
+        mpegts.createPlayer(
 
-video.addEventListener(
-    "playing",
-    () => {
+            {
+                type:
+                    "mpegts",
 
-        hidePlayerMessage();
+                url:
+                    url,
 
-    }
-);
+                isLive:
+                    true
+            },
+
+            {
+                enableWorker:
+                    true,
+
+                lazyLoad:
+                    false,
+
+                autoCleanupSourceBuffer:
+                    true,
+
+                liveBufferLatencyChasing:
+                    true,
+
+                liveBufferLatencyMaxLatency:
+                    3,
+
+                liveBufferLatencyMinRemain:
+                    1,
+
+                stashInitialSize:
+                    384 * 1024
+            }
+
+        );
 
 
-video.addEventListener(
-    "waiting",
-    () => {
+    mpegPlayer.attachMediaElement(
+        video
+    );
 
-        if(currentChannel){
 
-            showPlayerMessage(
-                "جاري التحميل",
-                currentChannel.name || ""
+    mpegPlayer.on(
+        mpegts.Events.ERROR,
+        function(
+            type,
+            detail,
+            info
+        ){
+
+            console.error(
+                "MPEG-TS ERROR:",
+                type,
+                detail,
+                info
+            );
+
+
+            scheduleRetry(
+                url
             );
 
         }
+    );
 
+
+    mpegPlayer.load();
+
+    await mpegPlayer.play();
+}
+
+
+function scheduleRetry(url){
+
+    if(
+        retryCount >=
+        MAX_RETRIES
+    ){
+
+        showPlayerError(
+            "تعذر تشغيل البث بعد عدة محاولات."
+        );
+
+        return;
     }
-);
 
 
-video.addEventListener(
-    "error",
-    () => {
+    retryCount++;
+
+
+    clearTimeout(
+        retryTimer
+    );
+
+
+    retryTimer =
+        setTimeout(
+            function(){
+
+                playChannel(
+                    url,
+                    true
+                );
+
+            },
+            RETRY_DELAY
+        );
+}
+
+
+async function playChannel(
+    url,
+    isRetry=false
+){
+
+    if(!url){
+
+        showPlayerError(
+            "رابط البث فارغ."
+        );
+
+        return;
+    }
+
+
+    if(!isRetry){
+
+        retryCount = 0;
+    }
+
+
+    stopChannel();
+
+
+    currentUrl =
+        url;
+
+
+    hidePlayerError();
+
+
+    if(
+        video
+    ){
+
+        video.poster =
+            "";
+    }
+
+
+    const type =
+        detectStreamType(
+            url
+        );
+
+
+    console.log(
+        "NIYATI TV:",
+        type,
+        url
+    );
+
+
+    try{
+
+        switch(type){
+
+            case "hls":
+
+                await playHLS(
+                    url
+                );
+
+                break;
+
+
+            case "dash":
+
+                await playDASH(
+                    url
+                );
+
+                break;
+
+
+            case "mpegts":
+
+                await playMPEGTS(
+                    url
+                );
+
+                break;
+
+
+            case "mp4":
+
+                await playNative(
+                    url,
+                    "video/mp4"
+                );
+
+                break;
+
+
+            case "webm":
+
+                await playNative(
+                    url,
+                    "video/webm"
+                );
+
+                break;
+
+
+            case "ogg":
+
+                await playNative(
+                    url,
+                    "video/ogg"
+                );
+
+                break;
+
+
+            case "rtmp":
+
+                throw new Error(
+                    "RTMP غير مدعوم مباشرة داخل المتصفح"
+                );
+
+
+            case "rtsp":
+
+                throw new Error(
+                    "RTSP غير مدعوم مباشرة داخل المتصفح"
+                );
+
+
+            default:
+
+                try{
+
+                    await playHLS(
+                        url
+                    );
+
+                }catch(hlsError){
+
+                    console.warn(
+                        "HLS failed:",
+                        hlsError
+                    );
+
+
+                    stopChannel();
+
+
+                    try{
+
+                        await playMPEGTS(
+                            url
+                        );
+
+                    }catch(tsError){
+
+                        console.warn(
+                            "TS failed:",
+                            tsError
+                        );
+
+
+                        stopChannel();
+
+
+                        await playNative(
+                            url
+                        );
+                    }
+                }
+
+                break;
+        }
+
+
+        retryCount = 0;
+
+
+        const empty =
+            document.getElementById(
+                "playerEmpty"
+            );
+
+
+        if(empty){
+
+            empty.style.display =
+                "none";
+        }
+
+
+        console.log(
+            "NIYATI TV: PLAYING"
+        );
+
+
+    }catch(error){
 
         console.error(
-            "VIDEO ERROR:",
-            video.error
+            "NIYATI TV PLAYER:",
+            error
         );
 
-        handlePlaybackError(
-            video.error
+
+        showPlayerError(
+            readableError(
+                error,
+                type
+            )
         );
 
+
+        scheduleRetry(
+            url
+        );
     }
-);
+}
+
+
+function readableError(
+    error,
+    type
+){
+
+    const message =
+        error &&
+        error.message
+            ? error.message
+            : "خطأ غير معروف";
+
+
+    if(
+        type === "rtsp"
+    ){
+
+        return(
+            "هذا الرابط RTSP ولا يمكن للمتصفح تشغيله مباشرة."
+        );
+    }
+
+
+    if(
+        type === "rtmp"
+    ){
+
+        return(
+            "هذا الرابط RTMP ولا يمكن للمتصفح تشغيله مباشرة."
+        );
+    }
+
+
+    return(
+        "تعذر تشغيل البث.\n\n" +
+        "النوع: " +
+        type +
+        "\n\n" +
+        message
+    );
+}
+
+
+function showPlayerError(
+    message
+){
+
+    const box =
+        document.getElementById(
+            "playerError"
+        );
+
+
+    if(!box){
+        return;
+    }
+
+
+    box.textContent =
+        message;
+
+
+    box.style.display =
+        "block";
+}
+
+
+function hidePlayerError(){
+
+    const box =
+        document.getElementById(
+            "playerError"
+        );
+
+
+    if(box){
+
+        box.style.display =
+            "none";
+
+        box.textContent =
+            "";
+    }
+}
+
+
+if(video){
+
+    video.addEventListener(
+        "play",
+        function(){
+
+            const empty =
+                document.getElementById(
+                    "playerEmpty"
+                );
+
+
+            if(empty){
+
+                empty.style.display =
+                    "none";
+            }
+
+        }
+    );
+
+
+    video.addEventListener(
+        "playing",
+        function(){
+
+            hidePlayerError();
+
+        }
+    );
+
+
+    video.addEventListener(
+        "stalled",
+        function(){
+
+            console.warn(
+                "NIYATI TV: STALLED"
+            );
+
+        }
+    );
+
+
+    video.addEventListener(
+        "error",
+        function(){
+
+            if(
+                video.error
+            ){
+
+                console.error(
+                    "HTML VIDEO ERROR:",
+                    video.error
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+window.NiyatiPlayer = {
+
+    play:
+        playChannel,
+
+    stop:
+        stopChannel,
+
+    detectType:
+        detectStreamType,
+
+    currentUrl:
+        function(){
+
+            return currentUrl;
+
+        }
+
+};
 
 
 /* =========================================================
-   START
-   ========================================================= */
+   UI CONTROLLER
+========================================================= */
 
-buildPackages();
+(function(){
+
+    const packagesLayout =
+        document.getElementById(
+            "packagesLayout"
+        );
+
+
+    const channelsLayout =
+        document.getElementById(
+            "channelsLayout"
+        );
+
+
+    const channelTitle =
+        document.getElementById(
+            "channelTitle"
+        );
+
+
+    const channelCount =
+        document.getElementById(
+            "channelCount"
+        );
+
+
+    const nowPlaying =
+        document.getElementById(
+            "nowPlaying"
+        );
+
+
+    const nowPlayingSub =
+        document.getElementById(
+            "nowPlayingSub"
+        );
+
+
+    const playerEmpty =
+        document.getElementById(
+            "playerEmpty"
+        );
+
+
+    const fullscreenButton =
+        document.getElementById(
+            "fullscreenButton"
+        );
+
+
+    let selectedPackage =
+        "ALL";
+
+
+    let currentChannel =
+        null;
+
+
+    /* =====================================================
+       FIX: CHANNEL DATA
+    ===================================================== */
+
+    const channelData =
+        Array.isArray(
+            window.channels
+        )
+            ? window.channels
+            : [];
+
+
+    if(!channelData.length){
+
+        channelsLayout.innerHTML =
+
+            '<div class="empty-list">' +
+
+            'تعذر تحميل القنوات.' +
+
+            '<br><br>' +
+
+            'تأكد من ملف channels.js' +
+
+            '</div>';
+
+        return;
+    }
+
+
+    /* =====================================================
+       PACKAGES
+    ===================================================== */
+
+    const packages = [
+
+        ...new Set(
+
+            channelData
+
+                .map(
+                    channel =>
+                        channel.package
+                )
+
+                .filter(Boolean)
+
+        )
+
+    ];
+
+
+    const icons = [
+
+        "◈",
+        "◉",
+        "◆",
+        "◇",
+        "●",
+        "✦",
+        "▣",
+        "★",
+        "◌",
+        "▲",
+        "■",
+        "✧"
+
+    ];
+
+
+    function createPackageButton(
+        name,
+        index
+    ){
+
+        const button =
+            document.createElement(
+                "button"
+            );
+
+
+        button.className =
+            "package";
+
+
+        if(
+            selectedPackage ===
+            name
+        ){
+
+            button.classList.add(
+                "active"
+            );
+        }
+
+
+        button.type =
+            "button";
+
+
+        button.tabIndex =
+            0;
+
+
+        button.innerHTML =
+
+            '<span class="ico">' +
+
+                icons[
+                    index %
+                    icons.length
+                ] +
+
+            '</span>' +
+
+            '<span class="name">' +
+
+                name +
+
+            '</span>' +
+
+            '<span class="arrow">' +
+
+                '‹' +
+
+            '</span>';
+
+
+        button.onclick =
+            function(){
+
+                selectPackage(
+                    name
+                );
+
+            };
+
+
+        return button;
+    }
+
+
+    function renderPackages(){
+
+        packagesLayout
+
+            .querySelectorAll(
+                ".package"
+            )
+
+            .forEach(
+                function(element){
+
+                    element.remove();
+
+                }
+            );
+
+
+        packagesLayout.appendChild(
+
+            createPackageButton(
+                "ALL",
+                0
+            )
+
+        );
+
+
+        packages.forEach(
+            function(
+                packageName,
+                index
+            ){
+
+                packagesLayout.appendChild(
+
+                    createPackageButton(
+                        packageName,
+                        index + 1
+                    )
+
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       RENDER CHANNELS
+    ===================================================== */
+
+    function renderChannels(){
+
+        const list =
+
+            selectedPackage ===
+            "ALL"
+
+                ? channelData
+
+                : channelData.filter(
+                    function(channel){
+
+                        return(
+                            channel.package ===
+                            selectedPackage
+                        );
+
+                    }
+                );
+
+
+        channelsLayout.innerHTML =
+            "";
+
+
+        channelTitle.textContent =
+
+            selectedPackage ===
+            "ALL"
+
+                ? "كل القنوات"
+
+                : selectedPackage;
+
+
+        channelCount.textContent =
+
+            list.length +
+            " قناة";
+
+
+        if(!list.length){
+
+            channelsLayout.innerHTML =
+
+                '<div class="empty-list">' +
+
+                'لا توجد قنوات في هذه الباقة.' +
+
+                '</div>';
+
+            return;
+        }
+
+
+        list.forEach(
+            function(
+                channel,
+                index
+            ){
+
+                /* إصلاح: الكارت أصبح div
+                   حتى نكدر نحط أزرار جودة داخله */
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                card.className =
+                    "channel";
+
+
+                card.tabIndex =
+                    0;
+
+
+                card.setAttribute(
+                    "role",
+                    "button"
+                );
+
+
+                if(
+                    currentChannel &&
+                    currentChannel.id ===
+                    channel.id
+                ){
+
+                    card.classList.add(
+                        "active"
+                    );
+
+                }
+
+
+                const qualities =
+
+                    Array.isArray(
+                        channel.qualities
+                    )
+
+                        ? channel.qualities
+
+                        : [];
+
+
+                let logo =
+                    "NT";
+
+
+                if(channel.logo){
+
+                    logo =
+
+                        '<img src="' +
+                        channel.logo +
+                        '" ' +
+                        'alt="" ' +
+                        'onerror="' +
+                        "this.style.display='none'" +
+                        '">';
+
+                }
+
+
+                const qualityRow =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                qualityRow.className =
+                    "quality-row";
+
+
+                qualities
+                    .slice(0,4)
+                    .forEach(
+                        function(
+                            quality,
+                            qualityIndex
+                        ){
+
+                            const qualityButton =
+                                document.createElement(
+                                    "button"
+                                );
+
+
+                            qualityButton.type =
+                                "button";
+
+
+                            qualityButton.className =
+                                "quality";
+
+
+                            qualityButton.textContent =
+                                quality.name ||
+                                "LIVE";
+
+
+                            /*
+                             * إصلاح مهم:
+                             * الضغط على الجودة يشغل
+                             * نفس الجودة مباشرة.
+                             */
+
+                            qualityButton.onclick =
+                                function(event){
+
+                                    event.preventDefault();
+
+                                    event.stopPropagation();
+
+                                    playChannelFromUI(
+                                        channel,
+                                        qualityIndex
+                                    );
+
+                                };
+
+
+                            qualityButton.onkeydown =
+                                function(event){
+
+                                    if(
+                                        event.key ===
+                                        "Enter" ||
+                                        event.key ===
+                                        " "
+                                    ){
+
+                                        event.preventDefault();
+
+                                        event.stopPropagation();
+
+                                        playChannelFromUI(
+                                            channel,
+                                            qualityIndex
+                                        );
+
+                                    }
+
+                                };
+
+
+                            qualityRow.appendChild(
+                                qualityButton
+                            );
+
+                        }
+                    );
+
+
+                card.innerHTML =
+
+                    '<span class="channel-logo">' +
+
+                        logo +
+
+                    '</span>' +
+
+                    '<span class="channel-main">' +
+
+                        '<span class="channel-name">' +
+
+                            (
+                                channel.name ||
+                                "قناة"
+                            ) +
+
+                        '</span>' +
+
+                        '<span class="channel-package">' +
+
+                            (
+                                channel.package ||
+                                "Niyati TV"
+                            ) +
+
+                        '</span>' +
+
+                    '</span>' +
+
+                    '<span class="play">' +
+
+                        '▶' +
+
+                    '</span>';
+
+
+                /*
+                 * نضيف صف الجودة داخل الكارت
+                 */
+
+                const main =
+                    card.querySelector(
+                        ".channel-main"
+                    );
+
+
+                if(main){
+
+                    main.appendChild(
+                        qualityRow
+                    );
+
+                }
+
+
+                /*
+                 * ضغط الكارت = أول جودة
+                 */
+
+                card.onclick =
+                    function(){
+
+                        playChannelFromUI(
+                            channel,
+                            0
+                        );
+
+                    };
+
+
+                card.onkeydown =
+                    function(event){
+
+                        if(
+                            event.key ===
+                            "Enter" ||
+                            event.key ===
+                            " "
+                        ){
+
+                            /*
+                             * إذا التركيز على زر جودة
+                             * لا نشغل الجودة الأولى.
+                             */
+
+                            if(
+                                event.target &&
+                                event.target.classList &&
+                                event.target.classList.contains(
+                                    "quality"
+                                )
+                            ){
+
+                                return;
+                            }
+
+
+                            event.preventDefault();
+
+
+                            playChannelFromUI(
+                                channel,
+                                0
+                            );
+
+                        }
+
+                    };
+
+
+                channelsLayout.appendChild(
+                    card
+                );
+
+            }
+        );
+
+    }
+
+
+    function selectPackage(
+        name
+    ){
+
+        selectedPackage =
+            name;
+
+
+        renderPackages();
+
+        renderChannels();
+
+
+        setTimeout(
+            function(){
+
+                const firstChannel =
+                    channelsLayout.querySelector(
+                        ".channel"
+                    );
+
+
+                if(firstChannel){
+
+                    firstChannel.focus();
+
+                }
+
+            },
+            30
+        );
+
+    }
+
+
+    /* =====================================================
+       PLAY CHANNEL FROM UI
+    ===================================================== */
+
+    function playChannelFromUI(
+        channel,
+        qualityIndex
+    ){
+
+        currentChannel =
+            channel;
+
+
+        const qualities =
+
+            Array.isArray(
+                channel.qualities
+            )
+
+                ? channel.qualities
+
+                : [];
+
+
+        const quality =
+
+            qualities[
+                qualityIndex
+            ] ||
+
+            qualities[0];
+
+
+        if(
+            !quality ||
+            !quality.url
+        ){
+
+            showPlayerError(
+                "هذه القناة لا تحتوي على رابط بث صالح."
+            );
+
+            return;
+        }
+
+
+        nowPlaying.textContent =
+
+            channel.name ||
+            "Niyati TV";
+
+
+        nowPlayingSub.textContent =
+
+            (
+                channel.package ||
+                "Niyati TV"
+            ) +
+
+            " • " +
+
+            (
+                quality.name ||
+                "LIVE"
+            );
+
+
+        if(playerEmpty){
+
+            playerEmpty.style.display =
+                "none";
+        }
+
+
+        channelsLayout
+
+            .querySelectorAll(
+                ".channel"
+            )
+
+            .forEach(
+                function(element){
+
+                    element.classList.remove(
+                        "active"
+                    );
+
+                }
+            );
+
+
+        /*
+         * تفعيل الكارت الحالي
+         */
+
+        const channelCards =
+            channelsLayout.querySelectorAll(
+                ".channel"
+            );
+
+
+        channelCards.forEach(
+            function(card){
+
+                const name =
+                    card.querySelector(
+                        ".channel-name"
+                    );
+
+
+                if(
+                    name &&
+                    name.textContent ===
+                    (
+                        channel.name ||
+                        "قناة"
+                    )
+                ){
+
+                    card.classList.add(
+                        "active"
+                    );
+
+                }
+
+            }
+        );
+
+
+        /*
+         * تشغيل المشغل الشامل
+         */
+
+        playChannel(
+            quality.url
+        );
+
+    }
+
+
+    /* =====================================================
+       FULLSCREEN
+    ===================================================== */
+
+    fullscreenButton.onclick =
+        function(){
+
+            const target =
+                document.getElementById(
+                    "videoContainer"
+                );
+
+
+            if(
+                document.fullscreenElement
+            ){
+
+                document
+                    .exitFullscreen()
+                    .catch(
+                        function(){}
+                    );
+
+                return;
+            }
+
+
+            if(
+                target.requestFullscreen
+            ){
+
+                target
+                    .requestFullscreen()
+                    .catch(
+                        function(){}
+                    );
+
+            }
+
+        };
+
+
+    document.addEventListener(
+        "keydown",
+        function(event){
+
+            if(
+                event.key ===
+                "Escape" &&
+                document.fullscreenElement
+            ){
+
+                document
+                    .exitFullscreen()
+                    .catch(
+                        function(){}
+                    );
+
+            }
+
+        }
+    );
+
+
+    /* =====================================================
+       START
+    ===================================================== */
+
+    renderPackages();
+
+    renderChannels();
+
+
+    const firstPackage =
+        packagesLayout.querySelector(
+            ".package"
+        );
+
+
+    if(firstPackage){
+
+        firstPackage.focus();
+
+    }
+
+})();
 
 </script>
 
+
 </body>
+
 </html>
