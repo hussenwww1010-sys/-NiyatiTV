@@ -13,7 +13,7 @@ window.channels = [
         qualities: [
             {
                 name: "HLS",
-                url: "https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8"
+                url: "https://stream.alabbassia.com/live/alabbassia/index.m3u8"
             }
         ]
     },
