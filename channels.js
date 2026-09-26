@@ -27,7 +27,7 @@ const channels = [
         qualities: [
             {
                 name: "HD",
-                url: "http://103.176.90.24/play/live.php?mac=00:1A:79:00:3A:F8&stream=1330438&extension=ts"
+                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
             },
             {
                 name: "HD 2",
