@@ -711,50 +711,138 @@ video{
 }
 
 
-/* =========================================================
+//* =====================================================
    FULLSCREEN
-========================================================= */
+===================================================== */
 
-.fullscreen{
+fullscreenButton.onclick =
+    async function(){
 
-    position:absolute;
+        const target =
+            document.getElementById(
+                "videoContainer"
+            );
 
-    left:20px;
+        if(!target){
+            return;
+        }
 
-    bottom:20px;
+        try{
 
-    z-index:5;
+            /* إذا إحنا أصلاً بوضع ملء الشاشة */
+            if(
+                document.fullscreenElement ||
+                document.webkitFullscreenElement
+            ){
 
-    width:40px;
-    height:40px;
+                if(document.exitFullscreen){
 
-    border:
-        1px solid
-        var(--line-soft);
+                    await document.exitFullscreen();
 
-    border-radius:
-        3px;
+                }else if(
+                    document.webkitExitFullscreen
+                ){
 
-    background:
-        rgba(6,8,12,.65);
+                    document.webkitExitFullscreen();
 
-    cursor:pointer;
+                }
 
-    font-size:16px;
-
-    color:var(--gold-soft);
-
-    transition: border-color .15s, background-color .15s;
-}
-
-.fullscreen:hover,
-.fullscreen:focus-visible{
-
-    border-color: var(--gold);
-    background: rgba(6,8,12,.85);
-}
+                return;
+            }
 
 
+            /* Android / Chrome / Desktop */
+            if(target.requestFullscreen){
+
+                await target.requestFullscreen();
+
+                return;
+            }
+
+
+            /* Safari / iPhone */
+            if(target.webkitRequestFullscreen){
+
+                target.webkitRequestFullscreen();
+
+                return;
+            }
+
+
+            /* محاولة ملء شاشة الفيديو نفسه */
+            if(video){
+
+                if(video.requestFullscreen){
+
+                    await video.requestFullscreen();
+
+                    return;
+                }
+
+                if(video.webkitEnterFullscreen){
+
+                    video.webkitEnterFullscreen();
+
+                    return;
+                }
+
+            }
+
+        }catch(error){
+
+            console.error(
+                "NIYATI FULLSCREEN ERROR:",
+                error
+            );
+
+            /* آخر محاولة: الفيديو نفسه */
+
+            try{
+
+                if(
+                    video &&
+                    video.webkitEnterFullscreen
+                ){
+
+                    video.webkitEnterFullscreen();
+
+                }
+
+            }catch(e){}
+
+        }
+
+    };
+
+
+/* =====================================================
+   FULLSCREEN CHANGE
+===================================================== */
+
+document.addEventListener(
+    "fullscreenchange",
+    function(){
+
+        console.log(
+            "Fullscreen:",
+            !!document.fullscreenElement
+        );
+
+    }
+);
+
+
+/* Safari */
+document.addEventListener(
+    "webkitfullscreenchange",
+    function(){
+
+        console.log(
+            "Webkit Fullscreen"
+        );
+
+    }
+);
 /* =========================================================
    PLAYER ERROR
 ========================================================= */
