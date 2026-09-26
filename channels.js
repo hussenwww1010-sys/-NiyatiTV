@@ -11,7 +11,7 @@ const channels = [
         qualities: [
             {
                 name: "HD",
-                url: "http://neopneojh.top:8080/4531771621243/65d372e9295f/25106"
+                url: "https://shd-amg-fast.edgenextcdn.net/tx010/playlist.m3u8"
             },
             {
                 name: "HD 2",
