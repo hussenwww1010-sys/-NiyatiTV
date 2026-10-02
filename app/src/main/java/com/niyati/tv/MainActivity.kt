@@ -21,6 +21,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import android.util.LruCache
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -48,6 +49,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DefaultDataSource
@@ -65,6 +67,9 @@ import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import java.net.HttpURLConnection
+import java.text.SimpleDateFormat
+import java.util.Date
+import org.json.JSONObject
 import java.net.URL
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -129,7 +134,25 @@ class MainActivity : Activity() {
     private lateinit var nowTitle: TextView
     private lateinit var nowSub: TextView
     private lateinit var livePill: LinearLayout
-    private lateinit var zapOverlay: TextView
+    // receiver-style channel banner (fullscreen)
+    private lateinit var zapBanner: LinearLayout
+    private lateinit var bannerPrev: BannerCard
+    private lateinit var bannerCur: BannerCard
+    private lateinit var bannerNext: BannerCard
+
+    // quality badge on the video
+    private lateinit var qualityBadge: TextView
+    private var qualityText = ""
+    private var qualityColor = Color.WHITE
+
+    // header: weather + date
+    private lateinit var weatherIcon: TextView
+    private lateinit var weatherTemp: TextView
+    private lateinit var weatherCityView: TextView
+    private lateinit var dateView: TextView
+    private var weatherLat = 33.3152
+    private var weatherLon = 44.3661
+    private var weatherCity = "بغداد"
 
     // =========================
     // Data
@@ -273,6 +296,31 @@ class MainActivity : Activity() {
         return tv
     }
 
+    // shrink the text automatically until the whole name is visible
+    private fun setupFit(tv: TextView, maxSp: Int, minSp: Int) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            tv.setAutoSizeTextTypeUniformWithConfiguration(
+                minSp,
+                maxSp,
+                1,
+                TypedValue.COMPLEX_UNIT_SP
+            )
+        }
+    }
+
+    private fun fitName(tv: TextView, text: String, maxSp: Int, minSp: Int) {
+        tv.text = text
+        if (Build.VERSION.SDK_INT < 26) {
+            val size =
+                if (text.length <= 16) {
+                    maxSp.toFloat()
+                } else {
+                    (maxSp * 16f / text.length).coerceAtLeast(minSp.toFloat())
+                }
+            tv.textSize = size
+        }
+    }
+
     // =========================
     // onCreate
     // =========================
@@ -297,6 +345,10 @@ class MainActivity : Activity() {
         buildInterface()
 
         startFirebase()
+
+        mainHandler.post(weatherRunnable)
+
+        mainHandler.post(dateRunnable)
     }
 
     // =========================
@@ -443,6 +495,12 @@ class MainActivity : Activity() {
 
                         else -> {
                         }
+                    }
+                }
+
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    if (!playingWeb) {
+                        updateQuality(videoSize.height)
                     }
                 }
 
@@ -1241,6 +1299,8 @@ class MainActivity : Activity() {
 
         buildStatusOverlay()
 
+        buildQualityBadge()
+
         moveVideoTo(playerFrame)
 
         showStatus(Txt.IDLE_TITLE, Txt.IDLE_SUB, false)
@@ -1253,35 +1313,7 @@ class MainActivity : Activity() {
 
         fullscreenContainer.visibility = View.GONE
 
-        zapOverlay = TextView(this)
-
-        zapOverlay.textSize = 20f
-
-        zapOverlay.setTextColor(white)
-
-        zapOverlay.typeface = Typeface.DEFAULT_BOLD
-
-        zapOverlay.setPadding(dp(20), dp(10), dp(20), dp(10))
-
-        zapOverlay.visibility = View.GONE
-
-        zapOverlay.background =
-            GradientDrawable().apply {
-                cornerRadius = dp(18).toFloat()
-                setColor(Color.argb(190, 8, 10, 28))
-                setStroke(dp(1), withAlpha(cyan, 140))
-            }
-
-        fullscreenContainer.addView(
-            zapOverlay,
-            FrameLayout.LayoutParams(
-                wrap,
-                wrap,
-                Gravity.TOP or Gravity.RIGHT
-            ).apply {
-                setMargins(dp(40), dp(32), dp(40), 0)
-            }
-        )
+        buildZapBanner()
 
         root.addView(
             fullscreenContainer,
@@ -1346,6 +1378,62 @@ class MainActivity : Activity() {
 
         header.addView(createLivePill(), lp(wrap, wrap))
 
+        // ---- weather ----
+        val weatherChip = LinearLayout(this)
+
+        weatherChip.orientation = LinearLayout.HORIZONTAL
+
+        weatherChip.gravity = Gravity.CENTER_VERTICAL
+
+        weatherChip.setPadding(dp(12), dp(3), dp(14), dp(3))
+
+        weatherChip.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat()
+                setColor(Color.argb(22, 255, 255, 255))
+                setStroke(dp(1), Color.argb(40, 255, 255, 255))
+            }
+
+        weatherIcon = TextView(this)
+
+        weatherIcon.text = "\u2601\uFE0F"
+
+        weatherIcon.textSize = 22f
+
+        weatherIcon.gravity = Gravity.CENTER
+
+        weatherChip.addView(weatherIcon, lp(wrap, wrap))
+
+        val weatherCol = LinearLayout(this)
+
+        weatherCol.orientation = LinearLayout.VERTICAL
+
+        weatherCol.setPadding(dp(8), 0, 0, 0)
+
+        weatherTemp = label("--\u00B0", 17f, white, true, Gravity.LEFT)
+
+        weatherCityView = label(weatherCity, 10f, gray, false, Gravity.LEFT)
+
+        weatherCol.addView(weatherTemp, lp(wrap, wrap))
+
+        weatherCol.addView(weatherCityView, lp(wrap, wrap))
+
+        weatherChip.addView(weatherCol, lp(wrap, wrap))
+
+        header.addView(
+            weatherChip,
+            lp(wrap, wrap).apply {
+                setMargins(dp(16), 0, 0, 0)
+            }
+        )
+
+        // ---- clock + date ----
+        val timeCol = LinearLayout(this)
+
+        timeCol.orientation = LinearLayout.VERTICAL
+
+        timeCol.gravity = Gravity.RIGHT
+
         val clock = TextClock(this)
 
         clock.format12Hour = "hh:mm a"
@@ -1358,8 +1446,16 @@ class MainActivity : Activity() {
 
         clock.typeface = Typeface.DEFAULT_BOLD
 
+        clock.gravity = Gravity.RIGHT
+
+        timeCol.addView(clock, lp(wrap, wrap))
+
+        dateView = label("", 11f, gray, false, Gravity.RIGHT)
+
+        timeCol.addView(dateView, lp(wrap, wrap))
+
         header.addView(
-            clock,
+            timeCol,
             lp(wrap, wrap).apply {
                 setMargins(dp(18), 0, 0, 0)
             }
@@ -1451,7 +1547,11 @@ class MainActivity : Activity() {
 
         nowSub = label("\u0627\u062e\u062a\u0631 \u0642\u0646\u0627\u0629 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629", 12f, gray)
 
-        col.addView(nowTitle, lp(matchParent, wrap))
+        setupFit(nowTitle, 16, 9)
+
+        nowTitle.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+
+        col.addView(nowTitle, lp(matchParent, dp(24)))
 
         col.addView(nowSub, lp(matchParent, wrap))
 
@@ -1551,6 +1651,10 @@ class MainActivity : Activity() {
         statusBang.visibility = if (error) View.VISIBLE else View.GONE
 
         statusOverlay.visibility = View.VISIBLE
+
+        if (error && ::qualityBadge.isInitialized) {
+            qualityBadge.visibility = View.GONE
+        }
     }
 
     private fun hideStatus() {
@@ -1582,6 +1686,16 @@ class MainActivity : Activity() {
             statusOverlay,
             2,
             FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        (qualityBadge.parent as? ViewGroup)?.removeView(qualityBadge)
+
+        container.addView(
+            qualityBadge,
+            3,
+            FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.LEFT).apply {
+                setMargins(dp(12), dp(12), 0, 0)
+            }
         )
     }
 
@@ -1962,6 +2076,140 @@ class MainActivity : Activity() {
         }
     }
 
+    private inner class BannerCard(
+        private val big: Boolean,
+        private val accent: Accent
+    ) : LinearLayout(this@MainActivity) {
+
+        private val numberView =
+            label("", if (big) 24f else 13f, white, true, Gravity.CENTER)
+
+        private val badge = LogoBadge(if (big) 58 else 38, accent)
+
+        private val nameView = label("", if (big) 22f else 15f, white, true)
+
+        private val subView = label("", 12f, gray)
+
+        private val qualityChip = TextView(this@MainActivity)
+
+        init {
+
+            orientation = LinearLayout.HORIZONTAL
+
+            gravity = Gravity.CENTER_VERTICAL
+
+            setPadding(dp(12), 0, dp(14), 0)
+
+            alpha = if (big) 1f else 0.7f
+
+            background =
+                GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(
+                        if (big) mix(accent.start, bgTop, 0.35f) else Color.argb(215, 12, 16, 38),
+                        if (big) mix(accent.end, bgTop, 0.35f) else Color.argb(215, 8, 10, 28)
+                    )
+                ).apply {
+                    cornerRadius = dp(if (big) 26 else 20).toFloat()
+                    setStroke(
+                        if (big) dp(2) else dp(1),
+                        if (big) Color.WHITE else Color.argb(60, 255, 255, 255)
+                    )
+                }
+
+            addView(numberView, LinearLayout.LayoutParams(dp(if (big) 52 else 34), matchParent))
+
+            val texts = LinearLayout(this@MainActivity)
+
+            texts.orientation = LinearLayout.VERTICAL
+
+            texts.gravity = Gravity.CENTER_VERTICAL
+
+            texts.setPadding(dp(6), 0, dp(10), 0)
+
+            setupFit(nameView, if (big) 22 else 15, 10)
+
+            nameView.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+
+            texts.addView(
+                nameView,
+                LinearLayout.LayoutParams(matchParent, dp(if (big) 30 else 22))
+            )
+
+            if (big) {
+
+                val row = LinearLayout(this@MainActivity)
+
+                row.orientation = LinearLayout.HORIZONTAL
+
+                row.gravity = Gravity.CENTER_VERTICAL
+
+                qualityChip.textSize = 11f
+
+                qualityChip.typeface = Typeface.DEFAULT_BOLD
+
+                qualityChip.gravity = Gravity.CENTER
+
+                qualityChip.setPadding(dp(8), dp(2), dp(8), dp(2))
+
+                qualityChip.visibility = View.GONE
+
+                row.addView(qualityChip, LinearLayout.LayoutParams(wrap, wrap))
+
+                row.addView(
+                    subView,
+                    LinearLayout.LayoutParams(0, wrap, 1f).apply {
+                        setMargins(dp(8), 0, 0, 0)
+                    }
+                )
+
+                texts.addView(row, LinearLayout.LayoutParams(matchParent, wrap))
+            }
+
+            addView(texts, LinearLayout.LayoutParams(0, matchParent, 1f))
+
+            addView(badge, LinearLayout.LayoutParams(dp(if (big) 58 else 38), dp(if (big) 58 else 38)))
+        }
+
+        fun bind(channel: Channel, number: Int, sub: String) {
+
+            numberView.text = String.format(Locale.US, "%02d", number)
+
+            fitName(nameView, channel.name, if (big) 22 else 15, 10)
+
+            subView.text = sub
+
+            badge.bind(channel.name, channel.logo)
+        }
+
+        fun setQuality(text: String, color: Int) {
+
+            if (!big) {
+                return
+            }
+
+            if (text.isEmpty()) {
+
+                qualityChip.visibility = View.GONE
+
+            } else {
+
+                qualityChip.text = text
+
+                qualityChip.setTextColor(color)
+
+                qualityChip.background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(8).toFloat()
+                        setColor(Color.argb(150, 8, 10, 28))
+                        setStroke(dp(1), color)
+                    }
+
+                qualityChip.visibility = View.VISIBLE
+            }
+        }
+    }
+
     private inner class TvCard(
         val accent: Accent,
         badgeSizeDp: Int,
@@ -2013,7 +2261,11 @@ class MainActivity : Activity() {
 
             texts.setPadding(dp(8), 0, dp(12), 0)
 
-            texts.addView(nameView, LinearLayout.LayoutParams(matchParent, wrap))
+            setupFit(nameView, 16, 9)
+
+            nameView.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+
+            texts.addView(nameView, LinearLayout.LayoutParams(matchParent, dp(24)))
 
             texts.addView(
                 subView,
@@ -2115,7 +2367,7 @@ class MainActivity : Activity() {
 
         val count = channels.count { belongs(it, item) }
 
-        card.nameView.text = item.name
+        fitName(card.nameView, item.name, 16, 9)
 
         card.subView.text = "$count \u0642\u0646\u0627\u0629"
 
@@ -2160,7 +2412,7 @@ class MainActivity : Activity() {
 
         val hasUrl = channel.url.isNotBlank()
 
-        card.nameView.text = channel.name
+        fitName(card.nameView, channel.name, 16, 9)
 
         card.badge.bind(channel.name, channel.logo)
 
@@ -2316,6 +2568,8 @@ class MainActivity : Activity() {
     private fun onDataLoaded(snapshot: DataSnapshot) {
 
         mainHandler.removeCallbacks(loadTimeout)
+
+        readWeatherSettings(snapshot)
 
         val newChannels = parseChannels(snapshot)
 
@@ -2687,6 +2941,8 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(retryRunnable)
         mainHandler.removeCallbacks(hideWebStatusRunnable)
 
+        updateQuality(0)
+
         playingChannel = channel
 
         playingList = visibleChannels
@@ -2758,7 +3014,7 @@ class MainActivity : Activity() {
 
     private fun updateNowPlaying(channel: Channel) {
 
-        nowTitle.text = channel.name
+        fitName(nowTitle, channel.name, 16, 9)
 
         nowSub.text =
             packages
@@ -2795,11 +3051,7 @@ class MainActivity : Activity() {
 
                 playChannel(candidate)
 
-                showZapOverlay(
-                    String.format(Locale.US, "%02d", index + 1) +
-                            "  " +
-                            candidate.name
-                )
+                showZapBanner(candidate)
 
                 return
             }
@@ -2807,18 +3059,318 @@ class MainActivity : Activity() {
     }
 
     private val hideZapRunnable = Runnable {
-        zapOverlay.visibility = View.GONE
+
+        zapBanner.animate()
+            .alpha(0f)
+            .setDuration(220)
+            .withEndAction {
+                zapBanner.visibility = View.GONE
+            }
+            .start()
     }
 
-    private fun showZapOverlay(text: String) {
+    private fun neighborOf(list: List<Channel>, index: Int, delta: Int): Channel? {
 
-        zapOverlay.text = text
+        if (list.size < 2) {
+            return null
+        }
 
-        zapOverlay.visibility = View.VISIBLE
+        var i = index
+
+        repeat(list.size) {
+
+            i = (i + delta + list.size) % list.size
+
+            val c = list[i]
+
+            if (i != index && c.url.isNotBlank()) {
+                return c
+            }
+        }
+
+        return null
+    }
+
+    private fun showZapBanner(channel: Channel) {
+
+        val list =
+            if (playingList.contains(channel)) playingList else listOf(channel)
+
+        val index = list.indexOf(channel)
+
+        val prev = neighborOf(list, index, -1)
+
+        val next = neighborOf(list, index, 1)
+
+        fun pkgName(c: Channel): String =
+            packages.firstOrNull { belongs(c, it) }?.name ?: c.group
+
+        bannerCur.bind(channel, index + 1, pkgName(channel))
+
+        bannerCur.setQuality(qualityText, qualityColor)
+
+        if (prev != null) {
+            bannerPrev.bind(prev, list.indexOf(prev) + 1, "")
+            bannerPrev.visibility = View.VISIBLE
+        } else {
+            bannerPrev.visibility = View.INVISIBLE
+        }
+
+        if (next != null) {
+            bannerNext.bind(next, list.indexOf(next) + 1, "")
+            bannerNext.visibility = View.VISIBLE
+        } else {
+            bannerNext.visibility = View.INVISIBLE
+        }
 
         mainHandler.removeCallbacks(hideZapRunnable)
 
-        mainHandler.postDelayed(hideZapRunnable, 2600)
+        zapBanner.animate().cancel()
+
+        if (zapBanner.visibility != View.VISIBLE) {
+            zapBanner.alpha = 0f
+            zapBanner.visibility = View.VISIBLE
+        }
+
+        zapBanner.animate().alpha(1f).setDuration(180).start()
+
+        mainHandler.postDelayed(hideZapRunnable, 4200)
+    }
+
+    private fun buildZapBanner() {
+
+        zapBanner = LinearLayout(this)
+
+        zapBanner.orientation = LinearLayout.HORIZONTAL
+
+        zapBanner.gravity = Gravity.CENTER_VERTICAL
+
+        zapBanner.visibility = View.GONE
+
+        bannerPrev = BannerCard(false, accentFor(1))
+
+        bannerCur = BannerCard(true, accentFor(0))
+
+        bannerNext = BannerCard(false, accentFor(2))
+
+        zapBanner.addView(
+            bannerPrev,
+            lp(0, dp(64), 0.27f).apply { setMargins(0, 0, dp(10), 0) }
+        )
+
+        zapBanner.addView(bannerCur, lp(0, dp(92), 0.46f))
+
+        zapBanner.addView(
+            bannerNext,
+            lp(0, dp(64), 0.27f).apply { setMargins(dp(10), 0, 0, 0) }
+        )
+
+        fullscreenContainer.addView(
+            zapBanner,
+            FrameLayout.LayoutParams(matchParent, wrap, Gravity.BOTTOM).apply {
+                setMargins(dp(48), 0, dp(48), dp(40))
+            }
+        )
+    }
+
+    // =========================
+    // Quality badge
+    // =========================
+
+    private fun buildQualityBadge() {
+
+        qualityBadge = TextView(this)
+
+        qualityBadge.textSize = 11f
+
+        qualityBadge.setTextColor(white)
+
+        qualityBadge.typeface = Typeface.DEFAULT_BOLD
+
+        qualityBadge.gravity = Gravity.CENTER
+
+        qualityBadge.setPadding(dp(8), dp(3), dp(8), dp(3))
+
+        qualityBadge.visibility = View.GONE
+    }
+
+    private fun updateQuality(height: Int) {
+
+        val (text, color) =
+            when {
+                height >= 2160 -> "4K UHD" to Color.rgb(250, 204, 21)
+                height >= 1440 -> "2K QHD" to Color.rgb(250, 204, 21)
+                height >= 1080 -> "FHD 1080p" to Color.rgb(52, 211, 153)
+                height >= 720 -> "HD 720p" to cyan
+                height >= 480 -> "SD 480p" to Color.rgb(255, 183, 77)
+                height > 0 -> "SD ${height}p" to Color.rgb(255, 120, 100)
+                else -> "" to Color.WHITE
+            }
+
+        qualityText = text
+
+        qualityColor = color
+
+        if (text.isEmpty() || playingWeb) {
+
+            qualityBadge.visibility = View.GONE
+
+        } else {
+
+            qualityBadge.text = text
+
+            qualityBadge.setTextColor(color)
+
+            qualityBadge.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(8).toFloat()
+                    setColor(Color.argb(190, 8, 10, 28))
+                    setStroke(dp(1), color)
+                }
+
+            qualityBadge.visibility = View.VISIBLE
+        }
+
+        if (::bannerCur.isInitialized) {
+            bannerCur.setQuality(qualityText, qualityColor)
+        }
+    }
+
+    // =========================
+    // Weather + date
+    // =========================
+
+    private val weatherRunnable = object : Runnable {
+        override fun run() {
+            fetchWeather()
+            mainHandler.postDelayed(this, 30 * 60 * 1000L)
+        }
+    }
+
+    private val dateRunnable = object : Runnable {
+        override fun run() {
+            updateDate()
+            mainHandler.postDelayed(this, 30 * 1000L)
+        }
+    }
+
+    private fun updateDate() {
+
+        try {
+
+            val format =
+                SimpleDateFormat(
+                    "EEEE d MMMM yyyy",
+                    Locale.forLanguageTag("ar-IQ-u-nu-latn")
+                )
+
+            dateView.text = format.format(Date())
+
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun weatherEmoji(code: Int): String =
+        when (code) {
+            0 -> "\u2600\uFE0F"
+            1 -> "\uD83C\uDF24\uFE0F"
+            2 -> "\u26C5"
+            3 -> "\u2601\uFE0F"
+            45, 48 -> "\uD83C\uDF2B\uFE0F"
+            in 51..57 -> "\uD83C\uDF26\uFE0F"
+            in 61..67 -> "\uD83C\uDF27\uFE0F"
+            in 71..77 -> "\u2744\uFE0F"
+            in 80..82 -> "\uD83C\uDF27\uFE0F"
+            85, 86 -> "\u2744\uFE0F"
+            in 95..99 -> "\u26C8\uFE0F"
+            else -> "\u2601\uFE0F"
+        }
+
+    private fun fetchWeather() {
+
+        val lat = weatherLat
+
+        val lon = weatherLon
+
+        try {
+
+            ioExecutor.execute {
+
+                var connection: HttpURLConnection? = null
+
+                try {
+
+                    val api =
+                        "https://api.open-meteo.com/v1/forecast" +
+                                "?latitude=$lat&longitude=$lon" +
+                                "&current=temperature_2m,weather_code&timezone=auto"
+
+                    connection = URL(api).openConnection() as HttpURLConnection
+
+                    connection.connectTimeout = 8000
+
+                    connection.readTimeout = 8000
+
+                    if (connection.responseCode !in 200..299) {
+                        return@execute
+                    }
+
+                    val text =
+                        connection.inputStream
+                            .use { it.readBytes() }
+                            .toString(Charsets.UTF_8)
+
+                    val current = JSONObject(text).getJSONObject("current")
+
+                    val temp = current.getDouble("temperature_2m")
+
+                    val code = current.getInt("weather_code")
+
+                    mainHandler.post {
+                        weatherTemp.text = "${Math.round(temp)}\u00B0"
+                        weatherIcon.text = weatherEmoji(code)
+                        weatherCityView.text = weatherCity
+                    }
+
+                } catch (_: Exception) {
+
+                } finally {
+
+                    connection?.disconnect()
+                }
+            }
+
+        } catch (_: Exception) {
+        }
+    }
+
+    // optional Firebase settings: settings/weather_lat, weather_lon, weather_city
+    private fun readWeatherSettings(snapshot: DataSnapshot) {
+
+        val settings = snapshot.child("settings")
+
+        val lat = settings.child("weather_lat").value?.toString()?.toDoubleOrNull()
+
+        val lon = settings.child("weather_lon").value?.toString()?.toDoubleOrNull()
+
+        val city = settings.readString("weather_city")
+
+        var changed = false
+
+        if (lat != null && lon != null && (lat != weatherLat || lon != weatherLon)) {
+            weatherLat = lat
+            weatherLon = lon
+            changed = true
+        }
+
+        if (city != null && city != weatherCity) {
+            weatherCity = city
+            weatherCityView.text = city
+        }
+
+        if (changed) {
+            fetchWeather()
+        }
     }
 
     // =========================
@@ -3084,7 +3636,7 @@ class MainActivity : Activity() {
         hideSystemBars()
 
         playingChannel?.let {
-            showZapOverlay(it.name)
+            showZapBanner(it)
         }
     }
 
@@ -3108,7 +3660,9 @@ class MainActivity : Activity() {
 
         mainHandler.removeCallbacks(hideZapRunnable)
 
-        zapOverlay.visibility = View.GONE
+        zapBanner.animate().cancel()
+
+        zapBanner.visibility = View.GONE
 
         moveVideoTo(playerFrame)
 
