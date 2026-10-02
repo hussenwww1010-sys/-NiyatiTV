@@ -1,5 +1,6 @@
 package com.niyati.tv
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -30,6 +31,11 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -84,6 +90,20 @@ class MainActivity : Activity() {
 
     private lateinit var player: ExoPlayer
     private lateinit var playerView: PlayerView
+
+    // =========================
+    // Web player (YouTube / Facebook)
+    // =========================
+
+    private lateinit var webView: WebView
+
+    // true while the current channel is played inside the WebView
+    private var playingWeb = false
+
+    private val desktopUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/120.0.0.0 Safari/537.36"
 
     // =========================
     // Views
@@ -269,6 +289,8 @@ class MainActivity : Activity() {
 
         initPlayer()
 
+        initWebView()
+
         database = FirebaseDatabase.getInstance(firebaseUrl)
         rootRef = database.reference
 
@@ -321,7 +343,7 @@ class MainActivity : Activity() {
     )
 
     private val retryRunnable = Runnable {
-        if (finalPlaybackError || playingChannel == null) {
+        if (finalPlaybackError || playingChannel == null || playingWeb) {
             return@Runnable
         }
         try {
@@ -374,6 +396,12 @@ class MainActivity : Activity() {
             object : Player.Listener {
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
+
+                    // the WebView is in charge right now, ignore ExoPlayer events
+                    if (playingWeb) {
+                        return
+                    }
+
                     when (playbackState) {
 
                         Player.STATE_BUFFERING -> {
@@ -419,10 +447,279 @@ class MainActivity : Activity() {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
+                    if (playingWeb) {
+                        return
+                    }
                     handlePlayerError(error)
                 }
             }
         )
+    }
+
+    // =========================
+    // Web player (YouTube / Facebook)
+    // =========================
+
+    private val hideWebStatusRunnable = Runnable {
+        if (playingWeb && !finalPlaybackError) {
+            hideStatus()
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun initWebView() {
+
+        webView = WebView(this)
+
+        webView.setBackgroundColor(Color.BLACK)
+
+        // becomes focusable only in fullscreen
+        webView.isFocusable = false
+
+        webView.visibility = View.GONE
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            mediaPlaybackRequiresUserGesture = false
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
+            userAgentString = desktopUserAgent
+        }
+
+        webView.webChromeClient = WebChromeClient()
+
+        webView.webViewClient =
+            object : WebViewClient() {
+
+                // block navigation away from the embedded player
+                override fun shouldOverrideUrlLoading(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): Boolean = request.isForMainFrame
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+
+                    if (
+                        playingWeb &&
+                        url != null &&
+                        !url.startsWith("about:")
+                    ) {
+                        mainHandler.removeCallbacks(hideWebStatusRunnable)
+                        mainHandler.postDelayed(hideWebStatusRunnable, 1500)
+                    }
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?
+                ) {
+
+                    if (playingWeb && request?.isForMainFrame == true) {
+
+                        finalPlaybackError = true
+
+                        livePill.visibility = View.GONE
+
+                        showStatus(
+                            "\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629",
+                            "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u062a\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0623\u0648 \u0645\u0646 \u0627\u0644\u0631\u0627\u0628\u0637",
+                            true
+                        )
+                    }
+                }
+            }
+    }
+
+    private fun hostOf(url: String): String? =
+        try {
+            Uri.parse(url.trim()).host?.lowercase(Locale.US)
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun isYoutubeHost(host: String?): Boolean =
+        host != null &&
+                (host == "youtu.be" ||
+                        host == "youtube.com" ||
+                        host.endsWith(".youtube.com") ||
+                        host == "youtube-nocookie.com" ||
+                        host.endsWith(".youtube-nocookie.com"))
+
+    private fun isFacebookHost(host: String?): Boolean =
+        host != null &&
+                (host == "fb.watch" ||
+                        host == "facebook.com" ||
+                        host.endsWith(".facebook.com") ||
+                        host == "fb.com" ||
+                        host.endsWith(".fb.com"))
+
+    // true when the link is a YouTube / Facebook page (not a direct stream)
+    private fun isWebSource(url: String): Boolean {
+
+        val lowerPath =
+            url.trim()
+                .lowercase(Locale.US)
+                .substringBefore("#")
+                .substringBefore("?")
+
+        if (
+            lowerPath.endsWith(".m3u8") ||
+            lowerPath.endsWith(".mpd") ||
+            lowerPath.endsWith(".ts") ||
+            lowerPath.endsWith(".mp4")
+        ) {
+            return false
+        }
+
+        val host = hostOf(url)
+
+        return isYoutubeHost(host) || isFacebookHost(host)
+    }
+
+    private fun youtubeEmbedUrl(url: String): String? {
+
+        val uri = Uri.parse(url.trim())
+
+        val host = uri.host?.lowercase(Locale.US)
+
+        val segs = uri.pathSegments
+
+        val params = "autoplay=1&playsinline=1&rel=0&modestbranding=1"
+
+        // channel live: youtube.com/channel/UCxxxx/live
+        if (segs.size >= 2 && segs[0] == "channel") {
+            return "https://www.youtube.com/embed/live_stream?channel=${segs[1]}&$params"
+        }
+
+        var id: String? = null
+
+        if (host == "youtu.be") {
+
+            id = segs.firstOrNull()
+
+        } else {
+
+            val v = uri.getQueryParameter("v")
+
+            if (!v.isNullOrBlank()) {
+                id = v
+            } else if (
+                segs.size >= 2 &&
+                segs[0] in setOf("embed", "live", "shorts", "v")
+            ) {
+                id = segs[1]
+            }
+        }
+
+        if (!id.isNullOrBlank()) {
+            return "https://www.youtube.com/embed/$id?$params"
+        }
+
+        val list = uri.getQueryParameter("list")
+
+        if (!list.isNullOrBlank()) {
+            return "https://www.youtube.com/embed/videoseries?list=$list&$params"
+        }
+
+        return null
+    }
+
+    private fun facebookEmbedUrl(url: String): String =
+        "https://www.facebook.com/plugins/video.php" +
+                "?href=${Uri.encode(url.trim())}" +
+                "&show_text=false&autoplay=true&allowfullscreen=true&width=1280"
+
+    private fun buildEmbedHtml(embedUrl: String): String {
+
+        val safe = embedUrl.replace("&", "&amp;")
+
+        return "<!DOCTYPE html><html><head>" +
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+                "<style>" +
+                "html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden}" +
+                "iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}" +
+                "</style></head><body>" +
+                "<iframe src=\"$safe\" " +
+                "allow=\"autoplay; fullscreen; encrypted-media; picture-in-picture\" " +
+                "allowfullscreen></iframe>" +
+                "</body></html>"
+    }
+
+    private fun playWeb(channel: Channel, rawUrl: String) {
+
+        val host = hostOf(rawUrl)
+
+        val isYoutube = isYoutubeHost(host)
+
+        val embedUrl =
+            if (isYoutube) youtubeEmbedUrl(rawUrl) else facebookEmbedUrl(rawUrl)
+
+        val baseUrl =
+            if (isYoutube) "https://www.youtube.com" else "https://www.facebook.com"
+
+        val sourceName = if (isYoutube) "YouTube" else "Facebook"
+
+        // stop ExoPlayer, the WebView takes over
+        try {
+            player.stop()
+            player.clearMediaItems()
+        } catch (_: Exception) {
+        }
+
+        playingWeb = true
+
+        if (embedUrl == null) {
+
+            finalPlaybackError = true
+
+            livePill.visibility = View.GONE
+
+            webView.visibility = View.GONE
+
+            showStatus(
+                "\u0631\u0627\u0628\u0637 \u063a\u064a\u0631 \u0645\u062f\u0639\u0648\u0645",
+                "\u062a\u0639\u0630\u0651\u0631 \u0627\u0633\u062a\u062e\u0631\u0627\u062c \u0645\u0639\u0631\u0651\u0641 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 \u0645\u0646 \u0631\u0627\u0628\u0637 $sourceName",
+                true
+            )
+
+            return
+        }
+
+        showStatus(
+            "\u062c\u0627\u0631\u064a \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629\u2026",
+            "${channel.name}\n\u0627\u0644\u0645\u0635\u062f\u0631: $sourceName",
+            false
+        )
+
+        webView.visibility = View.VISIBLE
+
+        webView.onResume()
+
+        webView.loadDataWithBaseURL(
+            baseUrl,
+            buildEmbedHtml(embedUrl),
+            "text/html",
+            "utf-8",
+            null
+        )
+
+        livePill.visibility = View.VISIBLE
+    }
+
+    private fun stopWeb() {
+
+        mainHandler.removeCallbacks(hideWebStatusRunnable)
+
+        if (playingWeb) {
+            playingWeb = false
+            webView.loadUrl("about:blank")
+        }
+
+        webView.visibility = View.GONE
     }
 
     // =========================
@@ -1264,8 +1561,11 @@ class MainActivity : Activity() {
 
         (playerView.parent as? ViewGroup)?.removeView(playerView)
 
+        (webView.parent as? ViewGroup)?.removeView(webView)
+
         (statusOverlay.parent as? ViewGroup)?.removeView(statusOverlay)
 
+        // order: ExoPlayer video, then WebView, then the status overlay on top
         container.addView(
             playerView,
             0,
@@ -1273,8 +1573,14 @@ class MainActivity : Activity() {
         )
 
         container.addView(
-            statusOverlay,
+            webView,
             1,
+            FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        container.addView(
+            statusOverlay,
+            2,
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
     }
@@ -1925,10 +2231,11 @@ class MainActivity : Activity() {
 
         card.setOnClickListener {
 
-            if (
+            val alreadyPlaying =
                 playingChannel == channel &&
-                player.playbackState != Player.STATE_IDLE
-            ) {
+                        (playingWeb || player.playbackState != Player.STATE_IDLE)
+
+            if (alreadyPlaying) {
                 enterFullscreen()
             } else {
                 playChannel(channel)
@@ -2378,6 +2685,7 @@ class MainActivity : Activity() {
         firstError = null
 
         mainHandler.removeCallbacks(retryRunnable)
+        mainHandler.removeCallbacks(hideWebStatusRunnable)
 
         playingChannel = channel
 
@@ -2386,6 +2694,19 @@ class MainActivity : Activity() {
         updatePlayingMarks()
 
         updateNowPlaying(channel)
+
+        // ---- YouTube / Facebook -> WebView ----
+        if (isWebSource(source.url)) {
+
+            currentSource = null
+
+            playWeb(channel, source.url)
+
+            return
+        }
+
+        // ---- Normal stream -> ExoPlayer ----
+        stopWeb()
 
         currentSource = source
 
@@ -2632,7 +2953,7 @@ class MainActivity : Activity() {
 
     private fun handleFullscreenKey(event: KeyEvent): Boolean {
 
-        if (playerView.isControllerFullyVisible) {
+        if (!playingWeb && playerView.isControllerFullyVisible) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -2664,6 +2985,11 @@ class MainActivity : Activity() {
             event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
             event.keyCode == KeyEvent.KEYCODE_ENTER
         ) {
+
+            // web mode: let the page handle OK (play / pause)
+            if (playingWeb) {
+                return super.dispatchKeyEvent(event)
+            }
 
             if (event.action == KeyEvent.ACTION_DOWN) {
                 playerView.showController()
@@ -2732,15 +3058,28 @@ class MainActivity : Activity() {
 
         fullscreenContainer.visibility = View.VISIBLE
 
-        playerView.useController = true
+        playerView.useController = !playingWeb
 
         playerView.controllerShowTimeoutMs = 4000
 
-        playerView.isFocusable = true
+        if (playingWeb) {
 
-        playerView.isFocusableInTouchMode = true
+            playerView.isFocusable = false
 
-        playerView.requestFocus()
+            webView.isFocusable = true
+
+            webView.isFocusableInTouchMode = true
+
+            webView.requestFocus()
+
+        } else {
+
+            playerView.isFocusable = true
+
+            playerView.isFocusableInTouchMode = true
+
+            playerView.requestFocus()
+        }
 
         hideSystemBars()
 
@@ -2762,6 +3101,10 @@ class MainActivity : Activity() {
         playerView.useController = false
 
         playerView.isFocusable = false
+
+        webView.isFocusable = false
+
+        webView.isFocusableInTouchMode = false
 
         mainHandler.removeCallbacks(hideZapRunnable)
 
@@ -2888,7 +3231,11 @@ class MainActivity : Activity() {
 
         super.onStart()
 
-        if (resumeOnStart && ::player.isInitialized) {
+        if (::webView.isInitialized) {
+            webView.onResume()
+        }
+
+        if (resumeOnStart && ::player.isInitialized && !playingWeb) {
 
             if (player.isCurrentMediaItemLive) {
                 player.seekToDefaultPosition()
@@ -2901,6 +3248,10 @@ class MainActivity : Activity() {
     override fun onStop() {
 
         super.onStop()
+
+        if (::webView.isInitialized) {
+            webView.onPause()
+        }
 
         if (::player.isInitialized) {
 
@@ -2921,6 +3272,15 @@ class MainActivity : Activity() {
         }
 
         ioExecutor.shutdownNow()
+
+        if (::webView.isInitialized) {
+
+            (webView.parent as? ViewGroup)?.removeView(webView)
+
+            webView.stopLoading()
+
+            webView.destroy()
+        }
 
         if (::player.isInitialized) {
             player.release()
