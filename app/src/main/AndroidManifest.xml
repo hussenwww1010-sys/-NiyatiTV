@@ -7,6 +7,10 @@
     <uses-permission
         android:name="android.permission.INTERNET" />
 
+    <!-- مراقبة حالة الاتصال (شريط انقطاع النت + إعادة تشغيل البث تلقائياً) -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- دعم Android TV / Google TV -->
     <uses-feature
         android:name="android.software.leanback"
@@ -24,6 +28,7 @@
         android:roundIcon="@drawable/logo"
         android:banner="@drawable/app_banner"
         android:theme="@style/Theme.NiyatiTV"
+        android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true">
 
         <activity
