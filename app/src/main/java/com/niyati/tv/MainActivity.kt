@@ -1,6 +1,8 @@
 package com.niyati.tv
 
 import android.annotation.SuppressLint
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -267,17 +269,18 @@ class MainActivity : Activity() {
     // Colors
     // =========================
 
-    private val bgTop = Color.rgb(6, 9, 24)
-    private val bgMid = Color.rgb(17, 10, 44)
-    private val bgBottom = Color.rgb(4, 20, 36)
+    // theme colors (set by applyTheme in onCreate)
+    private var bgTop = Color.rgb(6, 9, 24)
+    private var bgMid = Color.rgb(17, 10, 44)
+    private var bgBottom = Color.rgb(4, 20, 36)
 
-    private val cyan = Color.rgb(0, 229, 255)
-    private val violet = Color.rgb(168, 85, 247)
+    private var cyan = Color.rgb(0, 229, 255)
+    private var violet = Color.rgb(168, 85, 247)
     private val white = Color.WHITE
     private val dimWhite = Color.argb(235, 255, 255, 255)
     private val gray = Color.rgb(148, 163, 184)
 
-    private val palette = listOf(
+    private var palette = listOf(
         Accent(Color.rgb(0, 229, 255), Color.rgb(41, 121, 255)),
         Accent(Color.rgb(192, 132, 252), Color.rgb(236, 72, 153)),
         Accent(Color.rgb(255, 183, 77), Color.rgb(244, 63, 94)),
@@ -288,6 +291,115 @@ class MainActivity : Activity() {
 
     private fun accentFor(index: Int): Accent =
         palette[((index % palette.size) + palette.size) % palette.size]
+
+    // =========================
+    // Themes
+    // =========================
+
+    private class Theme(
+        val name: String,
+        val bgTop: Int,
+        val bgMid: Int,
+        val bgBottom: Int,
+        val primary: Int,
+        val secondary: Int,
+        val palette: List<Accent>
+    )
+
+    private fun acc(r1: Int, g1: Int, b1: Int, r2: Int, g2: Int, b2: Int) =
+        Accent(Color.rgb(r1, g1, b1), Color.rgb(r2, g2, b2))
+
+    private val themes: List<Theme> = listOf(
+        Theme(
+            "أزرق ليلي",
+            Color.rgb(6, 9, 24), Color.rgb(17, 10, 44), Color.rgb(4, 20, 36),
+            Color.rgb(0, 229, 255), Color.rgb(168, 85, 247),
+            listOf(
+                acc(0, 229, 255, 41, 121, 255),
+                acc(192, 132, 252, 236, 72, 153),
+                acc(255, 183, 77, 244, 63, 94),
+                acc(52, 211, 153, 6, 182, 212),
+                acc(250, 204, 21, 249, 115, 22),
+                acc(129, 140, 248, 56, 189, 248)
+            )
+        ),
+        Theme(
+            "أخضر الملعب",
+            Color.rgb(3, 18, 12), Color.rgb(6, 34, 22), Color.rgb(2, 22, 28),
+            Color.rgb(52, 211, 153), Color.rgb(250, 204, 21),
+            listOf(
+                acc(52, 211, 153, 6, 182, 212),
+                acc(163, 230, 53, 34, 197, 94),
+                acc(250, 204, 21, 249, 115, 22),
+                acc(45, 212, 191, 59, 130, 246),
+                acc(132, 204, 22, 21, 128, 61),
+                acc(110, 231, 183, 16, 185, 129)
+            )
+        ),
+        Theme(
+            "ذهبي ملكي",
+            Color.rgb(14, 10, 4), Color.rgb(36, 22, 8), Color.rgb(20, 10, 6),
+            Color.rgb(250, 204, 21), Color.rgb(249, 115, 22),
+            listOf(
+                acc(250, 204, 21, 249, 115, 22),
+                acc(251, 191, 36, 217, 119, 6),
+                acc(253, 224, 71, 234, 179, 8),
+                acc(245, 158, 11, 180, 83, 9),
+                acc(252, 211, 77, 251, 146, 60),
+                acc(254, 240, 138, 245, 158, 11)
+            )
+        ),
+        Theme(
+            "أحمر ناري",
+            Color.rgb(20, 5, 10), Color.rgb(44, 8, 22), Color.rgb(22, 6, 10),
+            Color.rgb(255, 99, 120), Color.rgb(249, 115, 22),
+            listOf(
+                acc(255, 99, 120, 244, 63, 94),
+                acc(251, 146, 60, 239, 68, 68),
+                acc(244, 114, 182, 225, 29, 72),
+                acc(252, 165, 165, 220, 38, 38),
+                acc(253, 186, 116, 234, 88, 12),
+                acc(251, 113, 133, 190, 18, 60)
+            )
+        ),
+        Theme(
+            "بنفسجي",
+            Color.rgb(10, 6, 26), Color.rgb(30, 10, 60), Color.rgb(14, 8, 40),
+            Color.rgb(192, 132, 252), Color.rgb(236, 72, 153),
+            listOf(
+                acc(192, 132, 252, 236, 72, 153),
+                acc(129, 140, 248, 168, 85, 247),
+                acc(232, 121, 249, 147, 51, 234),
+                acc(165, 180, 252, 99, 102, 241),
+                acc(244, 114, 182, 168, 85, 247),
+                acc(196, 181, 253, 124, 58, 237)
+            )
+        )
+    )
+
+    private var themeIndex = 0
+
+    private fun applyTheme(index: Int) {
+
+        val t = themes[index]
+
+        bgTop = t.bgTop
+        bgMid = t.bgMid
+        bgBottom = t.bgBottom
+        cyan = t.primary
+        violet = t.secondary
+        palette = t.palette
+    }
+
+    // ---- settings ----
+    private var previewEnabled = true
+    private var dynBgEnabled = true
+
+    // ---- dynamic background / preview ----
+    private lateinit var ambient: AmbientBackground
+    private val tintCache = HashMap<String, Int>()
+    private var tintToken = 0
+    private var previewTarget: Channel? = null
 
     // =========================
     // Helpers
@@ -379,6 +491,20 @@ class MainActivity : Activity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        themeIndex = prefs.getInt("theme", 0).coerceIn(0, themes.size - 1)
+
+        applyTheme(themeIndex)
+
+        previewEnabled = prefs.getBoolean("preview", true)
+
+        dynBgEnabled = prefs.getBoolean("dyn_bg", true)
+
+        val skipSplash = prefs.getBoolean("skip_splash_once", false)
+
+        if (skipSplash) {
+            prefs.edit().putBoolean("skip_splash_once", false).apply()
+        }
+
         window.statusBarColor = bgTop
         window.navigationBarColor = bgBottom
 
@@ -395,7 +521,12 @@ class MainActivity : Activity() {
 
         splashStart = SystemClock.elapsedRealtime()
 
-        mainHandler.postDelayed(splashRunnable, 1800)
+        if (skipSplash) {
+            splashVisible = false
+            splash.visibility = View.GONE
+        } else {
+            mainHandler.postDelayed(splashRunnable, 1800)
+        }
 
         startFirebase()
 
@@ -1251,8 +1382,10 @@ class MainActivity : Activity() {
 
         root.layoutDirection = View.LAYOUT_DIRECTION_LTR
 
+        ambient = AmbientBackground()
+
         root.addView(
-            AmbientBackground(),
+            ambient,
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
@@ -1544,6 +1677,50 @@ class MainActivity : Activity() {
             timeCol,
             lp(wrap, wrap).apply {
                 setMargins(dp(18), 0, 0, 0)
+            }
+        )
+
+        // ---- settings button ----
+        val settingsBtn = TextView(this)
+
+        settingsBtn.text = "⚙"
+
+        settingsBtn.textSize = 22f
+
+        settingsBtn.setTextColor(white)
+
+        settingsBtn.gravity = Gravity.CENTER
+
+        settingsBtn.isFocusable = true
+
+        settingsBtn.isFocusableInTouchMode = true
+
+        fun styleSettings(focused: Boolean) {
+            settingsBtn.background =
+                GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    if (focused) {
+                        setColor(withAlpha(cyan, 110))
+                        setStroke(dp(2), Color.WHITE)
+                    } else {
+                        setColor(Color.argb(22, 255, 255, 255))
+                        setStroke(dp(1), Color.argb(40, 255, 255, 255))
+                    }
+                }
+        }
+
+        styleSettings(false)
+
+        settingsBtn.setOnFocusChangeListener { _, focused -> styleSettings(focused) }
+
+        settingsBtn.setOnClickListener {
+            showSettingsMenu()
+        }
+
+        header.addView(
+            settingsBtn,
+            lp(dp(44), dp(44)).apply {
+                setMargins(dp(16), 0, 0, 0)
             }
         )
 
@@ -1864,6 +2041,11 @@ class MainActivity : Activity() {
         private var base: Shader? = null
         private var glowA: Shader? = null
         private var glowB: Shader? = null
+        private var tintShader: Shader? = null
+
+        private var curColor = Color.BLACK
+        private var curStrength = 0f
+        private var anim: ValueAnimator? = null
 
         override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
 
@@ -1889,10 +2071,7 @@ class MainActivity : Activity() {
                     fw * 0.88f,
                     fh * 0.08f,
                     fw * 0.55f,
-                    intArrayOf(
-                        Color.argb(95, 168, 85, 247),
-                        Color.argb(0, 168, 85, 247)
-                    ),
+                    intArrayOf(withAlpha(violet, 95), withAlpha(violet, 0)),
                     null,
                     Shader.TileMode.CLAMP
                 )
@@ -1902,13 +2081,68 @@ class MainActivity : Activity() {
                     fw * 0.08f,
                     fh * 0.98f,
                     fw * 0.5f,
-                    intArrayOf(
-                        Color.argb(80, 0, 229, 255),
-                        Color.argb(0, 0, 229, 255)
-                    ),
+                    intArrayOf(withAlpha(cyan, 80), withAlpha(cyan, 0)),
                     null,
                     Shader.TileMode.CLAMP
                 )
+
+            rebuildTint()
+        }
+
+        private fun rebuildTint() {
+
+            if (width == 0 || height == 0) {
+                return
+            }
+
+            val alpha = (135 * curStrength).toInt()
+
+            tintShader =
+                RadialGradient(
+                    width * 0.70f,
+                    height * 0.48f,
+                    width * 0.68f,
+                    intArrayOf(withAlpha(curColor, alpha), withAlpha(curColor, 0)),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+        }
+
+        // null = fade the tint out
+        fun setTint(color: Int?) {
+
+            anim?.cancel()
+
+            val fromColor = curColor
+
+            val fromStrength = curStrength
+
+            val toColor = color ?: curColor
+
+            val toStrength = if (color == null) 0f else 1f
+
+            val evaluator = ArgbEvaluator()
+
+            val a = ValueAnimator.ofFloat(0f, 1f)
+
+            a.duration = 700
+
+            a.addUpdateListener {
+
+                val t = it.animatedValue as Float
+
+                curColor = evaluator.evaluate(t, fromColor, toColor) as Int
+
+                curStrength = fromStrength + (toStrength - fromStrength) * t
+
+                rebuildTint()
+
+                invalidate()
+            }
+
+            anim = a
+
+            a.start()
         }
 
         override fun onDraw(canvas: Canvas) {
@@ -1925,6 +2159,11 @@ class MainActivity : Activity() {
 
             paint.shader = glowB
             canvas.drawRect(0f, 0f, w, h, paint)
+
+            if (curStrength > 0.01f) {
+                paint.shader = tintShader
+                canvas.drawRect(0f, 0f, w, h, paint)
+            }
         }
     }
 
@@ -2585,6 +2824,10 @@ class MainActivity : Activity() {
 
         card.onFocused = {
             lastFocusedChannel = channel
+
+            requestTint(channel.logo, accent.start)
+
+            schedulePreview(channel)
         }
 
         card.setOnLongClickListener {
@@ -2893,6 +3136,10 @@ class MainActivity : Activity() {
             card.onFocused = {
                 if (moveState == null) {
                     scheduleSelect(item.id)
+
+                    cancelPreview()
+
+                    requestTint(item.logo, accentOfPackage(item).start)
                 }
             }
 
@@ -3070,7 +3317,7 @@ class MainActivity : Activity() {
     // Playback
     // =========================
 
-    private fun playChannel(channel: Channel) {
+    private fun playChannel(channel: Channel, preview: Boolean = false) {
 
         val source = parseSource(channel.url)
 
@@ -3096,11 +3343,17 @@ class MainActivity : Activity() {
 
         playingList = visibleChannels
 
-        prefs.edit().putString("last_channel", channelKey(channel)).apply()
+        if (!preview) {
+            prefs.edit().putString("last_channel", channelKey(channel)).apply()
+        }
 
         updatePlayingMarks()
 
         updateNowPlaying(channel)
+
+        if (!preview) {
+            requestTint(channel.logo, cyan)
+        }
 
         // ---- YouTube / Facebook -> WebView ----
         if (isWebSource(source.url)) {
@@ -4545,6 +4798,272 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Dynamic background (color of the focused logo)
+    // =========================
+
+    private fun dominantColor(bitmap: Bitmap): Int {
+
+        val small = Bitmap.createScaledBitmap(bitmap, 24, 24, true)
+
+        val hsv = FloatArray(3)
+
+        val weight = FloatArray(12)
+        val rs = FloatArray(12)
+        val gs = FloatArray(12)
+        val bs = FloatArray(12)
+
+        for (y in 0 until 24) {
+
+            for (x in 0 until 24) {
+
+                val p = small.getPixel(x, y)
+
+                if (Color.alpha(p) < 140) {
+                    continue
+                }
+
+                Color.colorToHSV(p, hsv)
+
+                // ignore white / gray / black pixels
+                if (hsv[1] < 0.28f || hsv[2] < 0.25f) {
+                    continue
+                }
+
+                val w = hsv[1] * hsv[2]
+
+                val bucket = (hsv[0] / 30f).toInt().coerceIn(0, 11)
+
+                weight[bucket] += w
+                rs[bucket] += Color.red(p) * w
+                gs[bucket] += Color.green(p) * w
+                bs[bucket] += Color.blue(p) * w
+            }
+        }
+
+        var best = -1
+
+        var bestWeight = 0f
+
+        for (i in 0 until 12) {
+            if (weight[i] > bestWeight) {
+                bestWeight = weight[i]
+                best = i
+            }
+        }
+
+        if (best < 0 || bestWeight < 1.5f) {
+            return 0
+        }
+
+        return Color.rgb(
+            (rs[best] / weight[best]).toInt(),
+            (gs[best] / weight[best]).toInt(),
+            (bs[best] / weight[best]).toInt()
+        )
+    }
+
+    private fun requestTint(logo: String, fallback: Int) {
+
+        if (!::ambient.isInitialized || !dynBgEnabled || isFullscreen) {
+            return
+        }
+
+        tintToken++
+
+        doTint(logo, fallback, tintToken, true)
+    }
+
+    private fun doTint(logo: String, fallback: Int, token: Int, retry: Boolean) {
+
+        if (token != tintToken) {
+            return
+        }
+
+        if (logo.isNotBlank()) {
+
+            val cached = tintCache[logo]
+
+            if (cached != null) {
+                ambient.setTint(if (cached == 0) fallback else cached)
+                return
+            }
+
+            val bitmap = imageCache.get(logo)
+
+            if (bitmap != null) {
+
+                val color = dominantColor(bitmap)
+
+                tintCache[logo] = color
+
+                ambient.setTint(if (color == 0) fallback else color)
+
+                return
+            }
+
+            // the logo is still downloading: try once more shortly
+            if (retry) {
+
+                mainHandler.postDelayed(
+                    { doTint(logo, fallback, token, false) },
+                    700
+                )
+
+                return
+            }
+        }
+
+        ambient.setTint(fallback)
+    }
+
+    // =========================
+    // Auto preview (2 seconds on a channel)
+    // =========================
+
+    private val previewRunnable = Runnable {
+
+        val channel = previewTarget ?: return@Runnable
+
+        previewTarget = null
+
+        if (isFullscreen || menuOpen() || moveState != null || splashVisible) {
+            return@Runnable
+        }
+
+        // still resting on the same channel in the channels column
+        if (lastFocusedChannel == channel && columnOf(currentFocus) == 1) {
+            playChannel(channel, true)
+        }
+    }
+
+    private fun cancelPreview() {
+
+        mainHandler.removeCallbacks(previewRunnable)
+
+        previewTarget = null
+    }
+
+    private fun schedulePreview(channel: Channel) {
+
+        cancelPreview()
+
+        if (
+            !previewEnabled ||
+            isFullscreen ||
+            moveState != null ||
+            menuOpen() ||
+            channel.url.isBlank() ||
+            channel == playingChannel
+        ) {
+            return
+        }
+
+        // do not auto-start heavy web players (YouTube / Facebook)
+        if (isWebSource(parseSource(channel.url).url)) {
+            return
+        }
+
+        previewTarget = channel
+
+        mainHandler.postDelayed(previewRunnable, 2000)
+    }
+
+    // =========================
+    // Settings menu
+    // =========================
+
+    private fun showSettingsMenu() {
+
+        if (isFullscreen || moveState != null || menuOpen()) {
+            return
+        }
+
+        showMenu(
+            "الإعدادات",
+            listOf(
+                "🎨  الثيم: ${themes[themeIndex].name}" to { showThemeMenu() },
+                "✨  الخلفية المتحركة: ${if (dynBgEnabled) "مفعّلة" else "متوقفة"}" to
+                        { toggleDynamicBackground() },
+                "👁  المعاينة التلقائية: ${if (previewEnabled) "مفعّلة" else "متوقفة"}" to
+                        { togglePreview() },
+                "إلغاء" to {}
+            )
+        )
+    }
+
+    private fun showThemeMenu() {
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        themes.forEachIndexed { i, theme ->
+            items.add(
+                ((if (i == themeIndex) "✓  " else "") + theme.name) to { setTheme(i) }
+            )
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("اختر الثيم", items)
+    }
+
+    // the whole interface is rebuilt with the new colors
+    private fun setTheme(index: Int) {
+
+        if (index == themeIndex) {
+            return
+        }
+
+        prefs.edit()
+            .putInt("theme", index)
+            .putBoolean("skip_splash_once", true)
+            .apply()
+
+        recreate()
+    }
+
+    private fun toggleDynamicBackground() {
+
+        dynBgEnabled = !dynBgEnabled
+
+        prefs.edit().putBoolean("dyn_bg", dynBgEnabled).apply()
+
+        if (dynBgEnabled) {
+
+            val target = lastFocusedChannel ?: playingChannel
+
+            if (target != null) {
+                requestTint(target.logo, cyan)
+            }
+
+        } else {
+            ambient.setTint(null)
+        }
+
+        Toast.makeText(
+            this,
+            if (dynBgEnabled) "الخلفية المتحركة: مفعّلة" else "الخلفية المتحركة: متوقفة",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun togglePreview() {
+
+        previewEnabled = !previewEnabled
+
+        prefs.edit().putBoolean("preview", previewEnabled).apply()
+
+        if (!previewEnabled) {
+            cancelPreview()
+        }
+
+        Toast.makeText(
+            this,
+            if (previewEnabled) "المعاينة التلقائية: مفعّلة" else "المعاينة التلقائية: متوقفة",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -4638,6 +5157,12 @@ class MainActivity : Activity() {
         }
 
         val key = event.keyCode
+
+        // menu button = settings
+        if (key == KeyEvent.KEYCODE_MENU) {
+            showSettingsMenu()
+            return true
+        }
 
         // yellow button = favorite
         if (key == KeyEvent.KEYCODE_PROG_YELLOW) {
@@ -4832,6 +5357,12 @@ class MainActivity : Activity() {
         }
 
         isFullscreen = true
+
+        cancelPreview()
+
+        playingChannel?.let {
+            prefs.edit().putString("last_channel", channelKey(it)).apply()
+        }
 
         moveVideoTo(fullscreenContainer)
 
