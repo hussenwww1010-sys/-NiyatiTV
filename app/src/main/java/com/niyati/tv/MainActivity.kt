@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -175,7 +176,20 @@ class MainActivity : Activity() {
         val enabled: Boolean,
         val order: Int,
         val userAgent: String = "",
-        val referer: String = ""
+        val referer: String = "",
+        val backups: List<String> = emptyList()
+    )
+
+    data class MatchItem(
+        val home: String,
+        val away: String,
+        val league: String,
+        val time: String,
+        val date: String,
+        val score: String,
+        val status: String,
+        val channel: String,
+        val order: Int
     )
 
     data class PackageItem(
@@ -401,6 +415,33 @@ class MainActivity : Activity() {
     private var tintToken = 0
     private var previewTarget: Channel? = null
 
+    // ---- fallback links ----
+    private var sourceIndex = 0
+    private var playToken = 0
+
+    // ---- remote control (maintenance / announcement / update) ----
+    private var blocked = false
+    private var updateShown = false
+    private var noticeKey = ""
+    private var noticeDismiss: (() -> Unit)? = null
+    private var noticeReturnFocus: View? = null
+    private lateinit var noticeOverlay: FrameLayout
+    private lateinit var noticeIcon: TextView
+    private lateinit var noticeTitle: TextView
+    private lateinit var noticeMessage: TextView
+    private lateinit var noticeButtons: LinearLayout
+    private lateinit var blockOverlay: FrameLayout
+    private lateinit var blockIcon: TextView
+    private lateinit var blockTitle: TextView
+    private lateinit var blockMessage: TextView
+
+    // ---- today's matches ticker ----
+    private var matches: List<MatchItem> = emptyList()
+    private var tickerIndex = -1
+    private lateinit var tickerChip: LinearLayout
+    private lateinit var tickerLine1: TextView
+    private lateinit var tickerLine2: TextView
+
     // =========================
     // Helpers
     // =========================
@@ -533,6 +574,8 @@ class MainActivity : Activity() {
         mainHandler.post(weatherRunnable)
 
         mainHandler.post(dateRunnable)
+
+        mainHandler.post(tickerRunnable)
     }
 
     // =========================
@@ -588,6 +631,13 @@ class MainActivity : Activity() {
             player.playWhenReady = true
         } catch (e: Exception) {
             finalPlaybackError = true
+
+            val ch = playingChannel
+
+            if (ch != null && tryNextSource(ch)) {
+                return@Runnable
+            }
+
             showDetailedPlaybackError(null, e)
         }
     }
@@ -782,6 +832,12 @@ class MainActivity : Activity() {
 
                         livePill.visibility = View.GONE
 
+                        val failed = playingChannel
+
+                        if (failed != null && tryNextSource(failed)) {
+                            return
+                        }
+
                         showStatus(
                             "\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629",
                             "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u062a\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0623\u0648 \u0645\u0646 \u0627\u0644\u0631\u0627\u0628\u0637",
@@ -933,6 +989,10 @@ class MainActivity : Activity() {
         if (embedUrl == null) {
 
             finalPlaybackError = true
+
+            if (tryNextSource(channel)) {
+                return
+            }
 
             livePill.visibility = View.GONE
 
@@ -1172,6 +1232,10 @@ class MainActivity : Activity() {
 
             livePill.visibility = View.GONE
 
+            if (tryNextSource(channel)) {
+                return
+            }
+
             showDetailedPlaybackError(null, e)
         }
     }
@@ -1246,6 +1310,11 @@ class MainActivity : Activity() {
         finalPlaybackError = true
 
         livePill.visibility = View.GONE
+
+        // dead link: switch to the backup link if the channel has one
+        if (tryNextSource(channel)) {
+            return
+        }
 
         val shown =
             if (error.errorCode in formatErrors) {
@@ -1537,6 +1606,10 @@ class MainActivity : Activity() {
 
         buildMenuOverlay()
 
+        buildNoticeOverlay()
+
+        buildBlockOverlay()
+
         buildSplash()
 
         setContentView(root)
@@ -1593,7 +1666,14 @@ class MainActivity : Activity() {
 
         brandCol.addView(sport, lp(wrap, wrap))
 
-        header.addView(brandCol, lp(0, wrap, 1f))
+        header.addView(brandCol, lp(wrap, wrap))
+
+        header.addView(
+            buildTicker(),
+            lp(0, wrap, 1f).apply {
+                setMargins(dp(24), 0, dp(24), 0)
+            }
+        )
 
         header.addView(createLivePill(), lp(wrap, wrap))
 
@@ -2925,6 +3005,10 @@ class MainActivity : Activity() {
 
         readWeatherSettings(snapshot)
 
+        applyRemoteSettings(snapshot)
+
+        updateMatches(snapshot)
+
         val newChannels = parseChannels(snapshot)
 
         var newPackages = parsePackages(snapshot)
@@ -3069,7 +3153,8 @@ class MainActivity : Activity() {
                         child.readString("userAgent")
                             ?: child.readString("user_agent")
                             ?: "",
-                    referer = child.readString("referer") ?: ""
+                    referer = child.readString("referer") ?: "",
+                    backups = collectBackups(child)
                 )
             )
         }
@@ -3317,22 +3402,26 @@ class MainActivity : Activity() {
     // Playback
     // =========================
 
+    private fun sourcesOf(channel: Channel): List<String> =
+        (listOf(channel.url) + channel.backups)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
     private fun playChannel(channel: Channel, preview: Boolean = false) {
 
-        val source = parseSource(channel.url)
+        if (blocked) {
+            return
+        }
 
-        if (source.url.isBlank()) {
+        if (sourcesOf(channel).isEmpty()) {
 
             Toast.makeText(this, Txt.NO_URL, Toast.LENGTH_SHORT).show()
 
             return
         }
 
-        retryCount = 0
-        liveWindowRetries = 0
-        finalPlaybackError = false
-        playbackStarted = false
-        firstError = null
+        playToken++
 
         mainHandler.removeCallbacks(retryRunnable)
         mainHandler.removeCallbacks(hideWebStatusRunnable)
@@ -3355,6 +3444,31 @@ class MainActivity : Activity() {
             requestTint(channel.logo, cyan)
         }
 
+        startSource(channel, 0)
+    }
+
+    // starts one of the channel links (0 = main link, 1.. = backups)
+    private fun startSource(channel: Channel, index: Int) {
+
+        val raw = sourcesOf(channel).getOrNull(index) ?: return
+
+        val source = parseSource(raw)
+
+        sourceIndex = index
+
+        retryCount = 0
+        liveWindowRetries = 0
+        finalPlaybackError = false
+        playbackStarted = false
+        firstError = null
+
+        mainHandler.removeCallbacks(retryRunnable)
+        mainHandler.removeCallbacks(hideWebStatusRunnable)
+
+        if (index > 0) {
+            nowSub.text = realPackageName(channel) + "  •  رابط احتياطي ${index + 1}"
+        }
+
         // ---- YouTube / Facebook -> WebView ----
         if (isWebSource(source.url)) {
 
@@ -3370,7 +3484,7 @@ class MainActivity : Activity() {
         // ---- Normal stream -> ExoPlayer ----
         stopWeb()
 
-        // every new channel starts with automatic quality
+        // every new link starts with automatic quality
         try {
             player.trackSelectionParameters =
                 player.trackSelectionParameters
@@ -3389,12 +3503,60 @@ class MainActivity : Activity() {
         attemptIndex = 0
 
         showStatus(
-            "\u062c\u0627\u0631\u064a \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629\u2026",
-            "${channel.name}\n\u0627\u0644\u0645\u0635\u062f\u0631: ${attempts[0].label}",
+            "جاري تشغيل القناة…",
+            channel.name + "\n" +
+                    (if (index > 0) "رابط احتياطي ${index + 1}  •  " else "") +
+                    "المصدر: ${attempts[0].label}",
             false
         )
 
         startCurrentAttempt(channel)
+    }
+
+    // the current link is dead: move to the next backup link (if any)
+    private fun tryNextSource(channel: Channel): Boolean {
+
+        val urls = sourcesOf(channel)
+
+        val next = sourceIndex + 1
+
+        if (next >= urls.size) {
+            return false
+        }
+
+        val token = playToken
+
+        showStatus(
+            "تعذر تشغيل الرابط ${next}",
+            "جاري تجربة الرابط الاحتياطي ${next + 1} من ${urls.size}",
+            false
+        )
+
+        mainHandler.postDelayed(
+            {
+                if (token == playToken && !isFinishing && !blocked) {
+                    startSource(channel, next)
+                }
+            },
+            700
+        )
+
+        return true
+    }
+
+    private fun collectBackups(child: DataSnapshot): List<String> {
+
+        val list = mutableListOf<String>()
+
+        for (key in listOf("url2", "url3", "url4", "url5", "backupUrl", "backup_url")) {
+            child.readString(key)?.let { list.add(it) }
+        }
+
+        for (b in child.child("backups").children) {
+            b.value?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { list.add(it) }
+        }
+
+        return list
     }
 
     private fun showDetailedPlaybackError(
@@ -5064,6 +5226,539 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Remote control (Firebase settings)
+    // =========================
+
+    @Suppress("DEPRECATION")
+    private fun currentVersionCode(): Long =
+        try {
+            val info = packageManager.getPackageInfo(packageName, 0)
+
+            if (Build.VERSION.SDK_INT >= 28) {
+                info.longVersionCode
+            } else {
+                info.versionCode.toLong()
+            }
+        } catch (_: Exception) {
+            0L
+        }
+
+    private fun applyRemoteSettings(snapshot: DataSnapshot) {
+
+        val st = snapshot.child("settings")
+
+        val appEnabled = st.readBool("appEnabled", true)
+
+        val maintenance = st.readBool("maintenance", false)
+
+        val annEnabled = st.readBool("announcementEnabled", false)
+
+        val annTitle = st.readString("announcementTitle") ?: ""
+
+        val annMessage = st.readString("announcementMessage") ?: ""
+
+        val latest = st.readInt("latestVersion", 0)
+
+        val updateUrl = st.readString("updateUrl") ?: ""
+
+        // 1) app disabled or under maintenance
+        if (!appEnabled || maintenance) {
+
+            showBlock(
+                if (!appEnabled) "⛔" else "🛠",
+                if (!appEnabled) "التطبيق متوقف حالياً" else "التطبيق تحت الصيانة",
+                annMessage.ifBlank { "نعمل على تحسين الخدمة، يرجى المحاولة لاحقاً" }
+            )
+
+            return
+        }
+
+        hideBlock()
+
+        // 2) announcement (shown once for every new message)
+        if (annEnabled && (annTitle.isNotBlank() || annMessage.isNotBlank())) {
+
+            val key = "ann|$annTitle|$annMessage"
+
+            val seen = prefs.getString("notice_seen", "") == key
+
+            if (!seen && noticeKey != key) {
+
+                showNotice(
+                    key,
+                    "📢",
+                    annTitle.ifBlank { "إعلان" },
+                    annMessage,
+                    listOf("حسناً" to { markNoticeSeen(key) })
+                ) { markNoticeSeen(key) }
+            }
+
+            return
+        }
+
+        if (noticeOpen() && noticeKey.startsWith("ann|")) {
+            hideNotice()
+        }
+
+        // 3) new version available
+        if (latest > currentVersionCode() && updateUrl.isNotBlank() && !updateShown) {
+
+            updateShown = true
+
+            showNotice(
+                "upd|$latest",
+                "⬆️",
+                "تحديث جديد متوفر",
+                "يتوفر إصدار أحدث من التطبيق، يُنصح بالتحديث للحصول على أفضل أداء.",
+                listOf(
+                    "تحديث الآن" to { openUpdateUrl(updateUrl) },
+                    "لاحقاً" to {}
+                )
+            ) {}
+        }
+    }
+
+    private fun markNoticeSeen(key: String) {
+        prefs.edit().putString("notice_seen", key).apply()
+    }
+
+    private fun openUpdateUrl(url: String) {
+
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) {
+            Toast.makeText(this, "تعذر فتح رابط التحديث", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun noticeOpen(): Boolean =
+        ::noticeOverlay.isInitialized && noticeOverlay.visibility == View.VISIBLE
+
+    private fun buildNoticeOverlay() {
+
+        noticeOverlay = FrameLayout(this)
+
+        noticeOverlay.setBackgroundColor(Color.argb(200, 4, 6, 18))
+
+        noticeOverlay.isClickable = true
+
+        noticeOverlay.visibility = View.GONE
+
+        val box = LinearLayout(this)
+
+        box.orientation = LinearLayout.VERTICAL
+
+        box.gravity = Gravity.CENTER_HORIZONTAL
+
+        box.setPadding(dp(26), dp(24), dp(26), dp(22))
+
+        box.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(26, 22, 66), Color.rgb(10, 14, 34))
+            ).apply {
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), withAlpha(cyan, 130))
+            }
+
+        noticeIcon = TextView(this)
+
+        noticeIcon.textSize = 38f
+
+        noticeIcon.gravity = Gravity.CENTER
+
+        box.addView(noticeIcon, lp(wrap, wrap))
+
+        noticeTitle = label("", 22f, white, true, Gravity.CENTER, 2)
+
+        box.addView(
+            noticeTitle,
+            lp(matchParent, wrap).apply { topMargin = dp(10) }
+        )
+
+        noticeMessage = label("", 15f, dimWhite, false, Gravity.CENTER, 9)
+
+        box.addView(
+            noticeMessage,
+            lp(matchParent, wrap).apply { topMargin = dp(10) }
+        )
+
+        noticeButtons = LinearLayout(this)
+
+        noticeButtons.orientation = LinearLayout.HORIZONTAL
+
+        noticeButtons.gravity = Gravity.CENTER
+
+        box.addView(
+            noticeButtons,
+            lp(matchParent, wrap).apply { topMargin = dp(20) }
+        )
+
+        noticeOverlay.addView(
+            box,
+            FrameLayout.LayoutParams(dp(520), wrap, Gravity.CENTER)
+        )
+
+        root.addView(noticeOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    private fun showNotice(
+        key: String,
+        icon: String,
+        title: String,
+        message: String,
+        buttons: List<Pair<String, () -> Unit>>,
+        onDismiss: () -> Unit
+    ) {
+
+        if (menuOpen()) {
+            closeMenu()
+        }
+
+        noticeKey = key
+
+        noticeDismiss = onDismiss
+
+        noticeReturnFocus = currentFocus
+
+        noticeIcon.text = icon
+
+        noticeTitle.text = title
+
+        noticeMessage.text = message
+
+        noticeMessage.visibility = if (message.isBlank()) View.GONE else View.VISIBLE
+
+        noticeButtons.removeAllViews()
+
+        var first: View? = null
+
+        buttons.forEachIndexed { i, button ->
+
+            val item = menuItem(button.first, accentFor(i))
+
+            item.setOnClickListener {
+                hideNotice()
+                button.second()
+            }
+
+            val params =
+                if (buttons.size == 1) {
+                    lp(dp(220), dp(48))
+                } else {
+                    lp(0, dp(48), 1f)
+                }
+
+            params.setMargins(dp(6), 0, dp(6), 0)
+
+            noticeButtons.addView(item, params)
+
+            if (first == null) {
+                first = item
+            }
+        }
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        noticeOverlay.visibility = View.VISIBLE
+
+        first?.requestFocus()
+    }
+
+    private fun hideNotice() {
+
+        if (!noticeOpen()) {
+            return
+        }
+
+        noticeOverlay.visibility = View.GONE
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+
+        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+
+        noticeReturnFocus?.requestFocus()
+
+        noticeReturnFocus = null
+    }
+
+    private fun buildBlockOverlay() {
+
+        blockOverlay = FrameLayout(this)
+
+        blockOverlay.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(bgTop, bgMid, bgBottom)
+            )
+
+        blockOverlay.isClickable = true
+
+        blockOverlay.visibility = View.GONE
+
+        val col = LinearLayout(this)
+
+        col.orientation = LinearLayout.VERTICAL
+
+        col.gravity = Gravity.CENTER_HORIZONTAL
+
+        blockIcon = TextView(this)
+
+        blockIcon.textSize = 64f
+
+        blockIcon.gravity = Gravity.CENTER
+
+        col.addView(blockIcon, lp(wrap, wrap))
+
+        blockTitle = label("", 28f, white, true, Gravity.CENTER, 2)
+
+        col.addView(
+            blockTitle,
+            lp(matchParent, wrap).apply { topMargin = dp(16) }
+        )
+
+        blockMessage = label("", 16f, gray, false, Gravity.CENTER, 6)
+
+        col.addView(
+            blockMessage,
+            lp(matchParent, wrap).apply { topMargin = dp(10) }
+        )
+
+        blockOverlay.addView(
+            col,
+            FrameLayout.LayoutParams(dp(560), wrap, Gravity.CENTER)
+        )
+
+        root.addView(blockOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    private fun showBlock(icon: String, title: String, message: String) {
+
+        if (!blocked) {
+
+            blocked = true
+
+            // stop everything that is playing
+            try {
+                player.stop()
+                player.clearMediaItems()
+            } catch (_: Exception) {
+            }
+
+            mainHandler.removeCallbacks(retryRunnable)
+
+            stopWeb()
+        }
+
+        blockIcon.text = icon
+
+        blockTitle.text = title
+
+        blockMessage.text = message
+
+        if (noticeOpen()) {
+            hideNotice()
+        }
+
+        if (menuOpen()) {
+            closeMenu()
+        }
+
+        blockOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideBlock() {
+
+        if (!blocked) {
+            return
+        }
+
+        blocked = false
+
+        blockOverlay.visibility = View.GONE
+
+        playingChannel?.let { playChannel(it) }
+    }
+
+    // =========================
+    // Today's matches ticker
+    // =========================
+
+    private val tickerRunnable = object : Runnable {
+        override fun run() {
+            showNextMatch()
+            mainHandler.postDelayed(this, 4500)
+        }
+    }
+
+    private fun buildTicker(): View {
+
+        // the box always takes the free space of the header
+        val box = FrameLayout(this)
+
+        tickerChip = LinearLayout(this)
+
+        tickerChip.orientation = LinearLayout.VERTICAL
+
+        tickerChip.gravity = Gravity.CENTER
+
+        tickerChip.setPadding(dp(22), dp(3), dp(22), dp(3))
+
+        tickerChip.alpha = 0f
+
+        tickerChip.visibility = View.GONE
+
+        tickerChip.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.argb(44, 255, 255, 255), Color.argb(18, 255, 255, 255))
+            ).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), withAlpha(cyan, 100))
+            }
+
+        tickerLine1 = label("", 14f, white, true, Gravity.CENTER)
+
+        tickerLine2 = label("", 10.5f, gray, false, Gravity.CENTER)
+
+        tickerChip.addView(tickerLine1, lp(wrap, wrap))
+
+        tickerChip.addView(tickerLine2, lp(wrap, wrap))
+
+        box.addView(
+            tickerChip,
+            FrameLayout.LayoutParams(wrap, wrap, Gravity.CENTER)
+        )
+
+        return box
+    }
+
+    private fun parseMatches(snapshot: DataSnapshot): List<MatchItem> {
+
+        val result = mutableListOf<MatchItem>()
+
+        for (child in snapshot.child("matches").children) {
+
+            if (!child.readBool("enabled", true)) {
+                continue
+            }
+
+            val home = child.readString("home") ?: continue
+
+            val away = child.readString("away") ?: continue
+
+            result.add(
+                MatchItem(
+                    home = home,
+                    away = away,
+                    league = child.readString("league") ?: "",
+                    time = child.readString("time") ?: "",
+                    date = child.readString("date") ?: "",
+                    score = child.readString("score") ?: "",
+                    status = child.readString("status") ?: "",
+                    channel = child.readString("channel") ?: "",
+                    order = child.readInt("order", 999)
+                )
+            )
+        }
+
+        return result.sortedBy { it.order }
+    }
+
+    private fun updateMatches(snapshot: DataSnapshot) {
+
+        val newMatches = parseMatches(snapshot)
+
+        if (newMatches != matches) {
+
+            matches = newMatches
+
+            tickerIndex = -1
+
+            showNextMatch()
+        }
+    }
+
+    // only today's matches (a match without a date counts as today)
+    private fun todayMatches(): List<MatchItem> {
+
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+        return matches.filter { it.date.isBlank() || it.date == today }
+    }
+
+    private fun matchLines(m: MatchItem): Pair<String, String> {
+
+        val status = m.status.trim().lowercase(Locale.US)
+
+        val live = status == "live" || status == "مباشر"
+
+        val finished = status == "ft" || status == "finished" || status == "end" || status == "انتهت"
+
+        val middle =
+            if (live || finished) {
+                m.score.ifBlank { "vs" }
+            } else {
+                m.time.ifBlank { "vs" }
+            }
+
+        val parts = mutableListOf<String>()
+
+        if (live) {
+            parts.add("🔴 مباشر")
+        } else if (finished) {
+            parts.add("انتهت")
+        }
+
+        if (m.league.isNotBlank()) {
+            parts.add(m.league)
+        }
+
+        if (m.channel.isNotBlank()) {
+            parts.add("📺 ${m.channel}")
+        }
+
+        return Pair("${m.home}   $middle   ${m.away}", parts.joinToString("  •  "))
+    }
+
+    private fun showNextMatch() {
+
+        val list = todayMatches()
+
+        if (list.isEmpty()) {
+            tickerChip.animate().cancel()
+            tickerChip.visibility = View.GONE
+            return
+        }
+
+        tickerChip.visibility = View.VISIBLE
+
+        tickerIndex = (tickerIndex + 1) % list.size
+
+        val lines = matchLines(list[tickerIndex])
+
+        tickerChip.animate().cancel()
+
+        tickerChip.animate()
+            .alpha(0f)
+            .setDuration(180)
+            .withEndAction {
+
+                tickerLine1.text = lines.first
+
+                tickerLine2.text = lines.second
+
+                tickerLine2.visibility =
+                    if (lines.second.isBlank()) View.GONE else View.VISIBLE
+
+                tickerChip.animate().alpha(1f).setDuration(260).start()
+            }
+            .start()
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -5123,6 +5818,42 @@ class MainActivity : Activity() {
         // splash screen swallows keys
         if (splashVisible) {
             return true
+        }
+
+        // app disabled / maintenance: nothing works except exit
+        if (blocked) {
+
+            if (
+                event.keyCode == KeyEvent.KEYCODE_BACK &&
+                event.action == KeyEvent.ACTION_DOWN &&
+                event.repeatCount == 0
+            ) {
+
+                val now = System.currentTimeMillis()
+
+                if (now - backPressedAt < 2000) {
+                    finish()
+                } else {
+                    backPressedAt = now
+                    Toast.makeText(this, "اضغط رجوع مرة أخرى للخروج", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            return true
+        }
+
+        // announcement / update notice
+        if (noticeOpen()) {
+
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    hideNotice()
+                    noticeDismiss?.invoke()
+                }
+                return true
+            }
+
+            return super.dispatchKeyEvent(event)
         }
 
         // long-press menu
