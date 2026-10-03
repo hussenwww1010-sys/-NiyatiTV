@@ -48,9 +48,12 @@ import android.widget.TextClock
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
@@ -237,6 +240,20 @@ class MainActivity : Activity() {
     private lateinit var splash: FrameLayout
     private var splashVisible = true
     private var splashStart = 0L
+
+    // ---- glass channel panel (fullscreen) ----
+    private lateinit var channelPanel: LinearLayout
+    private lateinit var panelList: LinearLayout
+    private lateinit var panelScroll: ScrollView
+    private lateinit var panelSub: TextView
+    private lateinit var panelQualityBtn: TextView
+
+    private class QualityOption(
+        val height: Int,
+        val bitrate: Int,
+        val group: Tracks.Group,
+        val index: Int
+    )
     private var isFullscreen = false
     private var resumeOnStart = false
 
@@ -1323,6 +1340,11 @@ class MainActivity : Activity() {
             enterFullscreen()
         }
 
+        playerFrame.setOnLongClickListener {
+            showQualityMenu()
+            true
+        }
+
         playerPanel.addView(
             playerFrame,
             lp(matchParent, 0, 1f).apply {
@@ -1372,6 +1394,8 @@ class MainActivity : Activity() {
         fullscreenContainer.visibility = View.GONE
 
         buildZapBanner()
+
+        buildChannelPanel()
 
         root.addView(
             fullscreenContainer,
@@ -3085,11 +3109,25 @@ class MainActivity : Activity() {
 
             playWeb(channel, source.url)
 
+            applyControllerMode()
+
             return
         }
 
         // ---- Normal stream -> ExoPlayer ----
         stopWeb()
+
+        // every new channel starts with automatic quality
+        try {
+            player.trackSelectionParameters =
+                player.trackSelectionParameters
+                    .buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                    .build()
+        } catch (_: Exception) {
+        }
+
+        applyControllerMode()
 
         currentSource = source
 
@@ -3806,8 +3844,14 @@ class MainActivity : Activity() {
 
         box.addView(menuTitle, lp(matchParent, wrap))
 
+        val menuScroll = ScrollView(this)
+
+        menuScroll.isVerticalScrollBarEnabled = false
+
+        menuScroll.addView(menuList)
+
         box.addView(
-            menuList,
+            menuScroll,
             lp(matchParent, wrap).apply { topMargin = dp(12) }
         )
 
@@ -3880,7 +3924,7 @@ class MainActivity : Activity() {
 
             menuList.addView(
                 item,
-                lp(matchParent, dp(54)).apply { topMargin = dp(6) }
+                lp(matchParent, dp(48)).apply { topMargin = dp(6) }
             )
 
             if (first == null) {
@@ -3890,6 +3934,8 @@ class MainActivity : Activity() {
 
         // keep the D-pad focus inside the menu
         normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
         menuOverlay.visibility = View.VISIBLE
 
@@ -3901,6 +3947,8 @@ class MainActivity : Activity() {
         menuOverlay.visibility = View.GONE
 
         normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+
+        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
 
         menuReturnFocus?.requestFocus()
 
@@ -4088,6 +4136,415 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Quality selection
+    // =========================
+
+    private fun tierName(h: Int): String =
+        when {
+            h >= 2160 -> "4K"
+            h >= 1080 -> "FHD"
+            h >= 720 -> "HD"
+            else -> "SD"
+        }
+
+    private fun collectQualities(): List<QualityOption> {
+
+        val best = LinkedHashMap<Int, QualityOption>()
+
+        for (g in player.currentTracks.groups) {
+
+            if (g.type != C.TRACK_TYPE_VIDEO) {
+                continue
+            }
+
+            for (i in 0 until g.length) {
+
+                if (!g.isTrackSupported(i)) {
+                    continue
+                }
+
+                val f = g.getTrackFormat(i)
+
+                if (f.height <= 0) {
+                    continue
+                }
+
+                val old = best[f.height]
+
+                if (old == null || f.bitrate > old.bitrate) {
+                    best[f.height] = QualityOption(f.height, f.bitrate, g, i)
+                }
+            }
+        }
+
+        return best.values.sortedByDescending { it.height }
+    }
+
+    private fun isManualQuality(): Boolean =
+        player.trackSelectionParameters.overrides.values
+            .any { it.type == C.TRACK_TYPE_VIDEO }
+
+    private fun qualityButtonText(): String {
+
+        if (playingWeb) {
+            return "الجودة"
+        }
+
+        val h = player.videoSize.height
+
+        return "الجودة: " + if (isManualQuality() && h > 0) "${h}p" else "تلقائي"
+    }
+
+    private fun setQuality(option: QualityOption?) {
+
+        val builder = player.trackSelectionParameters.buildUpon()
+
+        if (option == null) {
+            builder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        } else {
+            builder.setOverrideForType(
+                TrackSelectionOverride(option.group.mediaTrackGroup, option.index)
+            )
+        }
+
+        player.trackSelectionParameters = builder.build()
+
+        if (::panelQualityBtn.isInitialized) {
+            panelQualityBtn.text =
+                if (option == null) "الجودة: تلقائي" else "الجودة: ${option.height}p"
+        }
+
+        Toast.makeText(
+            this,
+            if (option == null) "الجودة: تلقائي" else "الجودة: ${option.height}p ${tierName(option.height)}",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun showQualityMenu() {
+
+        if (playingChannel == null) {
+            return
+        }
+
+        if (playingWeb) {
+            Toast.makeText(
+                this,
+                "الجودة غير متاحة لقنوات يوتيوب / فيسبوك",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val options = collectQualities()
+
+        if (options.size < 2) {
+            Toast.makeText(
+                this,
+                if (options.isEmpty()) "انتظر حتى يبدأ البث" else "هذه القناة بجودة واحدة فقط",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val manual = isManualQuality()
+
+        val currentHeight = player.videoSize.height
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        items.add(
+            ((if (!manual) "✓  " else "") + "تلقائي (AUTO)") to { setQuality(null) }
+        )
+
+        options.forEach { o ->
+
+            val mbps =
+                if (o.bitrate > 0) {
+                    String.format(Locale.US, "  •  %.1f Mbps", o.bitrate / 1_000_000f)
+                } else {
+                    ""
+                }
+
+            val selected = manual && o.height == currentHeight
+
+            items.add(
+                ((if (selected) "✓  " else "") +
+                        "${o.height}p  ${tierName(o.height)}$mbps") to { setQuality(o) }
+            )
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("جودة البث", items)
+    }
+
+    // PlayerView controller only for videos (mp4): live channels use the glass list
+    private fun applyControllerMode() {
+
+        val vod = playingChannel?.let { isVodChannel(it) } == true
+
+        playerView.useController = isFullscreen && !playingWeb && vod
+    }
+
+    // =========================
+    // Glass channel panel (fullscreen)
+    // =========================
+
+    private fun panelOpen(): Boolean =
+        ::channelPanel.isInitialized && channelPanel.visibility == View.VISIBLE
+
+    private val hidePanelRunnable = Runnable {
+
+        if (menuOpen()) {
+            startPanelTimer()
+        } else {
+            closeChannelPanel()
+        }
+    }
+
+    private fun startPanelTimer() {
+
+        mainHandler.removeCallbacks(hidePanelRunnable)
+
+        mainHandler.postDelayed(hidePanelRunnable, 7000)
+    }
+
+    private fun buildChannelPanel() {
+
+        channelPanel = LinearLayout(this)
+
+        channelPanel.orientation = LinearLayout.VERTICAL
+
+        channelPanel.setPadding(dp(8), dp(8), dp(8), dp(8))
+
+        channelPanel.visibility = View.GONE
+
+        // glass: very transparent so the picture stays visible
+        channelPanel.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.argb(120, 20, 22, 58),
+                    Color.argb(95, 8, 10, 28)
+                )
+            ).apply {
+                cornerRadius = dp(26).toFloat()
+                setStroke(dp(1), Color.argb(70, 255, 255, 255))
+            }
+
+        val header = LinearLayout(this)
+
+        header.orientation = LinearLayout.HORIZONTAL
+
+        header.gravity = Gravity.CENTER_VERTICAL
+
+        header.setPadding(dp(8), 0, dp(8), 0)
+
+        panelQualityBtn = menuItem("الجودة", accentFor(0))
+
+        panelQualityBtn.textSize = 13f
+
+        panelQualityBtn.setOnClickListener {
+            showQualityMenu()
+        }
+
+        header.addView(panelQualityBtn, lp(wrap, dp(38)))
+
+        val titleCol = LinearLayout(this)
+
+        titleCol.orientation = LinearLayout.VERTICAL
+
+        titleCol.setPadding(dp(10), 0, 0, 0)
+
+        titleCol.addView(label("القنوات", 18f, white, true), lp(matchParent, wrap))
+
+        panelSub = label("", 11f, cyan)
+
+        titleCol.addView(panelSub, lp(matchParent, wrap))
+
+        header.addView(titleCol, lp(0, wrap, 1f))
+
+        channelPanel.addView(header, lp(matchParent, dp(56)))
+
+        panelScroll = createScroll()
+
+        panelList = createList()
+
+        panelScroll.addView(panelList)
+
+        channelPanel.addView(panelScroll, lp(matchParent, 0, 1f))
+
+        fullscreenContainer.addView(
+            channelPanel,
+            FrameLayout.LayoutParams(dp(340), matchParent, Gravity.RIGHT).apply {
+                setMargins(0, dp(24), dp(24), dp(24))
+            }
+        )
+    }
+
+    private fun openChannelPanel() {
+
+        val current = playingChannel ?: return
+
+        if (panelOpen()) {
+            return
+        }
+
+        val list = if (playingList.isNotEmpty()) playingList else visibleChannels
+
+        if (list.isEmpty()) {
+            return
+        }
+
+        // hide the other overlays
+        mainHandler.removeCallbacks(hideZapRunnable)
+
+        zapBanner.animate().cancel()
+
+        zapBanner.visibility = View.GONE
+
+        playerView.hideController()
+
+        // the video must not steal the focus while the list is open
+        playerView.isFocusable = false
+        playerView.isFocusableInTouchMode = false
+        webView.isFocusable = false
+        webView.isFocusableInTouchMode = false
+
+        panelSub.text = realPackageName(current)
+
+        panelQualityBtn.text = qualityButtonText()
+
+        panelList.removeAllViews()
+
+        val pkg = packages.firstOrNull { it.id != FAV_ID && belongs(current, it) }
+
+        val accent = pkg?.let { accentOfPackage(it) } ?: accentFor(0)
+
+        var target: View? = null
+
+        list.forEachIndexed { i, channel ->
+
+            val row = createChannelRow(channel, i + 1, accent)
+
+            row.setPlaying(channel == playingChannel)
+
+            row.card.setOnClickListener {
+
+                closeChannelPanel()
+
+                if (channel != playingChannel) {
+                    playChannel(channel)
+                    showZapBanner(channel)
+                }
+            }
+
+            panelList.addView(
+                row.card,
+                lp(matchParent, dp(60)).apply {
+                    setMargins(0, dp(4), 0, dp(4))
+                }
+            )
+
+            if (channel == playingChannel) {
+                target = row.card
+            }
+        }
+
+        channelPanel.animate().cancel()
+
+        channelPanel.alpha = 0f
+
+        channelPanel.translationX = dp(36).toFloat()
+
+        channelPanel.visibility = View.VISIBLE
+
+        channelPanel.animate()
+            .alpha(1f)
+            .translationX(0f)
+            .setDuration(200)
+            .start()
+
+        channelPanel.post {
+            (target ?: panelList.getChildAt(0))?.requestFocus()
+        }
+
+        startPanelTimer()
+    }
+
+    private fun closeChannelPanel(immediate: Boolean = false) {
+
+        mainHandler.removeCallbacks(hidePanelRunnable)
+
+        if (!panelOpen()) {
+            return
+        }
+
+        if (playingWeb) {
+            webView.isFocusable = true
+            webView.isFocusableInTouchMode = true
+        } else {
+            playerView.isFocusable = true
+            playerView.isFocusableInTouchMode = true
+        }
+
+        channelPanel.animate().cancel()
+
+        if (immediate) {
+
+            channelPanel.visibility = View.GONE
+
+        } else {
+
+            channelPanel.animate()
+                .alpha(0f)
+                .translationX(dp(36).toFloat())
+                .setDuration(180)
+                .withEndAction {
+                    channelPanel.visibility = View.GONE
+                }
+                .start()
+        }
+
+        if (isFullscreen) {
+            if (playingWeb) {
+                webView.requestFocus()
+            } else {
+                playerView.requestFocus()
+            }
+        }
+    }
+
+    private fun handlePanelKey(event: KeyEvent): Boolean {
+
+        startPanelTimer()
+
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                closeChannelPanel()
+            }
+
+            return true
+        }
+
+        if (
+            event.keyCode == KeyEvent.KEYCODE_MENU ||
+            event.keyCode == KeyEvent.KEYCODE_PROG_BLUE
+        ) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                showQualityMenu()
+            }
+
+            return true
+        }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -4160,6 +4617,11 @@ class MainActivity : Activity() {
             }
 
             return super.dispatchKeyEvent(event)
+        }
+
+        // glass channel panel (fullscreen)
+        if (panelOpen()) {
+            return handlePanelKey(event)
         }
 
         // reorder mode
@@ -4259,6 +4721,18 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
+        if (
+            event.keyCode == KeyEvent.KEYCODE_MENU ||
+            event.keyCode == KeyEvent.KEYCODE_PROG_BLUE
+        ) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                showQualityMenu()
+            }
+
+            return true
+        }
+
         if (event.keyCode == KeyEvent.KEYCODE_PROG_YELLOW) {
 
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
@@ -4297,13 +4771,9 @@ class MainActivity : Activity() {
             event.keyCode == KeyEvent.KEYCODE_ENTER
         ) {
 
-            // web mode: let the page handle OK (play / pause)
-            if (playingWeb) {
-                return super.dispatchKeyEvent(event)
-            }
-
-            if (event.action == KeyEvent.ACTION_DOWN) {
-                playerView.showController()
+            // OK = open the glass channel list
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                openChannelPanel()
             }
 
             return true
@@ -4369,7 +4839,7 @@ class MainActivity : Activity() {
 
         fullscreenContainer.visibility = View.VISIBLE
 
-        playerView.useController = !playingWeb
+        applyControllerMode()
 
         playerView.controllerShowTimeoutMs = 4000
 
@@ -4406,6 +4876,8 @@ class MainActivity : Activity() {
         }
 
         isFullscreen = false
+
+        closeChannelPanel(true)
 
         playerView.hideController()
 
