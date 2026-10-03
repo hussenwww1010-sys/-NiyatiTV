@@ -4997,7 +4997,7 @@ class MainActivity : Activity() {
 
         themes.forEachIndexed { i, theme ->
             items.add(
-                ((if (i == themeIndex) "✓  " else "") + theme.name) to { setTheme(i) }
+                ((if (i == themeIndex) "✓  " else "") + theme.name) to { chooseTheme(i) }
             )
         }
 
@@ -5007,7 +5007,7 @@ class MainActivity : Activity() {
     }
 
     // the whole interface is rebuilt with the new colors
-    private fun setTheme(index: Int) {
+    private fun chooseTheme(index: Int) {
 
         if (index == themeIndex) {
             return
