@@ -1615,6 +1615,45 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
+    // App logo: put logo.png in res/drawable. Without it the "N" mark is used.
+    private fun createLogoMark(letterSp: Float, radiusDp: Int): View {
+
+        val id = resources.getIdentifier("logo", "drawable", packageName)
+
+        if (id != 0) {
+
+            val image = ImageView(this)
+
+            image.setImageResource(id)
+
+            image.scaleType = ImageView.ScaleType.FIT_CENTER
+
+            return image
+        }
+
+        val mark = TextView(this)
+
+        mark.text = "N"
+
+        mark.textSize = letterSp
+
+        mark.setTextColor(white)
+
+        mark.typeface = Typeface.DEFAULT_BOLD
+
+        mark.gravity = Gravity.CENTER
+
+        mark.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(cyan, violet)
+            ).apply {
+                cornerRadius = dp(radiusDp).toFloat()
+            }
+
+        return mark
+    }
+
     private fun panelParams(weight: Float): LinearLayout.LayoutParams =
         lp(0, matchParent, weight).apply {
             setMargins(dp(7), 0, dp(7), 0)
@@ -1630,23 +1669,7 @@ class MainActivity : Activity() {
 
         header.setPadding(dp(34), dp(10), dp(34), dp(6))
 
-        val mark = TextView(this)
-
-        mark.text = "N"
-        mark.textSize = 22f
-        mark.setTextColor(white)
-        mark.typeface = Typeface.DEFAULT_BOLD
-        mark.gravity = Gravity.CENTER
-
-        mark.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(cyan, violet)
-            ).apply {
-                cornerRadius = dp(14).toFloat()
-            }
-
-        header.addView(mark, lp(dp(44), dp(44)))
+        header.addView(createLogoMark(22f, 14), lp(dp(48), dp(48)))
 
         val brandCol = LinearLayout(this)
 
@@ -4456,21 +4479,7 @@ class MainActivity : Activity() {
 
         col.gravity = Gravity.CENTER_HORIZONTAL
 
-        val mark = TextView(this)
-
-        mark.text = "N"
-        mark.textSize = 56f
-        mark.setTextColor(white)
-        mark.typeface = Typeface.DEFAULT_BOLD
-        mark.gravity = Gravity.CENTER
-
-        mark.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(cyan, violet)
-            ).apply {
-                cornerRadius = dp(34).toFloat()
-            }
+        val mark = createLogoMark(56f, 34)
 
         col.addView(mark, lp(dp(116), dp(116)))
 
