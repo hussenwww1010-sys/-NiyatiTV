@@ -12,6 +12,8 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
+import android.graphics.RectF
 import android.graphics.RadialGradient
 import android.graphics.Rect
 import android.graphics.Shader
@@ -89,6 +91,7 @@ import org.json.JSONObject
 import java.net.URL
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.sin
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -197,7 +200,9 @@ class MainActivity : Activity() {
         val score: String,
         val status: String,
         val channel: String,
-        val order: Int
+        val order: Int,
+        val homeLogo: String = "",
+        val awayLogo: String = ""
     )
 
     data class PackageItem(
@@ -446,7 +451,14 @@ class MainActivity : Activity() {
     // ---- today's matches ticker ----
     private var matches: List<MatchItem> = emptyList()
     private var tickerIndex = -1
-    private lateinit var tickerChip: LinearLayout
+    private lateinit var tickerChip: LedFrame
+    private lateinit var tickerHome: TextView
+    private lateinit var tickerAway: TextView
+    private lateinit var tickerMid: TextView
+    private lateinit var tickerHomeLogo: LogoBadge
+    private lateinit var playerGlow: GlowFrame
+    private var glowToken = 0
+    private lateinit var tickerAwayLogo: LogoBadge
     private lateinit var tickerLine1: TextView
     private lateinit var tickerLine2: TextView
 
@@ -1534,7 +1546,7 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
-        normalScreen.addView(buildHeader(), lp(matchParent, dp(66)))
+        normalScreen.addView(buildHeader(), lp(matchParent, dp(78)))
 
         val contentRow = LinearLayout(this)
 
@@ -1589,7 +1601,11 @@ class MainActivity : Activity() {
             lp(matchParent, dp(64))
         )
 
-        playerFrame = FrameLayout(this)
+        val glowFrame = GlowFrame()
+
+        playerFrame = glowFrame
+
+        playerGlow = glowFrame
 
         playerFrame.setPadding(dp(4), dp(4), dp(4), dp(4))
 
@@ -1628,9 +1644,7 @@ class MainActivity : Activity() {
             }
         )
 
-        val hint = label(Txt.HINT, 11f, gray, false, Gravity.CENTER)
-
-        playerPanel.addView(hint, lp(matchParent, dp(30)))
+        playerPanel.addView(buildHintBar(), lp(matchParent, dp(30)))
 
         contentRow.addView(playerPanel, panelParams(0.47f))
 
@@ -1742,9 +1756,16 @@ class MainActivity : Activity() {
 
         header.gravity = Gravity.CENTER_VERTICAL
 
-        header.setPadding(dp(34), dp(10), dp(34), dp(6))
+        header.setPadding(dp(34), dp(8), dp(34), dp(6))
 
-        header.addView(createLogoMark(22f, 14), lp(dp(48), dp(48)))
+        val logoBox = ShineLayout()
+
+        logoBox.addView(
+            createLogoMark(22f, 14),
+            FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        header.addView(logoBox, lp(dp(48), dp(48)))
 
         val brandCol = LinearLayout(this)
 
@@ -2714,7 +2735,7 @@ class MainActivity : Activity() {
         val accent: Accent,
         badgeSizeDp: Int,
         leadWidthDp: Int
-    ) : LinearLayout(this@MainActivity) {
+    ) : LedFrame() {
 
         val lead = FrameLayout(this@MainActivity)
 
@@ -2756,6 +2777,15 @@ class MainActivity : Activity() {
             isFocusableInTouchMode = true
 
             clipChildren = false
+
+            // LED light runs around the card that has the focus
+            cornerDp = 18
+
+            drawBase = false
+
+            setLed(false)
+
+            setColors(accent.start, accent.end)
 
             addView(lead, LinearLayout.LayoutParams(dp(leadWidthDp), matchParent))
 
@@ -2800,11 +2830,14 @@ class MainActivity : Activity() {
 
             focusedNow = gainFocus
 
+            setLed(gainFocus)
+
             val scale = if (gainFocus) 1.04f else 1f
 
             animate()
                 .scaleX(scale)
                 .scaleY(scale)
+                .setStartDelay(0)
                 .setDuration(130)
                 .start()
 
@@ -2841,7 +2874,7 @@ class MainActivity : Activity() {
                         )
                     )
 
-                d.setStroke(dp(2), Color.WHITE)
+                d.setStroke(dp(1), Color.argb(110, 255, 255, 255))
 
             } else if (chosen) {
 
@@ -2948,7 +2981,7 @@ class MainActivity : Activity() {
                 Gravity.CENTER
             )
 
-        val playIcon = PlayIcon(accent.start)
+        val playIcon = EqualizerView(accent.start)
 
         playIcon.visibility = View.GONE
 
@@ -2959,7 +2992,7 @@ class MainActivity : Activity() {
 
         card.lead.addView(
             playIcon,
-            FrameLayout.LayoutParams(dp(15), dp(15), Gravity.CENTER)
+            FrameLayout.LayoutParams(dp(20), dp(18), Gravity.CENTER)
         )
 
         if (channel.isNew) {
@@ -2990,6 +3023,24 @@ class MainActivity : Activity() {
             )
         }
 
+        if (isFavorite(channel)) {
+
+            val star = TextView(this)
+
+            star.text = "★"
+
+            star.textSize = 11f
+
+            star.setTextColor(gold)
+
+            card.lead.addView(
+                star,
+                FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                    topMargin = dp(6)
+                }
+            )
+        }
+
         var playing = false
 
         fun applyState() {
@@ -3004,10 +3055,14 @@ class MainActivity : Activity() {
 
             numberView.setTextColor(if (focused) dimWhite else gray)
 
+            // a match of today on this channel replaces "live broadcast"
+            val match = if (hasUrl) matchForChannel(channel) else null
+
             card.subView.text =
                 when {
-                    !hasUrl -> "\u063a\u064a\u0631 \u0645\u062a\u0627\u062d \u062d\u0627\u0644\u064a\u0627\u064b"
-                    playing -> "\u064a\u0639\u0631\u0636 \u0627\u0644\u0622\u0646"
+                    !hasUrl -> "غير متاح حالياً"
+                    match != null -> matchSubText(match)
+                    playing -> "يعرض الآن"
                     isVod -> "فيديو"
                     else -> "بث مباشر"
                 }
@@ -3015,6 +3070,7 @@ class MainActivity : Activity() {
             card.subView.setTextColor(
                 when {
                     focused -> dimWhite
+                    match != null -> if (isLiveMatch(match)) Color.rgb(255, 99, 120) else gold
                     playing -> accent.start
                     else -> gray
                 }
@@ -3513,6 +3569,23 @@ class MainActivity : Activity() {
             )
 
             channelRows.add(row)
+
+            // the cards slide in one after another
+            if (!keepScroll && i < 10) {
+
+                val targetAlpha = row.card.alpha
+
+                row.card.alpha = 0f
+
+                row.card.translationX = dp(40).toFloat()
+
+                row.card.animate()
+                    .alpha(targetAlpha)
+                    .translationX(0f)
+                    .setStartDelay(i * 45L)
+                    .setDuration(260)
+                    .start()
+            }
         }
 
         if (restoreIndex >= 0) {
@@ -3578,6 +3651,8 @@ class MainActivity : Activity() {
             requestTint(channel.logo, cyan)
         }
 
+        requestPlayerGlow(channel.logo)
+
         startSource(channel, 0)
     }
 
@@ -3600,7 +3675,7 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(hideWebStatusRunnable)
 
         if (index > 0) {
-            nowSub.text = realPackageName(channel) + "  •  رابط احتياطي ${index + 1}"
+            nowSub.text = nowSubText(channel) + "  •  رابط احتياطي ${index + 1}"
         }
 
         // ---- YouTube / Facebook -> WebView ----
@@ -3735,7 +3810,7 @@ class MainActivity : Activity() {
 
         fitName(nowTitle, channel.name, 16, 9)
 
-        nowSub.text = realPackageName(channel)
+        nowSub.text = nowSubText(channel)
 
         livePill.visibility =
             if (isVodChannel(channel)) View.GONE else View.VISIBLE
@@ -4188,6 +4263,11 @@ class MainActivity : Activity() {
             } else {
                 renderChannels(true)
             }
+
+        } else {
+
+            // the gold star on the channel row
+            renderChannels(true)
         }
 
         if (currentFocus == null && !isFullscreen) {
@@ -5747,37 +5827,65 @@ class MainActivity : Activity() {
         // the box always takes the free space of the header
         val box = FrameLayout(this)
 
-        tickerChip = LinearLayout(this)
+        val chip = LedFrame()
 
-        tickerChip.orientation = LinearLayout.VERTICAL
+        chip.orientation = LinearLayout.VERTICAL
 
-        tickerChip.gravity = Gravity.CENTER
+        chip.gravity = Gravity.CENTER
 
-        tickerChip.setPadding(dp(22), dp(3), dp(22), dp(3))
+        chip.setPadding(dp(24), dp(7), dp(24), dp(7))
 
-        tickerChip.alpha = 0f
+        chip.alpha = 0f
 
-        tickerChip.visibility = View.GONE
+        chip.visibility = View.GONE
 
-        tickerChip.background =
+        chip.background =
             GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.argb(44, 255, 255, 255), Color.argb(18, 255, 255, 255))
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(215, 24, 28, 70), Color.argb(240, 8, 10, 28))
             ).apply {
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), withAlpha(cyan, 100))
+                cornerRadius = dp(22).toFloat()
             }
 
-        tickerLine1 = label("", 14f, white, true, Gravity.CENTER)
+        tickerChip = chip
+
+        // left -> right: away team | time or score | home team (Arabic reading order)
+        val row = LinearLayout(this)
+
+        row.orientation = LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER_VERTICAL
+
+        tickerAwayLogo = LogoBadge(30, accentFor(2))
+
+        tickerHomeLogo = LogoBadge(30, accentFor(0))
+
+        tickerAway = label("", 17f, white, true, Gravity.CENTER)
+
+        tickerHome = label("", 17f, white, true, Gravity.CENTER)
+
+        tickerMid = label("", 17f, Color.rgb(8, 14, 30), true, Gravity.CENTER)
+
+        tickerMid.setPadding(dp(14), dp(2), dp(14), dp(2))
+
+        row.addView(tickerAwayLogo, lp(dp(30), dp(30)).apply { setMargins(0, 0, dp(8), 0) })
+
+        row.addView(tickerAway, lp(wrap, wrap))
+
+        row.addView(tickerMid, lp(wrap, wrap).apply { setMargins(dp(14), 0, dp(14), 0) })
+
+        row.addView(tickerHome, lp(wrap, wrap))
+
+        row.addView(tickerHomeLogo, lp(dp(30), dp(30)).apply { setMargins(dp(8), 0, 0, 0) })
+
+        chip.addView(row, lp(wrap, wrap))
 
         tickerLine2 = label("", 10.5f, gray, false, Gravity.CENTER)
 
-        tickerChip.addView(tickerLine1, lp(wrap, wrap))
-
-        tickerChip.addView(tickerLine2, lp(wrap, wrap))
+        chip.addView(tickerLine2, lp(wrap, wrap).apply { topMargin = dp(1) })
 
         box.addView(
-            tickerChip,
+            chip,
             FrameLayout.LayoutParams(wrap, wrap, Gravity.CENTER)
         )
 
@@ -5808,7 +5916,9 @@ class MainActivity : Activity() {
                     score = child.readString("score") ?: "",
                     status = child.readString("status") ?: "",
                     channel = child.readString("channel") ?: "",
-                    order = child.readInt("order", 999)
+                    order = child.readInt("order", 999),
+                    homeLogo = child.readString("homeLogo") ?: "",
+                    awayLogo = child.readString("awayLogo") ?: ""
                 )
             )
         }
@@ -5827,6 +5937,8 @@ class MainActivity : Activity() {
             tickerIndex = -1
 
             showNextMatch()
+
+            refreshMatchViews()
         }
     }
 
@@ -5838,7 +5950,9 @@ class MainActivity : Activity() {
         return matches.filter { it.date.isBlank() || it.date == today }
     }
 
-    private fun matchLines(m: MatchItem): Pair<String, String> {
+    private class MatchView(val mid: String, val line2: String, val live: Boolean)
+
+    private fun matchView(m: MatchItem): MatchView {
 
         val status = m.status.trim().lowercase(Locale.US)
 
@@ -5869,7 +5983,7 @@ class MainActivity : Activity() {
             parts.add("📺 ${m.channel}")
         }
 
-        return Pair("${m.home}   $middle   ${m.away}", parts.joinToString("  •  "))
+        return MatchView(middle, parts.joinToString("  •  "), live)
     }
 
     private fun showNextMatch() {
@@ -5886,7 +6000,9 @@ class MainActivity : Activity() {
 
         tickerIndex = (tickerIndex + 1) % list.size
 
-        val lines = matchLines(list[tickerIndex])
+        val match = list[tickerIndex]
+
+        val view = matchView(match)
 
         tickerChip.animate().cancel()
 
@@ -5895,16 +6011,713 @@ class MainActivity : Activity() {
             .setDuration(180)
             .withEndAction {
 
-                tickerLine1.text = lines.first
+                tickerHome.text = match.home
 
-                tickerLine2.text = lines.second
+                tickerAway.text = match.away
+
+                tickerMid.text = view.mid
+
+                tickerMid.setTextColor(if (view.live) Color.WHITE else Color.rgb(8, 14, 30))
+
+                tickerMid.background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(12).toFloat()
+                        setColor(if (view.live) Color.rgb(255, 59, 92) else cyan)
+                    }
+
+                // team crests only when a logo link exists (homeLogo / awayLogo)
+                tickerHomeLogo.visibility =
+                    if (match.homeLogo.isNotBlank()) View.VISIBLE else View.GONE
+
+                tickerAwayLogo.visibility =
+                    if (match.awayLogo.isNotBlank()) View.VISIBLE else View.GONE
+
+                if (match.homeLogo.isNotBlank()) {
+                    tickerHomeLogo.bind(match.home, match.homeLogo)
+                }
+
+                if (match.awayLogo.isNotBlank()) {
+                    tickerAwayLogo.bind(match.away, match.awayLogo)
+                }
+
+                tickerLine2.text = view.line2
 
                 tickerLine2.visibility =
-                    if (lines.second.isBlank()) View.GONE else View.VISIBLE
+                    if (view.line2.isBlank()) View.GONE else View.VISIBLE
+
+                // live match: red / orange light, otherwise the theme colors
+                if (view.live) {
+                    tickerChip.setColors(Color.rgb(255, 59, 92), Color.rgb(255, 159, 67))
+                } else {
+                    tickerChip.setColors(cyan, violet)
+                }
 
                 tickerChip.animate().alpha(1f).setDuration(260).start()
             }
             .start()
+    }
+
+    // Rounded card with two glowing "LED" lights that run around the border
+    private open inner class LedFrame : LinearLayout(this@MainActivity) {
+
+        private val rect = RectF()
+        private val path = Path()
+        private val segment = Path()
+        private val measure = PathMeasure()
+        private val pos = FloatArray(2)
+
+        private var length = 0f
+        private var progress = 0f
+        private var anim: ValueAnimator? = null
+        private var ledOn = true
+        private var attached = false
+
+        private var colorA = Color.CYAN
+        private var colorB = Color.MAGENTA
+
+        var cornerDp = 22
+        var drawBase = true
+
+        private val basePaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = dp(1).toFloat()
+                color = Color.argb(70, 255, 255, 255)
+            }
+
+        private val glowPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeWidth = dp(8).toFloat()
+            }
+
+        private val corePaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeWidth = dp(3).toFloat()
+            }
+
+        private val headPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = Color.WHITE
+            }
+
+        init {
+            setWillNotDraw(false)
+        }
+
+        fun setColors(a: Int, b: Int) {
+            colorA = a
+            colorB = b
+            invalidate()
+        }
+
+        // the light only runs while it is on (saves the CPU of the idle cards)
+        fun setLed(on: Boolean) {
+
+            if (ledOn == on) {
+                return
+            }
+
+            ledOn = on
+
+            if (attached) {
+                if (on) startAnim() else stopAnim()
+            }
+
+            invalidate()
+        }
+
+        private fun startAnim() {
+
+            if (anim != null) {
+                return
+            }
+
+            val a = ValueAnimator.ofFloat(0f, 1f)
+
+            a.duration = 3000
+
+            a.repeatCount = ValueAnimator.INFINITE
+
+            a.interpolator = android.view.animation.LinearInterpolator()
+
+            a.addUpdateListener {
+                progress = it.animatedValue as Float
+                invalidate()
+            }
+
+            anim = a
+
+            a.start()
+        }
+
+        private fun stopAnim() {
+            anim?.cancel()
+            anim = null
+        }
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+
+            super.onSizeChanged(w, h, oldw, oldh)
+
+            val inset = dp(2).toFloat()
+
+            rect.set(inset, inset, w - inset, h - inset)
+
+            val radius = minOf(h / 2f, dp(cornerDp).toFloat())
+
+            path.reset()
+
+            path.addRoundRect(rect, radius, radius, Path.Direction.CW)
+
+            measure.setPath(path, false)
+
+            length = measure.length
+        }
+
+        override fun onAttachedToWindow() {
+
+            super.onAttachedToWindow()
+
+            attached = true
+
+            if (ledOn) {
+                startAnim()
+            }
+        }
+
+        override fun onDetachedFromWindow() {
+
+            attached = false
+
+            stopAnim()
+
+            super.onDetachedFromWindow()
+        }
+
+        private fun drawRange(canvas: Canvas, from: Float, to: Float, paint: Paint) {
+
+            var a = from
+
+            var b = to
+
+            if (a < 0f) {
+                a += length
+                b += length
+            }
+
+            if (b > length) {
+                part(canvas, a, length, paint)
+                part(canvas, 0f, b - length, paint)
+            } else {
+                part(canvas, a, b, paint)
+            }
+        }
+
+        private fun part(canvas: Canvas, from: Float, to: Float, paint: Paint) {
+
+            if (to <= from) {
+                return
+            }
+
+            segment.reset()
+
+            measure.getSegment(from, to, segment, true)
+
+            canvas.drawPath(segment, paint)
+        }
+
+        // a bright head with a fading tail
+        private fun comet(canvas: Canvas, fraction: Float, color: Int) {
+
+            val head = fraction * length
+
+            val tail = length * 0.30f
+
+            val steps = 10
+
+            for (i in 0 until steps) {
+
+                val fade = 1f - i / steps.toFloat()
+
+                val alpha = fade * fade
+
+                val end = head - tail * i / steps
+
+                val start = head - tail * (i + 1) / steps
+
+                glowPaint.color = withAlpha(color, (80 * alpha).toInt())
+
+                drawRange(canvas, start, end, glowPaint)
+
+                corePaint.color = withAlpha(color, (255 * alpha).toInt())
+
+                drawRange(canvas, start, end, corePaint)
+            }
+
+            measure.getPosTan(head, pos, null)
+
+            canvas.drawCircle(pos[0], pos[1], dp(2).toFloat() + 0.5f, headPaint)
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            super.onDraw(canvas)
+
+            if (!ledOn || length <= 0f) {
+                return
+            }
+
+            if (drawBase) {
+                canvas.drawPath(path, basePaint)
+            }
+
+            comet(canvas, progress, colorA)
+
+            comet(canvas, (progress + 0.5f) % 1f, colorB)
+        }
+    }
+
+    // Animated sound bars for the channel that is playing
+    private inner class EqualizerView(tint: Int) : View(this@MainActivity) {
+
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint }
+        private val bar = RectF()
+        private var t = 0f
+        private var anim: ValueAnimator? = null
+
+        fun setTint(color: Int) {
+            paint.color = color
+            invalidate()
+        }
+
+        private fun refreshAnim() {
+
+            if (isShown && isAttachedToWindow) {
+
+                if (anim == null) {
+
+                    val a = ValueAnimator.ofFloat(0f, 6.2832f)
+
+                    a.duration = 850
+
+                    a.repeatCount = ValueAnimator.INFINITE
+
+                    a.interpolator = android.view.animation.LinearInterpolator()
+
+                    a.addUpdateListener {
+                        t = it.animatedValue as Float
+                        invalidate()
+                    }
+
+                    anim = a
+
+                    a.start()
+                }
+
+            } else {
+                anim?.cancel()
+                anim = null
+            }
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            refreshAnim()
+        }
+
+        override fun onDetachedFromWindow() {
+            anim?.cancel()
+            anim = null
+            super.onDetachedFromWindow()
+        }
+
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+            super.onVisibilityChanged(changedView, visibility)
+            refreshAnim()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val w = width.toFloat()
+
+            val h = height.toFloat()
+
+            val count = 4
+
+            val gap = w * 0.12f
+
+            val barW = (w - gap * (count - 1)) / count
+
+            for (i in 0 until count) {
+
+                val level = 0.3f + 0.7f * (0.5f + 0.5f * sin(t + i * 1.7f))
+
+                val barH = h * level
+
+                val left = i * (barW + gap)
+
+                bar.set(left, h - barH, left + barW, h)
+
+                canvas.drawRoundRect(bar, barW / 2, barW / 2, paint)
+            }
+        }
+    }
+
+    // Soft glow around the player in the color of the channel logo
+    private inner class GlowFrame : FrameLayout(this@MainActivity) {
+
+        private val rect = RectF()
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+        private var glow = 0
+        private var breath = 1f
+        private var breathAnim: ValueAnimator? = null
+        private var colorAnim: ValueAnimator? = null
+
+        init {
+            setWillNotDraw(false)
+        }
+
+        fun setGlow(target: Int) {
+
+            colorAnim?.cancel()
+
+            val from = if (glow == 0) target else glow
+
+            val evaluator = ArgbEvaluator()
+
+            val a = ValueAnimator.ofFloat(0f, 1f)
+
+            a.duration = 500
+
+            a.addUpdateListener {
+                glow = evaluator.evaluate(it.animatedFraction, from, target) as Int
+                invalidate()
+            }
+
+            colorAnim = a
+
+            a.start()
+        }
+
+        override fun onAttachedToWindow() {
+
+            super.onAttachedToWindow()
+
+            val a = ValueAnimator.ofFloat(0.6f, 1f)
+
+            a.duration = 1800
+
+            a.repeatMode = ValueAnimator.REVERSE
+
+            a.repeatCount = ValueAnimator.INFINITE
+
+            a.addUpdateListener {
+                breath = it.animatedValue as Float
+                invalidate()
+            }
+
+            breathAnim = a
+
+            a.start()
+        }
+
+        override fun onDetachedFromWindow() {
+
+            breathAnim?.cancel()
+
+            colorAnim?.cancel()
+
+            super.onDetachedFromWindow()
+        }
+
+        override fun dispatchDraw(canvas: Canvas) {
+
+            super.dispatchDraw(canvas)
+
+            if (glow == 0) {
+                return
+            }
+
+            val radius = dp(10).toFloat()
+
+            val widths = floatArrayOf(dp(18).toFloat(), dp(12).toFloat(), dp(7).toFloat(), dp(3).toFloat())
+
+            val alphas = intArrayOf(16, 30, 58, 130)
+
+            for (i in widths.indices) {
+
+                val w = widths[i]
+
+                paint.strokeWidth = w
+
+                paint.color = withAlpha(glow, (alphas[i] * breath).toInt())
+
+                rect.set(w / 2, w / 2, width - w / 2, height - w / 2)
+
+                canvas.drawRoundRect(rect, radius, radius, paint)
+            }
+        }
+    }
+
+    // A light band passes over the app logo every few seconds
+    private inner class ShineLayout : FrameLayout(this@MainActivity) {
+
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val clip = Path()
+        private var p = 0f
+        private var anim: ValueAnimator? = null
+
+        init {
+            setWillNotDraw(false)
+        }
+
+        override fun onAttachedToWindow() {
+
+            super.onAttachedToWindow()
+
+            val a = ValueAnimator.ofFloat(0f, 1f)
+
+            a.duration = 5200
+
+            a.repeatCount = ValueAnimator.INFINITE
+
+            a.interpolator = android.view.animation.LinearInterpolator()
+
+            a.addUpdateListener {
+                p = it.animatedValue as Float
+                if (p < 0.32f) {
+                    invalidate()
+                }
+            }
+
+            anim = a
+
+            a.start()
+        }
+
+        override fun onDetachedFromWindow() {
+            anim?.cancel()
+            super.onDetachedFromWindow()
+        }
+
+        override fun dispatchDraw(canvas: Canvas) {
+
+            super.dispatchDraw(canvas)
+
+            if (p >= 0.28f) {
+                return
+            }
+
+            val t = p / 0.28f
+
+            val w = width.toFloat()
+
+            val h = height.toFloat()
+
+            val bandW = w * 0.55f
+
+            val x = -bandW + t * (w + bandW * 2)
+
+            clip.reset()
+
+            clip.addRoundRect(0f, 0f, w, h, dp(14).toFloat(), dp(14).toFloat(), Path.Direction.CW)
+
+            canvas.save()
+
+            canvas.clipPath(clip)
+
+            paint.shader =
+                LinearGradient(
+                    x,
+                    0f,
+                    x + bandW,
+                    0f,
+                    intArrayOf(
+                        Color.argb(0, 255, 255, 255),
+                        Color.argb(150, 255, 255, 255),
+                        Color.argb(0, 255, 255, 255)
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+
+            canvas.skew(-0.3f, 0f)
+
+            canvas.drawRect(0f, 0f, w + h, h, paint)
+
+            canvas.restore()
+        }
+    }
+
+    // glow color of the player = dominant color of the channel logo
+    private fun requestPlayerGlow(logo: String) {
+
+        if (!::playerGlow.isInitialized) {
+            return
+        }
+
+        glowToken++
+
+        doGlow(logo, glowToken, true)
+    }
+
+    private fun doGlow(logo: String, token: Int, retry: Boolean) {
+
+        if (token != glowToken) {
+            return
+        }
+
+        if (logo.isNotBlank()) {
+
+            val cached = tintCache[logo]
+
+            if (cached != null) {
+                playerGlow.setGlow(if (cached == 0) cyan else cached)
+                return
+            }
+
+            val bitmap = imageCache.get(logo)
+
+            if (bitmap != null) {
+
+                val color = dominantColor(bitmap)
+
+                tintCache[logo] = color
+
+                playerGlow.setGlow(if (color == 0) cyan else color)
+
+                return
+            }
+
+            if (retry) {
+                mainHandler.postDelayed({ doGlow(logo, token, false) }, 800)
+                return
+            }
+        }
+
+        playerGlow.setGlow(cyan)
+    }
+
+    // =========================
+    // Matches linked to channels
+    // =========================
+
+    private fun normName(text: String): String =
+        text.lowercase(Locale.US).replace(" ", "").replace("-", "")
+
+    private fun isLiveMatch(m: MatchItem): Boolean {
+
+        val status = m.status.trim().lowercase(Locale.US)
+
+        return status == "live" || status == "مباشر"
+    }
+
+    private fun isFinishedMatch(m: MatchItem): Boolean {
+
+        val status = m.status.trim().lowercase(Locale.US)
+
+        return status == "ft" || status == "finished" || status == "end" || status == "انتهت"
+    }
+
+    // today's match that is shown on this channel (live ones first)
+    private fun matchForChannel(channel: Channel): MatchItem? {
+
+        val name = normName(channel.name)
+
+        val found =
+            todayMatches().filter { m ->
+                val c = normName(m.channel)
+                c.length >= 4 && (c == name || name.contains(c) || c.contains(name))
+            }
+
+        return found.firstOrNull { isLiveMatch(it) } ?: found.firstOrNull()
+    }
+
+    private fun matchSubText(m: MatchItem): String =
+        when {
+            isLiveMatch(m) -> "🔴 ${m.home}  ${m.score.ifBlank { "vs" }}  ${m.away}"
+            isFinishedMatch(m) -> "${m.home}  ${m.score.ifBlank { "vs" }}  ${m.away}  •  انتهت"
+            else -> "⏰ ${m.time.ifBlank { "--:--" }}  ${m.home} × ${m.away}"
+        }
+
+    private fun nowSubText(channel: Channel): String {
+
+        val base = realPackageName(channel)
+
+        val m = matchForChannel(channel) ?: return base
+
+        val middle =
+            if (isLiveMatch(m) || isFinishedMatch(m)) {
+                m.score.ifBlank { "vs" }
+            } else {
+                m.time.ifBlank { "vs" }
+            }
+
+        return "${m.home}  $middle  ${m.away}  •  $base"
+    }
+
+    private fun refreshMatchViews() {
+
+        channelRows.forEach { it.setPlaying(it.channel == playingChannel) }
+
+        playingChannel?.let { nowSub.text = nowSubText(it) }
+    }
+
+    // =========================
+    // Hint bar with keycaps
+    // =========================
+
+    private fun buildHintBar(): View {
+
+        val bar = LinearLayout(this)
+
+        bar.orientation = LinearLayout.HORIZONTAL
+
+        bar.gravity = Gravity.CENTER
+
+        fun add(key: String, text: String) {
+
+            val cap = TextView(this)
+
+            cap.text = key
+
+            cap.textSize = 10.5f
+
+            cap.typeface = Typeface.DEFAULT_BOLD
+
+            cap.setTextColor(white)
+
+            cap.gravity = Gravity.CENTER
+
+            cap.setPadding(dp(8), dp(1), dp(8), dp(1))
+
+            cap.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(7).toFloat()
+                    setColor(Color.argb(26, 255, 255, 255))
+                    setStroke(dp(1), Color.argb(120, 255, 255, 255))
+                }
+
+            bar.addView(cap, lp(wrap, wrap))
+
+            bar.addView(
+                label(text, 11f, gray, false, Gravity.CENTER),
+                lp(wrap, wrap).apply { setMargins(dp(6), 0, dp(16), 0) }
+            )
+        }
+
+        add("OK", "ملء الشاشة")
+
+        add("OK مطولاً", "خيارات")
+
+        add("0-9", "رقم القناة")
+
+        return bar
     }
 
     // =========================
