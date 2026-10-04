@@ -3304,7 +3304,7 @@ class MainActivity : Activity() {
 
     private fun showListMessage(list: LinearLayout, title: String, sub: String) {
 
-        list.removeAllViews()
+        clearList(list)
 
         val box = LinearLayout(this)
 
@@ -3337,7 +3337,7 @@ class MainActivity : Activity() {
                 ?.item
                 ?.id
 
-        packagesList.removeAllViews()
+        clearList(packagesList)
         packageRows.clear()
 
         packages.forEachIndexed { index, item ->
@@ -3449,7 +3449,7 @@ class MainActivity : Activity() {
 
         val restoreIndex = channelRows.indexOfFirst { it.card.hasFocus() }
 
-        channelsList.removeAllViews()
+        clearList(channelsList)
         channelRows.clear()
 
         lastFocusedChannel = null
@@ -5911,9 +5911,20 @@ class MainActivity : Activity() {
     // Skeleton loading
     // =========================
 
-    private fun showSkeleton(list: LinearLayout, rows: Int) {
+    // A view that still runs an infinite animation is NOT removed visually by
+    // removeAllViews() (it stays drawn as a "disappearing child"), so stop it first.
+    private fun clearList(list: LinearLayout) {
+
+        for (i in 0 until list.childCount) {
+            list.getChildAt(i).clearAnimation()
+        }
 
         list.removeAllViews()
+    }
+
+    private fun showSkeleton(list: LinearLayout, rows: Int) {
+
+        clearList(list)
 
         for (i in 0 until rows) {
 
