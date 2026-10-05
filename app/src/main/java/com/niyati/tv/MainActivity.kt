@@ -5,6 +5,7 @@ import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -36,6 +37,7 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.SoundEffectConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -52,6 +54,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -458,6 +461,19 @@ class MainActivity : Activity() {
     private lateinit var tickerHomeLogo: LogoBadge
     private lateinit var playerGlow: GlowFrame
     private var glowToken = 0
+
+    // ---- phone / touch ----
+    private var isPhone = false
+    private lateinit var touchControls: FrameLayout
+    private lateinit var tcTitle: TextView
+    private lateinit var tcSub: TextView
+    private lateinit var tcFav: TextView
+
+    // ---- servers (the channel links) ----
+    private lateinit var stripTitle: TextView
+    private lateinit var stripHint: TextView
+    private var stripMode = 0          // 0 = quality, 1 = servers
+    private var autoFallback = false   // automatic switch to the next server when a link dies
     private lateinit var tickerAwayLogo: LogoBadge
     private lateinit var tickerLine1: TextView
     private lateinit var tickerLine2: TextView
@@ -591,6 +607,16 @@ class MainActivity : Activity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // phone = portrait lists + touch buttons, TV / tablet = landscape + remote
+        isPhone = !isTvDevice() && resources.configuration.smallestScreenWidthDp < 600
+
+        requestedOrientation =
+            if (isPhone) {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
+
         themeIndex = prefs.getInt("theme", 0).coerceIn(0, themes.size - 1)
 
         applyTheme(themeIndex)
@@ -600,6 +626,8 @@ class MainActivity : Activity() {
         dynBgEnabled = prefs.getBoolean("dyn_bg", true)
 
         uiSound = prefs.getBoolean("ui_sound", true)
+
+        autoFallback = prefs.getBoolean("auto_fallback", false)
 
         val skipSplash = prefs.getBoolean("skip_splash_once", false)
 
@@ -1414,7 +1442,7 @@ class MainActivity : Activity() {
 
         showStatus(
             "\u062e\u0637\u0623 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0628\u062b",
-            buildPlaybackErrorMessage(shown) + tried,
+            buildPlaybackErrorMessage(shown) + tried + serverHint(),
             true
         )
     }
@@ -1546,6 +1574,12 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
+        if (isPhone) {
+
+            buildPhoneContent()
+
+        } else {
+
         normalScreen.addView(buildHeader(), lp(matchParent, dp(78)))
 
         val contentRow = LinearLayout(this)
@@ -1611,7 +1645,7 @@ class MainActivity : Activity() {
 
         playerFrame.isFocusable = true
 
-        playerFrame.isFocusableInTouchMode = true
+        playerFrame.isFocusableInTouchMode = !isPhone
 
         playerFrame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
@@ -1626,7 +1660,7 @@ class MainActivity : Activity() {
         }
 
         playerFrame.setOnLongClickListener {
-            showQualityMenu()
+            showPlayerOptionsMenu()
             true
         }
 
@@ -1647,6 +1681,8 @@ class MainActivity : Activity() {
         playerPanel.addView(buildHintBar(), lp(matchParent, dp(30)))
 
         contentRow.addView(playerPanel, panelParams(0.47f))
+
+        }
 
         // ---- Video + status ----
 
@@ -1675,6 +1711,8 @@ class MainActivity : Activity() {
         fullscreenContainer.setBackgroundColor(Color.BLACK)
 
         fullscreenContainer.visibility = View.GONE
+
+        buildTouchControls()
 
         buildZapBanner()
 
@@ -1892,7 +1930,7 @@ class MainActivity : Activity() {
 
         settingsBtn.isFocusable = true
 
-        settingsBtn.isFocusableInTouchMode = true
+        settingsBtn.isFocusableInTouchMode = !isPhone
 
         fun styleSettings(focused: Boolean) {
             settingsBtn.background =
@@ -2774,7 +2812,7 @@ class MainActivity : Activity() {
 
             isFocusable = true
 
-            isFocusableInTouchMode = true
+            isFocusableInTouchMode = !isPhone
 
             clipChildren = false
 
@@ -3430,12 +3468,7 @@ class MainActivity : Activity() {
                 focusChannelsColumn()
             }
 
-            packagesList.addView(
-                card,
-                lp(matchParent, dp(66)).apply {
-                    setMargins(0, dp(5), 0, dp(5))
-                }
-            )
+            packagesList.addView(card, pkgCardParams())
 
             packageRows.add(PackageRow(item, card))
         }
@@ -3653,7 +3686,7 @@ class MainActivity : Activity() {
 
         requestPlayerGlow(channel.logo)
 
-        startSource(channel, 0)
+        startSource(channel, savedServerIndex(channel))
     }
 
     // starts one of the channel links (0 = main link, 1.. = backups)
@@ -3675,7 +3708,7 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(hideWebStatusRunnable)
 
         if (index > 0) {
-            nowSub.text = nowSubText(channel) + "  •  رابط احتياطي ${index + 1}"
+            nowSub.text = nowSubText(channel) + "  •  السيرفر ${index + 1}"
         }
 
         // ---- YouTube / Facebook -> WebView ----
@@ -3714,7 +3747,7 @@ class MainActivity : Activity() {
         showStatus(
             "جاري تشغيل القناة…",
             channel.name + "\n" +
-                    (if (index > 0) "رابط احتياطي ${index + 1}  •  " else "") +
+                    (if (index > 0) "السيرفر ${index + 1}  •  " else "") +
                     "المصدر: ${attempts[0].label}",
             false
         )
@@ -3724,6 +3757,11 @@ class MainActivity : Activity() {
 
     // the current link is dead: move to the next backup link (if any)
     private fun tryNextSource(channel: Channel): Boolean {
+
+        // the viewer chooses the server himself (can be enabled in the settings)
+        if (!autoFallback) {
+            return false
+        }
 
         // offline: keep the error, the stream restarts when the connection is back
         if (!online) {
@@ -3741,8 +3779,8 @@ class MainActivity : Activity() {
         val token = playToken
 
         showStatus(
-            "تعذر تشغيل الرابط ${next}",
-            "جاري تجربة الرابط الاحتياطي ${next + 1} من ${urls.size}",
+            "تعذر تشغيل السيرفر ${next}",
+            "جاري التحويل إلى السيرفر ${next + 1} من ${urls.size}",
             false
         )
 
@@ -3796,7 +3834,7 @@ class MainActivity : Activity() {
                 "\u062e\u0637\u0623 \u062f\u0627\u062e\u0644\u064a\n${shortenError(text)}"
             }
 
-        showStatus("\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629", message, true)
+        showStatus("\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629", message + serverHint(), true)
     }
 
     private fun updatePlayingMarks() {
@@ -4491,7 +4529,7 @@ class MainActivity : Activity() {
 
         menuOverlay.addView(
             box,
-            FrameLayout.LayoutParams(dp(380), wrap, Gravity.CENTER)
+            FrameLayout.LayoutParams(boxWidth(380), wrap, Gravity.CENTER)
         )
 
         root.addView(menuOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
@@ -4505,7 +4543,7 @@ class MainActivity : Activity() {
 
         tv.isFocusable = true
 
-        tv.isFocusableInTouchMode = true
+        tv.isFocusableInTouchMode = !isPhone
 
         fun style(focused: Boolean) {
 
@@ -5367,6 +5405,11 @@ class MainActivity : Activity() {
                     { toggleUiSound() }
         )
 
+        items.add(
+            "🖥  التبديل التلقائي للسيرفر: ${if (autoFallback) "مفعّل" else "متوقف"}" to
+                    { toggleAutoFallback() }
+        )
+
         items.add("🔲  المشاهدة المتعددة (${multiList.size}/4)" to { showMultiMenu() })
 
         if (!isTvDevice()) {
@@ -5621,7 +5664,7 @@ class MainActivity : Activity() {
 
         noticeOverlay.addView(
             box,
-            FrameLayout.LayoutParams(dp(520), wrap, Gravity.CENTER)
+            FrameLayout.LayoutParams(boxWidth(520), wrap, Gravity.CENTER)
         )
 
         root.addView(noticeOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
@@ -5753,7 +5796,7 @@ class MainActivity : Activity() {
 
         blockOverlay.addView(
             col,
-            FrameLayout.LayoutParams(dp(560), wrap, Gravity.CENTER)
+            FrameLayout.LayoutParams(boxWidth(560), wrap, Gravity.CENTER)
         )
 
         root.addView(blockOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
@@ -6938,6 +6981,21 @@ class MainActivity : Activity() {
             return true
         }
 
+        if (code == KeyEvent.KEYCODE_PROG_RED) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+
+                if (isFullscreen) {
+                    closeChannelPanel(true)
+                    openServerStrip()
+                } else {
+                    showServerMenu()
+                }
+            }
+
+            return true
+        }
+
         if (
             code == KeyEvent.KEYCODE_LAST_CHANNEL ||
             code == KeyEvent.KEYCODE_PROG_GREEN
@@ -7077,6 +7135,8 @@ class MainActivity : Activity() {
 
         offlineBanner.setPadding(dp(24), dp(8), dp(24), dp(8))
 
+        offlineBanner.maxWidth = resources.displayMetrics.widthPixels - dp(24)
+
         offlineBanner.visibility = View.GONE
 
         setBannerStyle(false)
@@ -7182,7 +7242,7 @@ class MainActivity : Activity() {
         val healthy = !playingWeb && player.playbackState == Player.STATE_READY
 
         if (!healthy) {
-            startSource(channel, 0)
+            startSource(channel, savedServerIndex(channel))
         }
     }
 
@@ -7218,8 +7278,10 @@ class MainActivity : Activity() {
                 setStroke(dp(1), Color.argb(80, 255, 255, 255))
             }
 
+        stripTitle = label("الجودة", 13f, cyan, true, Gravity.CENTER)
+
         qualityStrip.addView(
-            label("الجودة", 13f, cyan, true, Gravity.CENTER),
+            stripTitle,
             lp(wrap, wrap).apply { setMargins(0, 0, dp(12), 0) }
         )
 
@@ -7228,6 +7290,13 @@ class MainActivity : Activity() {
         qualityStripChips.orientation = LinearLayout.HORIZONTAL
 
         qualityStrip.addView(qualityStripChips, lp(wrap, wrap))
+
+        stripHint = label("", 11f, gray, false, Gravity.CENTER)
+
+        qualityStrip.addView(
+            stripHint,
+            lp(wrap, wrap).apply { setMargins(dp(14), 0, dp(4), 0) }
+        )
 
         fullscreenContainer.addView(
             qualityStrip,
@@ -7296,6 +7365,12 @@ class MainActivity : Activity() {
         val currentHeight = player.videoSize.height
 
         qualityStripChips.removeAllViews()
+
+        stripMode = 0
+
+        stripTitle.text = "الجودة"
+
+        stripHint.text = if (playingChannel?.let { sourcesOf(it).size > 1 } == true) "▲▼ السيرفر" else ""
 
         var target: View? = null
 
@@ -7406,7 +7481,14 @@ class MainActivity : Activity() {
             }
 
             KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_DPAD_DOWN -> return true
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    if (stripMode == 0) openServerStrip() else openQualityStrip()
+                }
+
+                return true
+            }
         }
 
         return super.dispatchKeyEvent(event)
@@ -7462,6 +7544,18 @@ class MainActivity : Activity() {
     private fun showMultiMenu() {
 
         val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        // from the player: add the channel that is playing
+        val current = playingChannel
+
+        if (
+            current != null &&
+            !multiList.contains(current) &&
+            multiList.size < 4 &&
+            tileSources(current).isNotEmpty()
+        ) {
+            items.add("➕  إضافة القناة الحالية (${current.name})" to { addToMulti(current) })
+        }
 
         if (multiList.size >= 2) {
             items.add("▶  بدء المشاهدة المتعددة (${multiList.size} قنوات)" to { enterMultiView() })
@@ -7523,6 +7617,34 @@ class MainActivity : Activity() {
             multiHint,
             FrameLayout.LayoutParams(wrap, wrap, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = dp(26)
+            }
+        )
+
+        val closeMulti = TextView(this)
+
+        closeMulti.text = "✕"
+
+        closeMulti.textSize = 20f
+
+        closeMulti.setTextColor(white)
+
+        closeMulti.gravity = Gravity.CENTER
+
+        closeMulti.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(190, 8, 10, 28))
+                setStroke(dp(1), Color.argb(90, 255, 255, 255))
+            }
+
+        closeMulti.setOnClickListener {
+            exitMultiView()
+        }
+
+        multiContainer.addView(
+            closeMulti,
+            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.RIGHT).apply {
+                setMargins(0, dp(10), dp(10), 0)
             }
         )
 
@@ -7613,6 +7735,19 @@ class MainActivity : Activity() {
         )
 
         val tile = Tile(channel, tilePlayer, http, frame, name, status)
+
+        // touch: tap = sound of this tile, tap again = full screen
+        frame.setOnClickListener {
+
+            val index = tiles.indexOf(tile)
+
+            if (index == multiSel) {
+                maximizeSelectedTile()
+            } else if (index >= 0) {
+                multiSel = index
+                refreshTileSelection()
+            }
+        }
 
         tilePlayer.addListener(
             object : Player.Listener {
@@ -7716,6 +7851,10 @@ class MainActivity : Activity() {
 
         multiActive = true
 
+        if (isPhone) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+
         tiles.clear()
 
         multiGrid.removeAllViews()
@@ -7801,6 +7940,10 @@ class MainActivity : Activity() {
         }
 
         multiActive = false
+
+        if (isPhone && !isFullscreen) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         mainHandler.removeCallbacks(hideMultiHintRunnable)
 
@@ -8071,6 +8214,681 @@ class MainActivity : Activity() {
             "افتح إعدادات الهاتف واختر مشاركة الشاشة (Cast / Smart View)",
             Toast.LENGTH_LONG
         ).show()
+    }
+
+    // =========================
+    // Servers (the links of a channel)
+    // =========================
+
+    private fun savedServerIndex(channel: Channel): Int {
+
+        val count = sourcesOf(channel).size
+
+        val saved = prefs.getInt("srv_" + channelKey(channel), 0)
+
+        return if (saved in 0 until count) saved else 0
+    }
+
+    private fun serverHint(): String {
+
+        val channel = playingChannel ?: return ""
+
+        return if (sourcesOf(channel).size > 1) {
+            "\nجرّب سيرفراً آخر: الزر الأحمر (أو اضغط مطولاً على المشغل)"
+        } else {
+            ""
+        }
+    }
+
+    private fun switchServer(index: Int) {
+
+        val channel = playingChannel ?: return
+
+        if (index !in sourcesOf(channel).indices) {
+            return
+        }
+
+        if (index == sourceIndex && !finalPlaybackError) {
+            Toast.makeText(this, "أنت على السيرفر ${index + 1} حالياً", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // next time this channel opens on the server the viewer chose
+        prefs.edit().putInt("srv_" + channelKey(channel), index).apply()
+
+        playToken++
+
+        startSource(channel, index)
+
+        Toast.makeText(this, "السيرفر ${index + 1}", Toast.LENGTH_SHORT).show()
+    }
+
+    // fullscreen: small strip at the top, hides after a few seconds
+    private fun openServerStrip() {
+
+        val channel = playingChannel ?: return
+
+        if (!isFullscreen) {
+            return
+        }
+
+        val count = sourcesOf(channel).size
+
+        if (count < 2) {
+            Toast.makeText(this, "هذه القناة لها سيرفر واحد فقط", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        closeChannelPanel(true)
+
+        mainHandler.removeCallbacks(hideZapRunnable)
+
+        zapBanner.animate().cancel()
+
+        zapBanner.visibility = View.GONE
+
+        stripMode = 1
+
+        stripTitle.text = "السيرفر"
+
+        stripHint.text = "▲▼ الجودة"
+
+        qualityStripChips.removeAllViews()
+
+        var target: View? = null
+
+        for (i in 0 until count) {
+
+            val selected = i == sourceIndex
+
+            val chip = menuItem((if (selected) "✓ " else "") + "السيرفر ${i + 1}", accentFor(0))
+
+            chip.setPadding(dp(16), 0, dp(16), 0)
+
+            chip.setOnClickListener {
+                closeQualityStrip()
+                switchServer(i)
+            }
+
+            qualityStripChips.addView(
+                chip,
+                lp(wrap, dp(40)).apply { setMargins(dp(4), 0, dp(4), 0) }
+            )
+
+            if (selected || target == null) {
+                target = chip
+            }
+        }
+
+        setVideoFocusable(false)
+
+        qualityStrip.animate().cancel()
+
+        qualityStrip.alpha = 0f
+
+        qualityStrip.translationY = -dp(14).toFloat()
+
+        qualityStrip.visibility = View.VISIBLE
+
+        qualityStrip.animate().alpha(1f).translationY(0f).setDuration(180).start()
+
+        qualityStrip.post {
+            target?.requestFocus()
+        }
+
+        mainHandler.removeCallbacks(hideQualityRunnable)
+
+        mainHandler.postDelayed(hideQualityRunnable, 5000)
+    }
+
+    // normal screen: long press on the player
+    private fun showPlayerOptionsMenu() {
+
+        val channel = playingChannel ?: return
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        items.add("🎚  الجودة" to { showQualityMenu() })
+
+        val count = sourcesOf(channel).size
+
+        if (count > 1) {
+            items.add("🖥  السيرفر (${sourceIndex + 1}/$count)" to { showServerMenu() })
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("خيارات المشغل", items)
+    }
+
+    private fun showServerMenu() {
+
+        val channel = playingChannel ?: return
+
+        val count = sourcesOf(channel).size
+
+        if (count < 2) {
+            Toast.makeText(this, "هذه القناة لها سيرفر واحد فقط", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        for (i in 0 until count) {
+            items.add(
+                ((if (i == sourceIndex) "✓  " else "") + "السيرفر ${i + 1}") to { switchServer(i) }
+            )
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("اختر السيرفر", items)
+    }
+
+    private fun toggleAutoFallback() {
+
+        autoFallback = !autoFallback
+
+        prefs.edit().putBoolean("auto_fallback", autoFallback).apply()
+
+        Toast.makeText(
+            this,
+            if (autoFallback) "التبديل التلقائي للسيرفر: مفعّل" else "التبديل التلقائي للسيرفر: متوقف",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // =========================
+    // Phone layout (portrait): header, 16:9 player, packages chips, channels list
+    // =========================
+
+    private fun boxWidth(widthDp: Int): Int =
+        minOf(dp(widthDp), resources.displayMetrics.widthPixels - dp(32))
+
+    // size of one package card (a chip on phones, a row on TV)
+    private fun pkgCardParams(): LinearLayout.LayoutParams =
+        if (isPhone) {
+            lp(dp(200), dp(60)).apply { setMargins(dp(4), 0, dp(4), 0) }
+        } else {
+            lp(matchParent, dp(66)).apply { setMargins(0, dp(5), 0, dp(5)) }
+        }
+
+    private fun buildPhoneHeader(): View {
+
+        val header = LinearLayout(this)
+
+        header.orientation = LinearLayout.HORIZONTAL
+
+        header.gravity = Gravity.CENTER_VERTICAL
+
+        header.setPadding(dp(14), dp(6), dp(10), dp(6))
+
+        val logoBox = ShineLayout()
+
+        logoBox.addView(
+            createLogoMark(18f, 10),
+            FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        header.addView(logoBox, lp(dp(40), dp(40)))
+
+        val brandCol = LinearLayout(this)
+
+        brandCol.orientation = LinearLayout.VERTICAL
+
+        brandCol.setPadding(dp(10), 0, 0, 0)
+
+        val brand = label("NIYATI", 18f, white, true, Gravity.LEFT)
+
+        brand.letterSpacing = 0.14f
+
+        val sport = label("SPORTS IPTV", 9f, cyan, true, Gravity.LEFT)
+
+        sport.letterSpacing = 0.25f
+
+        brandCol.addView(brand, lp(wrap, wrap))
+
+        brandCol.addView(sport, lp(wrap, wrap))
+
+        header.addView(brandCol, lp(0, wrap, 1f))
+
+        // weather: only the icon and the temperature (the other texts are not shown)
+        weatherIcon = TextView(this)
+
+        weatherIcon.text = "\u2601\uFE0F"
+
+        weatherIcon.textSize = 18f
+
+        weatherTemp = label("--\u00B0", 15f, white, true, Gravity.LEFT)
+
+        weatherCityView = label(weatherCity, 10f, gray, false, Gravity.LEFT)
+
+        dateView = label("", 11f, gray, false, Gravity.RIGHT)
+
+        header.addView(weatherIcon, lp(wrap, wrap))
+
+        header.addView(
+            weatherTemp,
+            lp(wrap, wrap).apply { setMargins(dp(4), 0, dp(10), 0) }
+        )
+
+        val settings = TextView(this)
+
+        settings.text = "⚙"
+
+        settings.textSize = 20f
+
+        settings.setTextColor(white)
+
+        settings.gravity = Gravity.CENTER
+
+        settings.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(22, 255, 255, 255))
+                setStroke(dp(1), Color.argb(40, 255, 255, 255))
+            }
+
+        settings.setOnClickListener {
+            showSettingsMenu()
+        }
+
+        header.addView(settings, lp(dp(42), dp(42)))
+
+        return header
+    }
+
+    private fun buildPhoneContent() {
+
+        normalScreen.addView(buildPhoneHeader(), lp(matchParent, dp(56)))
+
+        normalScreen.addView(
+            buildTicker(),
+            lp(matchParent, wrap).apply { setMargins(dp(12), 0, dp(12), dp(4)) }
+        )
+
+        // ---- player: 16:9 over the whole width ----
+        val glowFrame = GlowFrame()
+
+        playerFrame = glowFrame
+
+        playerGlow = glowFrame
+
+        playerFrame.setPadding(dp(4), dp(4), dp(4), dp(4))
+
+        playerFrame.isFocusable = true
+
+        playerFrame.isFocusableInTouchMode = false
+
+        playerFrame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        applyPlayerFrameBackground(false)
+
+        playerFrame.setOnClickListener {
+            enterFullscreen()
+        }
+
+        playerFrame.setOnLongClickListener {
+            showPlayerOptionsMenu()
+            true
+        }
+
+        val metrics = resources.displayMetrics
+
+        val shortSide = minOf(metrics.widthPixels, metrics.heightPixels)
+
+        val playerHeight = (shortSide - dp(24)) * 9 / 16
+
+        normalScreen.addView(
+            playerFrame,
+            lp(matchParent, playerHeight).apply { setMargins(dp(12), dp(4), dp(12), 0) }
+        )
+
+        normalScreen.addView(
+            buildInfoBar(),
+            lp(matchParent, dp(56)).apply { setMargins(dp(12), dp(8), dp(12), 0) }
+        )
+
+        // ---- packages: a row of cards you can swipe ----
+        packagesHeader = SectionHeader("الباقات", "PACKAGES", accentFor(0))
+
+        packagesList = createList()
+
+        packagesList.orientation = LinearLayout.HORIZONTAL
+
+        packagesList.setPadding(dp(10), dp(4), dp(10), dp(4))
+
+        val packageScroll = HorizontalScrollView(this)
+
+        packageScroll.isHorizontalScrollBarEnabled = false
+
+        packageScroll.overScrollMode = View.OVER_SCROLL_NEVER
+
+        packageScroll.addView(packagesList)
+
+        normalScreen.addView(
+            packageScroll,
+            lp(matchParent, dp(74)).apply { topMargin = dp(8) }
+        )
+
+        // ---- channels: the rest of the screen ----
+        val channelsPanel = createPanel()
+
+        channelsHeader = SectionHeader("القنوات", "CHANNELS", accentFor(1))
+
+        channelsPanel.addView(channelsHeader, lp(matchParent, dp(56)))
+
+        channelScroll = createScroll()
+
+        channelsList = createList()
+
+        channelScroll.addView(channelsList)
+
+        channelsPanel.addView(channelScroll, lp(matchParent, 0, 1f))
+
+        normalScreen.addView(
+            channelsPanel,
+            lp(matchParent, 0, 1f).apply { setMargins(dp(10), dp(4), dp(10), dp(10)) }
+        )
+    }
+
+    // =========================
+    // Touch controls (tap the video in fullscreen)
+    // =========================
+
+    private val hideTouchRunnable = Runnable {
+        hideTouchControls()
+    }
+
+    private fun touchControlsVisible(): Boolean =
+        ::touchControls.isInitialized && touchControls.visibility == View.VISIBLE
+
+    private fun touchButton(glyph: String, caption: String, onClick: () -> Unit): Pair<View, TextView> {
+
+        val column = LinearLayout(this)
+
+        column.orientation = LinearLayout.VERTICAL
+
+        column.gravity = Gravity.CENTER
+
+        val icon = TextView(this)
+
+        icon.text = glyph
+
+        icon.textSize = 22f
+
+        icon.setTextColor(white)
+
+        icon.gravity = Gravity.CENTER
+
+        icon.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(70, 255, 255, 255))
+                setStroke(dp(1), Color.argb(90, 255, 255, 255))
+            }
+
+        column.addView(icon, lp(dp(52), dp(52)))
+
+        column.addView(
+            label(caption, 11f, white, false, Gravity.CENTER),
+            lp(wrap, wrap).apply { topMargin = dp(4) }
+        )
+
+        column.setOnClickListener {
+            onClick()
+        }
+
+        return Pair(column, icon)
+    }
+
+    private fun buildTouchControls() {
+
+        touchControls = FrameLayout(this)
+
+        touchControls.isClickable = true
+
+        touchControls.visibility = View.GONE
+
+        touchControls.setOnClickListener {
+            hideTouchControls()
+        }
+
+        // ---- top: back + channel name ----
+        val top = LinearLayout(this)
+
+        top.orientation = LinearLayout.HORIZONTAL
+
+        top.gravity = Gravity.CENTER_VERTICAL
+
+        top.setPadding(dp(14), dp(10), dp(14), dp(28))
+
+        top.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(210, 0, 0, 0), Color.argb(0, 0, 0, 0))
+            )
+
+        val back = TextView(this)
+
+        back.text = "←"
+
+        back.textSize = 26f
+
+        back.setTextColor(white)
+
+        back.gravity = Gravity.CENTER
+
+        back.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(70, 255, 255, 255))
+            }
+
+        back.setOnClickListener {
+            hideTouchControls(true)
+            exitFullscreen()
+        }
+
+        top.addView(back, lp(dp(46), dp(46)))
+
+        val titleColumn = LinearLayout(this)
+
+        titleColumn.orientation = LinearLayout.VERTICAL
+
+        titleColumn.setPadding(dp(14), 0, 0, 0)
+
+        tcTitle = label("", 18f, white, true)
+
+        tcSub = label("", 12f, gray)
+
+        titleColumn.addView(tcTitle, lp(matchParent, wrap))
+
+        titleColumn.addView(tcSub, lp(matchParent, wrap))
+
+        top.addView(titleColumn, lp(0, wrap, 1f))
+
+        touchControls.addView(
+            top,
+            FrameLayout.LayoutParams(matchParent, wrap, Gravity.TOP)
+        )
+
+        // ---- bottom: the options ----
+        val bottom = LinearLayout(this)
+
+        bottom.orientation = LinearLayout.HORIZONTAL
+
+        bottom.gravity = Gravity.CENTER
+
+        bottom.setPadding(dp(8), dp(30), dp(8), dp(14))
+
+        bottom.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.BOTTOM_TOP,
+                intArrayOf(Color.argb(220, 0, 0, 0), Color.argb(0, 0, 0, 0))
+            )
+
+        fun addButton(button: Pair<View, TextView>) {
+            bottom.addView(button.first, lp(0, wrap, 1f))
+        }
+
+        addButton(
+            touchButton("☰", "القنوات") {
+                hideTouchControls(true)
+                openChannelPanel()
+            }
+        )
+
+        addButton(
+            touchButton("⏮", "السابقة") {
+                goPreviousChannel()
+                startTouchTimer()
+            }
+        )
+
+        val fav =
+            touchButton("☆", "المفضلة") {
+                playingChannel?.let { toggleFavorite(it) }
+                refreshTouchFavorite()
+                startTouchTimer()
+            }
+
+        tcFav = fav.second
+
+        addButton(fav)
+
+        addButton(
+            touchButton("🖥", "السيرفر") {
+                hideTouchControls(true)
+                openServerStrip()
+            }
+        )
+
+        addButton(
+            touchButton("🎚", "الجودة") {
+                hideTouchControls(true)
+                openQualityStrip()
+            }
+        )
+
+        addButton(
+            touchButton("🔲", "تقسيم") {
+                hideTouchControls(true)
+                showMultiMenu()
+            }
+        )
+
+        touchControls.addView(
+            bottom,
+            FrameLayout.LayoutParams(matchParent, wrap, Gravity.BOTTOM)
+        )
+
+        fullscreenContainer.addView(
+            touchControls,
+            FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        // a tap on the picture shows / hides the controls (or closes the open strip / list)
+        fullscreenContainer.isClickable = true
+
+        fullscreenContainer.setOnClickListener {
+
+            when {
+                panelOpen() -> closeChannelPanel()
+                qualityStripOpen() -> closeQualityStrip()
+                touchControlsVisible() -> hideTouchControls()
+                else -> showTouchControls()
+            }
+        }
+
+        // YouTube / Facebook pages take the touches: still show the controls after a tap
+        webView.setOnTouchListener { _, event ->
+
+            if (
+                event.action == MotionEvent.ACTION_UP &&
+                isFullscreen &&
+                playingWeb &&
+                !touchControlsVisible()
+            ) {
+                showTouchControls()
+            }
+
+            false
+        }
+    }
+
+    private fun refreshTouchFavorite() {
+
+        val channel = playingChannel
+
+        val fav = channel != null && isFavorite(channel)
+
+        tcFav.text = if (fav) "★" else "☆"
+
+        tcFav.setTextColor(if (fav) gold else white)
+    }
+
+    private fun startTouchTimer() {
+
+        mainHandler.removeCallbacks(hideTouchRunnable)
+
+        mainHandler.postDelayed(hideTouchRunnable, 4000)
+    }
+
+    private fun showTouchControls() {
+
+        if (!isFullscreen || blocked || multiActive || menuOpen()) {
+            return
+        }
+
+        val channel = playingChannel
+
+        tcTitle.text = channel?.name ?: ""
+
+        tcSub.text =
+            if (channel != null) {
+                nowSubText(channel) + "  •  السيرفر ${sourceIndex + 1}"
+            } else {
+                ""
+            }
+
+        refreshTouchFavorite()
+
+        touchControls.animate().cancel()
+
+        touchControls.alpha = 0f
+
+        touchControls.visibility = View.VISIBLE
+
+        touchControls.animate().alpha(1f).setDuration(180).start()
+
+        startTouchTimer()
+    }
+
+    private fun hideTouchControls(immediate: Boolean = false) {
+
+        mainHandler.removeCallbacks(hideTouchRunnable)
+
+        if (!touchControlsVisible()) {
+            return
+        }
+
+        touchControls.animate().cancel()
+
+        if (immediate) {
+
+            touchControls.visibility = View.GONE
+
+        } else {
+
+            touchControls.animate()
+                .alpha(0f)
+                .setDuration(180)
+                .withEndAction {
+                    touchControls.visibility = View.GONE
+                }
+                .start()
+        }
     }
 
     // =========================
@@ -8445,6 +9263,10 @@ class MainActivity : Activity() {
 
         isFullscreen = true
 
+        if (isPhone) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+
         cancelPreview()
 
         playingChannel?.let {
@@ -8494,6 +9316,12 @@ class MainActivity : Activity() {
         }
 
         isFullscreen = false
+
+        if (isPhone && !multiActive) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+
+        hideTouchControls(true)
 
         closeChannelPanel(true)
 
