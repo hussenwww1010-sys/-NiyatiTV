@@ -4,8 +4,8 @@ import android.annotation.SuppressLint
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.app.Activity
-import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -33,11 +33,12 @@ import android.os.SystemClock
 import android.text.TextUtils
 import android.util.LruCache
 import android.util.TypedValue
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.HapticFeedbackConstants
 import android.view.SoundEffectConstants
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -191,7 +192,14 @@ class MainActivity : Activity() {
         val userAgent: String = "",
         val referer: String = "",
         val backups: List<String> = emptyList(),
-        val isNew: Boolean = false
+        val isNew: Boolean = false,
+        val audios: List<AudioItem> = emptyList()
+    )
+
+    // an extra audio channel (second commentator) added to a channel from the dashboard
+    data class AudioItem(
+        val name: String,
+        val url: String
     )
 
     data class MatchItem(
@@ -463,11 +471,17 @@ class MainActivity : Activity() {
     private var glowToken = 0
 
     // ---- phone / touch ----
-    private var isPhone = false
-    private lateinit var touchControls: FrameLayout
-    private lateinit var tcTitle: TextView
-    private lateinit var tcSub: TextView
-    private lateinit var tcFav: TextView
+    private var phoneMode = false
+    private lateinit var touchControls: LinearLayout
+    private lateinit var touchFavIcon: TextView
+    private lateinit var touchServerBtn: View
+    private lateinit var touchAudioBtn: View
+
+    // ---- extra audio (commentators) ----
+    private class AudioOption(val label: String, val group: Tracks.Group, val index: Int)
+
+    private var audioPlayer: ExoPlayer? = null
+    private var externalAudio = -1
 
     // ---- servers (the channel links) ----
     private lateinit var stripTitle: TextView
@@ -607,16 +621,6 @@ class MainActivity : Activity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // phone = portrait lists + touch buttons, TV / tablet = landscape + remote
-        isPhone = !isTvDevice() && resources.configuration.smallestScreenWidthDp < 600
-
-        requestedOrientation =
-            if (isPhone) {
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            }
-
         themeIndex = prefs.getInt("theme", 0).coerceIn(0, themes.size - 1)
 
         applyTheme(themeIndex)
@@ -634,6 +638,20 @@ class MainActivity : Activity() {
         if (skipSplash) {
             prefs.edit().putBoolean("skip_splash_once", false).apply()
         }
+
+        phoneMode =
+            packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN) &&
+                    !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) &&
+                    !isTvDevice() &&
+                    resources.configuration.smallestScreenWidthDp < 600
+
+        // phone: portrait (landscape only for fullscreen), TV / tablet: landscape
+        requestedOrientation =
+            if (phoneMode) {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
 
         window.statusBarColor = bgTop
         window.navigationBarColor = bgBottom
@@ -1574,7 +1592,7 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
-        if (isPhone) {
+        if (phoneMode) {
 
             buildPhoneContent()
 
@@ -1645,7 +1663,7 @@ class MainActivity : Activity() {
 
         playerFrame.isFocusable = true
 
-        playerFrame.isFocusableInTouchMode = !isPhone
+        playerFrame.isFocusableInTouchMode = !phoneMode
 
         playerFrame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
@@ -1712,13 +1730,13 @@ class MainActivity : Activity() {
 
         fullscreenContainer.visibility = View.GONE
 
-        buildTouchControls()
-
         buildZapBanner()
 
         buildChannelPanel()
 
         buildQualityStrip()
+
+        buildTouchControls()
 
         root.addView(
             fullscreenContainer,
@@ -1930,7 +1948,7 @@ class MainActivity : Activity() {
 
         settingsBtn.isFocusable = true
 
-        settingsBtn.isFocusableInTouchMode = !isPhone
+        settingsBtn.isFocusableInTouchMode = !phoneMode
 
         fun styleSettings(focused: Boolean) {
             settingsBtn.background =
@@ -2812,7 +2830,7 @@ class MainActivity : Activity() {
 
             isFocusable = true
 
-            isFocusableInTouchMode = !isPhone
+            isFocusableInTouchMode = !phoneMode
 
             clipChildren = false
 
@@ -3376,7 +3394,8 @@ class MainActivity : Activity() {
                             ?: "",
                     referer = child.readString("referer") ?: "",
                     backups = collectBackups(child),
-                    isNew = isNewChannel(child)
+                    isNew = isNewChannel(child),
+                    audios = collectAudios(child)
                 )
             )
         }
@@ -3468,7 +3487,14 @@ class MainActivity : Activity() {
                 focusChannelsColumn()
             }
 
-            packagesList.addView(card, pkgCardParams())
+            packagesList.addView(
+                card,
+                if (phoneMode) {
+                    lp(dp(172), dp(60)).apply { setMargins(dp(5), 0, dp(5), 0) }
+                } else {
+                    lp(matchParent, dp(66)).apply { setMargins(0, dp(5), 0, dp(5)) }
+                }
+            )
 
             packageRows.add(PackageRow(item, card))
         }
@@ -3668,6 +3694,9 @@ class MainActivity : Activity() {
             previousChannel = old
         }
 
+        // a new channel starts with its original sound
+        stopExternalAudio()
+
         playingChannel = channel
 
         playingList = visibleChannels
@@ -3732,6 +3761,7 @@ class MainActivity : Activity() {
                 player.trackSelectionParameters
                     .buildUpon()
                     .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
                     .build()
         } catch (_: Exception) {
         }
@@ -4543,7 +4573,7 @@ class MainActivity : Activity() {
 
         tv.isFocusable = true
 
-        tv.isFocusableInTouchMode = !isPhone
+        tv.isFocusableInTouchMode = !phoneMode
 
         fun style(focused: Boolean) {
 
@@ -4642,7 +4672,9 @@ class MainActivity : Activity() {
                     { toggleFavorite(channel) }
         )
 
-        items.add("↕  نقل القناة" to { startMove(false, channelKey(channel)) })
+        if (!phoneMode) {
+            items.add("↕  نقل القناة" to { startMove(false, channelKey(channel)) })
+        }
 
         if (multiList.contains(channel)) {
             items.add("➖  إزالة من المشاهدة المتعددة" to { removeFromMulti(channel) })
@@ -4661,7 +4693,7 @@ class MainActivity : Activity() {
 
     private fun showPackageMenu(item: PackageItem) {
 
-        if (isFullscreen || moveState != null) {
+        if (isFullscreen || moveState != null || phoneMode) {
             return
         }
 
@@ -5143,10 +5175,10 @@ class MainActivity : Activity() {
 
         if (playingWeb) {
             webView.isFocusable = true
-            webView.isFocusableInTouchMode = true
+            webView.isFocusableInTouchMode = !phoneMode
         } else {
             playerView.isFocusable = true
-            playerView.isFocusableInTouchMode = true
+            playerView.isFocusableInTouchMode = !phoneMode
         }
 
         channelPanel.animate().cancel()
@@ -5807,6 +5839,8 @@ class MainActivity : Activity() {
         if (!blocked) {
 
             blocked = true
+
+            stopExternalAudio()
 
             if (multiActive) {
                 exitMultiView(false)
@@ -7135,8 +7169,6 @@ class MainActivity : Activity() {
 
         offlineBanner.setPadding(dp(24), dp(8), dp(24), dp(8))
 
-        offlineBanner.maxWidth = resources.displayMetrics.widthPixels - dp(24)
-
         offlineBanner.visibility = View.GONE
 
         setBannerStyle(false)
@@ -7239,6 +7271,10 @@ class MainActivity : Activity() {
 
         val channel = playingChannel ?: return
 
+        if (externalAudio >= 0) {
+            playExternalAudio(externalAudio)
+        }
+
         val healthy = !playingWeb && player.playbackState == Player.STATE_READY
 
         if (!healthy) {
@@ -7320,10 +7356,10 @@ class MainActivity : Activity() {
 
         if (playingWeb) {
             webView.isFocusable = true
-            webView.isFocusableInTouchMode = true
+            webView.isFocusableInTouchMode = !phoneMode
         } else {
             playerView.isFocusable = true
-            playerView.isFocusableInTouchMode = true
+            playerView.isFocusableInTouchMode = !phoneMode
         }
     }
 
@@ -7370,7 +7406,7 @@ class MainActivity : Activity() {
 
         stripTitle.text = "الجودة"
 
-        stripHint.text = if (playingChannel?.let { sourcesOf(it).size > 1 } == true) "▲▼ السيرفر" else ""
+        stripHint.text = if (stripModeCount() > 1) "▲▼ تبديل" else ""
 
         var target: View? = null
 
@@ -7484,7 +7520,7 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_DOWN -> {
 
                 if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                    if (stripMode == 0) openServerStrip() else openQualityStrip()
+                    cycleStrip()
                 }
 
                 return true
@@ -7545,18 +7581,6 @@ class MainActivity : Activity() {
 
         val items = mutableListOf<Pair<String, () -> Unit>>()
 
-        // from the player: add the channel that is playing
-        val current = playingChannel
-
-        if (
-            current != null &&
-            !multiList.contains(current) &&
-            multiList.size < 4 &&
-            tileSources(current).isNotEmpty()
-        ) {
-            items.add("➕  إضافة القناة الحالية (${current.name})" to { addToMulti(current) })
-        }
-
         if (multiList.size >= 2) {
             items.add("▶  بدء المشاهدة المتعددة (${multiList.size} قنوات)" to { enterMultiView() })
         }
@@ -7595,7 +7619,11 @@ class MainActivity : Activity() {
         multiContainer.addView(multiGrid, FrameLayout.LayoutParams(matchParent, matchParent))
 
         multiHint = label(
-            "◄ ► ▲ ▼  تبديل الصوت   •   OK  تكبير القناة   •   رجوع  خروج",
+            if (phoneMode) {
+                "اضغط على مربع لتبديل الصوت   •   ضغط مطول لتكبيره"
+            } else {
+                "◄ ► ▲ ▼  تبديل الصوت   •   OK  تكبير القناة   •   رجوع  خروج"
+            },
             13f,
             white,
             true,
@@ -7620,31 +7648,31 @@ class MainActivity : Activity() {
             }
         )
 
-        val closeMulti = TextView(this)
+        val closeButton = TextView(this)
 
-        closeMulti.text = "✕"
+        closeButton.text = "✕"
 
-        closeMulti.textSize = 20f
+        closeButton.textSize = 18f
 
-        closeMulti.setTextColor(white)
+        closeButton.setTextColor(white)
 
-        closeMulti.gravity = Gravity.CENTER
+        closeButton.gravity = Gravity.CENTER
 
-        closeMulti.background =
+        closeButton.background =
             GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.argb(190, 8, 10, 28))
-                setStroke(dp(1), Color.argb(90, 255, 255, 255))
+                setStroke(dp(1), Color.argb(120, 255, 255, 255))
             }
 
-        closeMulti.setOnClickListener {
+        closeButton.setOnClickListener {
             exitMultiView()
         }
 
         multiContainer.addView(
-            closeMulti,
+            closeButton,
             FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.RIGHT).apply {
-                setMargins(0, dp(10), dp(10), 0)
+                setMargins(0, dp(14), dp(14), 0)
             }
         )
 
@@ -7736,17 +7764,27 @@ class MainActivity : Activity() {
 
         val tile = Tile(channel, tilePlayer, http, frame, name, status)
 
-        // touch: tap = sound of this tile, tap again = full screen
+        // touch: tap = take the sound, long press = fullscreen
         frame.setOnClickListener {
 
-            val index = tiles.indexOf(tile)
+            val i = tiles.indexOfFirst { it === tile }
 
-            if (index == multiSel) {
-                maximizeSelectedTile()
-            } else if (index >= 0) {
-                multiSel = index
+            if (i >= 0) {
+                multiSel = i
                 refreshTileSelection()
             }
+        }
+
+        frame.setOnLongClickListener {
+
+            val i = tiles.indexOfFirst { it === tile }
+
+            if (i >= 0) {
+                multiSel = i
+                maximizeSelectedTile()
+            }
+
+            true
         }
 
         tilePlayer.addListener(
@@ -7851,9 +7889,9 @@ class MainActivity : Activity() {
 
         multiActive = true
 
-        if (isPhone) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        }
+        setPhoneOrientation(true)
+
+        stopExternalAudio()
 
         tiles.clear()
 
@@ -7941,9 +7979,7 @@ class MainActivity : Activity() {
 
         multiActive = false
 
-        if (isPhone && !isFullscreen) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        setPhoneOrientation(false)
 
         mainHandler.removeCallbacks(hideMultiHintRunnable)
 
@@ -8291,7 +8327,7 @@ class MainActivity : Activity() {
 
         stripTitle.text = "السيرفر"
 
-        stripHint.text = "▲▼ الجودة"
+        stripHint.text = if (stripModeCount() > 1) "▲▼ تبديل" else ""
 
         qualityStripChips.removeAllViews()
 
@@ -8350,6 +8386,10 @@ class MainActivity : Activity() {
 
         items.add("🎚  الجودة" to { showQualityMenu() })
 
+        if (audioAvailable()) {
+            items.add("🎙  الصوت (المعلق)" to { showAudioMenu() })
+        }
+
         val count = sourcesOf(channel).size
 
         if (count > 1) {
@@ -8399,19 +8439,25 @@ class MainActivity : Activity() {
     }
 
     // =========================
-    // Phone layout (portrait): header, 16:9 player, packages chips, channels list
+    // Phone layout (portrait)
     // =========================
 
-    private fun boxWidth(widthDp: Int): Int =
-        minOf(dp(widthDp), resources.displayMetrics.widthPixels - dp(32))
+    private fun boxWidth(maxDp: Int): Int =
+        minOf(dp(maxDp), resources.displayMetrics.widthPixels - dp(24))
 
-    // size of one package card (a chip on phones, a row on TV)
-    private fun pkgCardParams(): LinearLayout.LayoutParams =
-        if (isPhone) {
-            lp(dp(200), dp(60)).apply { setMargins(dp(4), 0, dp(4), 0) }
-        } else {
-            lp(matchParent, dp(66)).apply { setMargins(0, dp(5), 0, dp(5)) }
+    private fun setPhoneOrientation(landscape: Boolean) {
+
+        if (!phoneMode) {
+            return
         }
+
+        requestedOrientation =
+            if (landscape) {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+    }
 
     private fun buildPhoneHeader(): View {
 
@@ -8421,12 +8467,12 @@ class MainActivity : Activity() {
 
         header.gravity = Gravity.CENTER_VERTICAL
 
-        header.setPadding(dp(14), dp(6), dp(10), dp(6))
+        header.setPadding(dp(12), dp(6), dp(12), dp(4))
 
         val logoBox = ShineLayout()
 
         logoBox.addView(
-            createLogoMark(18f, 10),
+            createLogoMark(18f, 12),
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
@@ -8442,85 +8488,124 @@ class MainActivity : Activity() {
 
         brand.letterSpacing = 0.14f
 
-        val sport = label("SPORTS IPTV", 9f, cyan, true, Gravity.LEFT)
+        val sport = label("SPORTS IPTV", 8.5f, cyan, true, Gravity.LEFT)
 
         sport.letterSpacing = 0.25f
 
-        brandCol.addView(brand, lp(wrap, wrap))
+        brandCol.addView(brand, lp(matchParent, wrap))
 
-        brandCol.addView(sport, lp(wrap, wrap))
+        brandCol.addView(sport, lp(matchParent, wrap))
 
         header.addView(brandCol, lp(0, wrap, 1f))
 
-        // weather: only the icon and the temperature (the other texts are not shown)
+        // weather
         weatherIcon = TextView(this)
 
-        weatherIcon.text = "\u2601\uFE0F"
+        weatherIcon.text = "☁️"
 
-        weatherIcon.textSize = 18f
+        weatherIcon.textSize = 17f
 
-        weatherTemp = label("--\u00B0", 15f, white, true, Gravity.LEFT)
+        weatherTemp = label("--°", 15f, white, true, Gravity.LEFT)
 
-        weatherCityView = label(weatherCity, 10f, gray, false, Gravity.LEFT)
+        weatherCityView = label(weatherCity, 9f, gray, false, Gravity.LEFT)
 
-        dateView = label("", 11f, gray, false, Gravity.RIGHT)
+        val chip = LinearLayout(this)
 
-        header.addView(weatherIcon, lp(wrap, wrap))
+        chip.orientation = LinearLayout.HORIZONTAL
 
-        header.addView(
-            weatherTemp,
-            lp(wrap, wrap).apply { setMargins(dp(4), 0, dp(10), 0) }
-        )
+        chip.gravity = Gravity.CENTER_VERTICAL
 
-        val settings = TextView(this)
+        chip.setPadding(dp(8), dp(2), dp(10), dp(2))
 
-        settings.text = "⚙"
+        chip.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.argb(22, 255, 255, 255))
+                setStroke(dp(1), Color.argb(40, 255, 255, 255))
+            }
 
-        settings.textSize = 20f
+        chip.addView(weatherIcon, lp(wrap, wrap))
 
-        settings.setTextColor(white)
+        chip.addView(weatherTemp, lp(wrap, wrap).apply { setMargins(dp(4), 0, 0, 0) })
 
-        settings.gravity = Gravity.CENTER
+        header.addView(chip, lp(wrap, wrap).apply { setMargins(dp(6), 0, 0, 0) })
 
-        settings.background =
+        // clock + date
+        val timeCol = LinearLayout(this)
+
+        timeCol.orientation = LinearLayout.VERTICAL
+
+        timeCol.gravity = Gravity.RIGHT
+
+        val clock = TextClock(this)
+
+        clock.format12Hour = "hh:mm a"
+
+        clock.format24Hour = "hh:mm a"
+
+        clock.textSize = 14f
+
+        clock.setTextColor(white)
+
+        clock.typeface = Typeface.DEFAULT_BOLD
+
+        clock.gravity = Gravity.RIGHT
+
+        dateView = label("", 9f, gray, false, Gravity.RIGHT)
+
+        timeCol.addView(clock, lp(wrap, wrap))
+
+        timeCol.addView(dateView, lp(wrap, wrap))
+
+        header.addView(timeCol, lp(wrap, wrap).apply { setMargins(dp(8), 0, 0, 0) })
+
+        // settings
+        val settingsBtn = TextView(this)
+
+        settingsBtn.text = "⚙"
+
+        settingsBtn.textSize = 18f
+
+        settingsBtn.setTextColor(white)
+
+        settingsBtn.gravity = Gravity.CENTER
+
+        settingsBtn.background =
             GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.argb(22, 255, 255, 255))
                 setStroke(dp(1), Color.argb(40, 255, 255, 255))
             }
 
-        settings.setOnClickListener {
+        settingsBtn.setOnClickListener {
             showSettingsMenu()
         }
 
-        header.addView(settings, lp(dp(42), dp(42)))
+        header.addView(settingsBtn, lp(dp(38), dp(38)).apply { setMargins(dp(8), 0, 0, 0) })
 
         return header
     }
 
+    // phone: header, matches card, player 16:9, info bar, packages row, channels list
     private fun buildPhoneContent() {
 
         normalScreen.addView(buildPhoneHeader(), lp(matchParent, dp(56)))
 
         normalScreen.addView(
             buildTicker(),
-            lp(matchParent, wrap).apply { setMargins(dp(12), 0, dp(12), dp(4)) }
+            lp(matchParent, wrap).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) }
         )
 
-        // ---- player: 16:9 over the whole width ----
+        // ---- player (16:9, the full width) ----
         val glowFrame = GlowFrame()
 
         playerFrame = glowFrame
 
         playerGlow = glowFrame
 
-        playerFrame.setPadding(dp(4), dp(4), dp(4), dp(4))
+        playerFrame.setPadding(dp(3), dp(3), dp(3), dp(3))
 
-        playerFrame.isFocusable = true
-
-        playerFrame.isFocusableInTouchMode = false
-
-        playerFrame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        playerFrame.isFocusable = false
 
         applyPlayerFrameBackground(false)
 
@@ -8533,30 +8618,20 @@ class MainActivity : Activity() {
             true
         }
 
-        val metrics = resources.displayMetrics
-
-        val shortSide = minOf(metrics.widthPixels, metrics.heightPixels)
-
-        val playerHeight = (shortSide - dp(24)) * 9 / 16
+        val playerWidth = resources.displayMetrics.widthPixels - dp(16)
 
         normalScreen.addView(
             playerFrame,
-            lp(matchParent, playerHeight).apply { setMargins(dp(12), dp(4), dp(12), 0) }
+            lp(matchParent, playerWidth * 9 / 16).apply { setMargins(dp(8), dp(2), dp(8), 0) }
         )
 
         normalScreen.addView(
             buildInfoBar(),
-            lp(matchParent, dp(56)).apply { setMargins(dp(12), dp(8), dp(12), 0) }
+            lp(matchParent, dp(56)).apply { setMargins(dp(8), dp(6), dp(8), 0) }
         )
 
-        // ---- packages: a row of cards you can swipe ----
+        // ---- packages: a horizontal row ----
         packagesHeader = SectionHeader("الباقات", "PACKAGES", accentFor(0))
-
-        packagesList = createList()
-
-        packagesList.orientation = LinearLayout.HORIZONTAL
-
-        packagesList.setPadding(dp(10), dp(4), dp(10), dp(4))
 
         val packageScroll = HorizontalScrollView(this)
 
@@ -8564,19 +8639,20 @@ class MainActivity : Activity() {
 
         packageScroll.overScrollMode = View.OVER_SCROLL_NEVER
 
+        packagesList = createList()
+
+        packagesList.orientation = LinearLayout.HORIZONTAL
+
+        packagesList.setPadding(dp(5), dp(8), dp(5), dp(2))
+
         packageScroll.addView(packagesList)
 
-        normalScreen.addView(
-            packageScroll,
-            lp(matchParent, dp(74)).apply { topMargin = dp(8) }
-        )
+        normalScreen.addView(packageScroll, lp(matchParent, dp(78)))
 
-        // ---- channels: the rest of the screen ----
-        val channelsPanel = createPanel()
-
+        // ---- channels: the vertical list ----
         channelsHeader = SectionHeader("القنوات", "CHANNELS", accentFor(1))
 
-        channelsPanel.addView(channelsHeader, lp(matchParent, dp(56)))
+        normalScreen.addView(channelsHeader, lp(matchParent, dp(52)))
 
         channelScroll = createScroll()
 
@@ -8584,16 +8660,11 @@ class MainActivity : Activity() {
 
         channelScroll.addView(channelsList)
 
-        channelsPanel.addView(channelScroll, lp(matchParent, 0, 1f))
-
-        normalScreen.addView(
-            channelsPanel,
-            lp(matchParent, 0, 1f).apply { setMargins(dp(10), dp(4), dp(10), dp(10)) }
-        )
+        normalScreen.addView(channelScroll, lp(matchParent, 0, 1f))
     }
 
     // =========================
-    // Touch controls (tap the video in fullscreen)
+    // Touch buttons (fullscreen)
     // =========================
 
     private val hideTouchRunnable = Runnable {
@@ -8603,256 +8674,130 @@ class MainActivity : Activity() {
     private fun touchControlsVisible(): Boolean =
         ::touchControls.isInitialized && touchControls.visibility == View.VISIBLE
 
-    private fun touchButton(glyph: String, caption: String, onClick: () -> Unit): Pair<View, TextView> {
+    private fun touchButton(icon: String, text: String, action: () -> Unit): LinearLayout {
 
-        val column = LinearLayout(this)
+        val button = LinearLayout(this)
 
-        column.orientation = LinearLayout.VERTICAL
+        button.orientation = LinearLayout.VERTICAL
 
-        column.gravity = Gravity.CENTER
+        button.gravity = Gravity.CENTER
 
-        val icon = TextView(this)
+        button.setPadding(dp(8), dp(6), dp(8), dp(6))
 
-        icon.text = glyph
+        button.isClickable = true
 
-        icon.textSize = 22f
-
-        icon.setTextColor(white)
-
-        icon.gravity = Gravity.CENTER
-
-        icon.background =
+        val pressed =
             GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(70, 255, 255, 255))
-                setStroke(dp(1), Color.argb(90, 255, 255, 255))
+                cornerRadius = dp(16).toFloat()
+                setColor(withAlpha(cyan, 90))
             }
 
-        column.addView(icon, lp(dp(52), dp(52)))
+        val states = android.graphics.drawable.StateListDrawable()
 
-        column.addView(
-            label(caption, 11f, white, false, Gravity.CENTER),
-            lp(wrap, wrap).apply { topMargin = dp(4) }
-        )
+        states.addState(intArrayOf(android.R.attr.state_pressed), pressed)
 
-        column.setOnClickListener {
-            onClick()
+        states.addState(intArrayOf(), GradientDrawable().apply { setColor(Color.TRANSPARENT) })
+
+        button.background = states
+
+        val iconView = TextView(this)
+
+        iconView.text = icon
+
+        iconView.textSize = 21f
+
+        iconView.gravity = Gravity.CENTER
+
+        iconView.setTextColor(white)
+
+        button.addView(iconView, lp(wrap, wrap))
+
+        button.addView(label(text, 10.5f, dimWhite, false, Gravity.CENTER), lp(wrap, wrap))
+
+        button.setOnClickListener {
+            hideTouchControls(true)
+            action()
         }
 
-        return Pair(column, icon)
+        return button
     }
 
     private fun buildTouchControls() {
 
-        touchControls = FrameLayout(this)
+        touchControls = LinearLayout(this)
 
-        touchControls.isClickable = true
+        touchControls.orientation = LinearLayout.HORIZONTAL
+
+        touchControls.gravity = Gravity.CENTER
+
+        touchControls.setPadding(dp(8), dp(4), dp(8), dp(4))
 
         touchControls.visibility = View.GONE
 
-        touchControls.setOnClickListener {
-            hideTouchControls()
-        }
-
-        // ---- top: back + channel name ----
-        val top = LinearLayout(this)
-
-        top.orientation = LinearLayout.HORIZONTAL
-
-        top.gravity = Gravity.CENTER_VERTICAL
-
-        top.setPadding(dp(14), dp(10), dp(14), dp(28))
-
-        top.background =
+        touchControls.background =
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(210, 0, 0, 0), Color.argb(0, 0, 0, 0))
-            )
-
-        val back = TextView(this)
-
-        back.text = "←"
-
-        back.textSize = 26f
-
-        back.setTextColor(white)
-
-        back.gravity = Gravity.CENTER
-
-        back.background =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(70, 255, 255, 255))
+                intArrayOf(Color.argb(205, 22, 26, 66), Color.argb(225, 8, 10, 28))
+            ).apply {
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), Color.argb(90, 255, 255, 255))
             }
 
-        back.setOnClickListener {
-            hideTouchControls(true)
-            exitFullscreen()
+        val size = lp(dp(64), wrap).apply { setMargins(dp(2), 0, dp(2), 0) }
+
+        touchControls.addView(touchButton("⤢", "خروج") { exitFullscreen() }, size)
+
+        touchControls.addView(touchButton("⏮", "السابقة") { goPreviousChannel() }, size)
+
+        val fav = touchButton("☆", "المفضلة") {
+            playingChannel?.let { toggleFavorite(it) }
         }
 
-        top.addView(back, lp(dp(46), dp(46)))
+        touchFavIcon = fav.getChildAt(0) as TextView
 
-        val titleColumn = LinearLayout(this)
+        touchControls.addView(fav, size)
 
-        titleColumn.orientation = LinearLayout.VERTICAL
+        touchAudioBtn = touchButton("🎙", "الصوت") { openAudioStrip() }
 
-        titleColumn.setPadding(dp(14), 0, 0, 0)
+        touchControls.addView(touchAudioBtn, size)
 
-        tcTitle = label("", 18f, white, true)
+        touchServerBtn = touchButton("🖥", "السيرفر") { openServerStrip() }
 
-        tcSub = label("", 12f, gray)
+        touchControls.addView(touchServerBtn, size)
 
-        titleColumn.addView(tcTitle, lp(matchParent, wrap))
+        touchControls.addView(touchButton("🎚", "الجودة") { openQualityStrip() }, size)
 
-        titleColumn.addView(tcSub, lp(matchParent, wrap))
-
-        top.addView(titleColumn, lp(0, wrap, 1f))
-
-        touchControls.addView(
-            top,
-            FrameLayout.LayoutParams(matchParent, wrap, Gravity.TOP)
-        )
-
-        // ---- bottom: the options ----
-        val bottom = LinearLayout(this)
-
-        bottom.orientation = LinearLayout.HORIZONTAL
-
-        bottom.gravity = Gravity.CENTER
-
-        bottom.setPadding(dp(8), dp(30), dp(8), dp(14))
-
-        bottom.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.BOTTOM_TOP,
-                intArrayOf(Color.argb(220, 0, 0, 0), Color.argb(0, 0, 0, 0))
-            )
-
-        fun addButton(button: Pair<View, TextView>) {
-            bottom.addView(button.first, lp(0, wrap, 1f))
-        }
-
-        addButton(
-            touchButton("☰", "القنوات") {
-                hideTouchControls(true)
-                openChannelPanel()
-            }
-        )
-
-        addButton(
-            touchButton("⏮", "السابقة") {
-                goPreviousChannel()
-                startTouchTimer()
-            }
-        )
-
-        val fav =
-            touchButton("☆", "المفضلة") {
-                playingChannel?.let { toggleFavorite(it) }
-                refreshTouchFavorite()
-                startTouchTimer()
-            }
-
-        tcFav = fav.second
-
-        addButton(fav)
-
-        addButton(
-            touchButton("🖥", "السيرفر") {
-                hideTouchControls(true)
-                openServerStrip()
-            }
-        )
-
-        addButton(
-            touchButton("🎚", "الجودة") {
-                hideTouchControls(true)
-                openQualityStrip()
-            }
-        )
-
-        addButton(
-            touchButton("🔲", "تقسيم") {
-                hideTouchControls(true)
-                showMultiMenu()
-            }
-        )
-
-        touchControls.addView(
-            bottom,
-            FrameLayout.LayoutParams(matchParent, wrap, Gravity.BOTTOM)
-        )
+        touchControls.addView(touchButton("📋", "القنوات") { openChannelPanel() }, size)
 
         fullscreenContainer.addView(
             touchControls,
-            FrameLayout.LayoutParams(matchParent, matchParent)
+            FrameLayout.LayoutParams(wrap, wrap, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                bottomMargin = dp(22)
+            }
         )
-
-        // a tap on the picture shows / hides the controls (or closes the open strip / list)
-        fullscreenContainer.isClickable = true
-
-        fullscreenContainer.setOnClickListener {
-
-            when {
-                panelOpen() -> closeChannelPanel()
-                qualityStripOpen() -> closeQualityStrip()
-                touchControlsVisible() -> hideTouchControls()
-                else -> showTouchControls()
-            }
-        }
-
-        // YouTube / Facebook pages take the touches: still show the controls after a tap
-        webView.setOnTouchListener { _, event ->
-
-            if (
-                event.action == MotionEvent.ACTION_UP &&
-                isFullscreen &&
-                playingWeb &&
-                !touchControlsVisible()
-            ) {
-                showTouchControls()
-            }
-
-            false
-        }
-    }
-
-    private fun refreshTouchFavorite() {
-
-        val channel = playingChannel
-
-        val fav = channel != null && isFavorite(channel)
-
-        tcFav.text = if (fav) "★" else "☆"
-
-        tcFav.setTextColor(if (fav) gold else white)
-    }
-
-    private fun startTouchTimer() {
-
-        mainHandler.removeCallbacks(hideTouchRunnable)
-
-        mainHandler.postDelayed(hideTouchRunnable, 4000)
     }
 
     private fun showTouchControls() {
 
-        if (!isFullscreen || blocked || multiActive || menuOpen()) {
+        if (!isFullscreen || playingChannel == null) {
             return
         }
 
-        val channel = playingChannel
+        // keep the picture clean
+        mainHandler.removeCallbacks(hideZapRunnable)
 
-        tcTitle.text = channel?.name ?: ""
+        zapBanner.animate().cancel()
 
-        tcSub.text =
-            if (channel != null) {
-                nowSubText(channel) + "  •  السيرفر ${sourceIndex + 1}"
-            } else {
-                ""
-            }
+        zapBanner.visibility = View.GONE
 
-        refreshTouchFavorite()
+        touchFavIcon.text = if (playingChannel?.let { isFavorite(it) } == true) "★" else "☆"
+
+        touchFavIcon.setTextColor(if (touchFavIcon.text == "★") gold else white)
+
+        // only the buttons that make sense for this channel
+        touchServerBtn.visibility = if (serversAvailable()) View.VISIBLE else View.GONE
+
+        touchAudioBtn.visibility = if (audioAvailable()) View.VISIBLE else View.GONE
 
         touchControls.animate().cancel()
 
@@ -8860,9 +8805,11 @@ class MainActivity : Activity() {
 
         touchControls.visibility = View.VISIBLE
 
-        touchControls.animate().alpha(1f).setDuration(180).start()
+        touchControls.animate().alpha(1f).setDuration(160).start()
 
-        startTouchTimer()
+        mainHandler.removeCallbacks(hideTouchRunnable)
+
+        mainHandler.postDelayed(hideTouchRunnable, 5000)
     }
 
     private fun hideTouchControls(immediate: Boolean = false) {
@@ -8884,11 +8831,422 @@ class MainActivity : Activity() {
             touchControls.animate()
                 .alpha(0f)
                 .setDuration(180)
-                .withEndAction {
-                    touchControls.visibility = View.GONE
-                }
+                .withEndAction { touchControls.visibility = View.GONE }
                 .start()
         }
+    }
+
+    private fun hitView(view: View, x: Float, y: Float): Boolean {
+
+        val location = IntArray(2)
+
+        view.getLocationOnScreen(location)
+
+        return x >= location[0] && x <= location[0] + view.width &&
+                y >= location[1] && y <= location[1] + view.height
+    }
+
+    private fun handleScreenTap(x: Float, y: Float) {
+
+        if (menuOpen() || noticeOpen() || multiActive) {
+            return
+        }
+
+        // tap outside an open list / strip closes it
+        if (panelOpen()) {
+            if (!hitView(channelPanel, x, y)) {
+                closeChannelPanel()
+            }
+            return
+        }
+
+        if (qualityStripOpen()) {
+            if (!hitView(qualityStrip, x, y)) {
+                closeQualityStrip()
+            }
+            return
+        }
+
+        if (touchControlsVisible()) {
+            if (!hitView(touchControls, x, y)) {
+                hideTouchControls()
+            }
+            return
+        }
+
+        showTouchControls()
+    }
+
+    // swipe up = next channel, swipe down = previous channel
+    private fun handleFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float) {
+
+        if (e1 == null || menuOpen() || noticeOpen() || multiActive || panelOpen() ||
+            qualityStripOpen() || touchControlsVisible()
+        ) {
+            return
+        }
+
+        val dy = e2.y - e1.y
+
+        val dx = e2.x - e1.x
+
+        if (abs(velocityY) > 1200 && abs(dy) > dp(90) && abs(dy) > 2 * abs(dx)) {
+            zap(if (dy < 0) 1 else -1)
+        }
+    }
+
+    // =========================
+    // Audio: commentators
+    // =========================
+
+    private fun collectAudios(child: DataSnapshot): List<AudioItem> {
+
+        val list = mutableListOf<AudioItem>()
+
+        for (a in child.child("audios").children) {
+
+            val url = a.readString("url") ?: continue
+
+            list.add(AudioItem(a.readString("name") ?: "تعليق ${list.size + 1}", url))
+        }
+
+        return list
+    }
+
+    // audio tracks inside the stream (e.g. Arabic / English commentary)
+    private fun collectEmbeddedAudio(): List<AudioOption> {
+
+        val out = mutableListOf<AudioOption>()
+
+        for (g in player.currentTracks.groups) {
+
+            if (g.type != C.TRACK_TYPE_AUDIO) {
+                continue
+            }
+
+            for (i in 0 until g.length) {
+
+                if (!g.isTrackSupported(i)) {
+                    continue
+                }
+
+                val f = g.getTrackFormat(i)
+
+                val language = f.language
+
+                var name =
+                    f.label
+                        ?: language?.let { l ->
+                            Locale(l).getDisplayLanguage(Locale("ar")).ifBlank { l }
+                        }
+                        ?: "مسار ${out.size + 1}"
+
+                if (out.any { it.label == name }) {
+                    name = "$name ${out.size + 1}"
+                }
+
+                out.add(AudioOption(name, g, i))
+            }
+        }
+
+        return out
+    }
+
+    private fun serversAvailable(): Boolean =
+        playingChannel?.let { sourcesOf(it).size > 1 } == true
+
+    private fun audioAvailable(): Boolean =
+        !playingWeb &&
+                (playingChannel?.audios?.isNotEmpty() == true || collectEmbeddedAudio().size >= 2)
+
+    private fun stripModeCount(): Int =
+        1 + (if (serversAvailable()) 1 else 0) + (if (audioAvailable()) 1 else 0)
+
+    // up / down: quality -> servers -> audio
+    private fun cycleStrip() {
+
+        val modes = mutableListOf(0)
+
+        if (serversAvailable()) {
+            modes.add(1)
+        }
+
+        if (audioAvailable()) {
+            modes.add(2)
+        }
+
+        if (modes.size < 2) {
+            return
+        }
+
+        val next = modes[(modes.indexOf(stripMode).coerceAtLeast(0) + 1) % modes.size]
+
+        when (next) {
+            0 -> openQualityStrip()
+            1 -> openServerStrip()
+            else -> openAudioStrip()
+        }
+    }
+
+    private fun ensureAudioPlayer(): ExoPlayer {
+
+        audioPlayer?.let { return it }
+
+        val p = ExoPlayer.Builder(this).build()
+
+        p.addListener(
+            object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "تعذر تشغيل القناة الصوتية",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    stopExternalAudio()
+                }
+            }
+        )
+
+        audioPlayer = p
+
+        return p
+    }
+
+    // the picture stays muted, the sound comes from the commentary stream
+    private fun playExternalAudio(index: Int) {
+
+        val item = playingChannel?.audios?.getOrNull(index) ?: return
+
+        val p = ensureAudioPlayer()
+
+        val source = parseSource(item.url)
+
+        p.setMediaItem(createMediaItem(source.url, detectKind(source.url)))
+
+        p.prepare()
+
+        p.volume = 1f
+
+        p.playWhenReady = true
+
+        player.volume = 0f
+
+        externalAudio = index
+    }
+
+    private fun stopExternalAudio() {
+
+        externalAudio = -1
+
+        audioPlayer?.let {
+            try {
+                it.stop()
+                it.clearMediaItems()
+            } catch (_: Exception) {
+            }
+        }
+
+        if (::player.isInitialized) {
+            player.volume = 1f
+        }
+    }
+
+    private fun selectOriginalAudio() {
+
+        stopExternalAudio()
+
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                .build()
+
+        Toast.makeText(this, "الصوت: الأصلي", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun selectEmbeddedAudio(option: AudioOption) {
+
+        stopExternalAudio()
+
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(TrackSelectionOverride(option.group.mediaTrackGroup, option.index))
+                .build()
+
+        Toast.makeText(this, "الصوت: ${option.label}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun selectExternalAudio(index: Int) {
+
+        playExternalAudio(index)
+
+        Toast.makeText(
+            this,
+            "الصوت: ${playingChannel?.audios?.getOrNull(index)?.name ?: ""}",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // the commentary can be ahead of / behind the picture
+    private fun syncExternalAudio(deltaMs: Long) {
+
+        val p = audioPlayer ?: return
+
+        p.seekTo(maxOf(0L, p.currentPosition + deltaMs))
+
+        Toast.makeText(
+            this,
+            if (deltaMs < 0) "تأخير الصوت ${-deltaMs / 1000} ث" else "تقديم الصوت ${deltaMs / 1000} ث",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun openAudioStrip() {
+
+        val channel = playingChannel ?: return
+
+        if (!isFullscreen) {
+            return
+        }
+
+        val embedded = collectEmbeddedAudio()
+
+        if (playingWeb || (embedded.size < 2 && channel.audios.isEmpty())) {
+            Toast.makeText(this, "لا توجد قنوات صوتية أخرى لهذه القناة", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        closeChannelPanel(true)
+
+        mainHandler.removeCallbacks(hideZapRunnable)
+
+        zapBanner.animate().cancel()
+
+        zapBanner.visibility = View.GONE
+
+        stripMode = 2
+
+        stripTitle.text = "الصوت"
+
+        stripHint.text = if (stripModeCount() > 1) "▲▼ تبديل" else ""
+
+        qualityStripChips.removeAllViews()
+
+        var target: View? = null
+
+        fun addChip(text: String, selected: Boolean, closeAfter: Boolean, action: () -> Unit) {
+
+            val chip = menuItem((if (selected) "✓ " else "") + text, accentFor(0))
+
+            chip.setPadding(dp(14), 0, dp(14), 0)
+
+            chip.setOnClickListener {
+
+                if (closeAfter) {
+                    closeQualityStrip()
+                } else {
+                    mainHandler.removeCallbacks(hideQualityRunnable)
+                    mainHandler.postDelayed(hideQualityRunnable, 5000)
+                }
+
+                action()
+            }
+
+            qualityStripChips.addView(
+                chip,
+                lp(wrap, dp(40)).apply { setMargins(dp(4), 0, dp(4), 0) }
+            )
+
+            if (selected || target == null) {
+                target = chip
+            }
+        }
+
+        if (embedded.size >= 2) {
+
+            embedded.forEach { option ->
+                addChip(option.label, externalAudio < 0 && option.group.isTrackSelected(option.index), true) {
+                    selectEmbeddedAudio(option)
+                }
+            }
+
+        } else {
+            addChip("الأصلي", externalAudio < 0, true) { selectOriginalAudio() }
+        }
+
+        channel.audios.forEachIndexed { i, item ->
+            addChip("🎙 " + item.name, externalAudio == i, true) { selectExternalAudio(i) }
+        }
+
+        if (externalAudio >= 0) {
+            addChip("⏪", false, false) { syncExternalAudio(-1000) }
+            addChip("⏩", false, false) { syncExternalAudio(1000) }
+        }
+
+        setVideoFocusable(false)
+
+        qualityStrip.animate().cancel()
+
+        qualityStrip.alpha = 0f
+
+        qualityStrip.translationY = -dp(14).toFloat()
+
+        qualityStrip.visibility = View.VISIBLE
+
+        qualityStrip.animate().alpha(1f).translationY(0f).setDuration(180).start()
+
+        qualityStrip.post {
+            target?.requestFocus()
+        }
+
+        mainHandler.removeCallbacks(hideQualityRunnable)
+
+        mainHandler.postDelayed(hideQualityRunnable, 5000)
+    }
+
+    // normal screen: the same choices as a menu
+    private fun showAudioMenu() {
+
+        val channel = playingChannel ?: return
+
+        val embedded = collectEmbeddedAudio()
+
+        if (embedded.size < 2 && channel.audios.isEmpty()) {
+            Toast.makeText(this, "لا توجد قنوات صوتية أخرى لهذه القناة", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        if (embedded.size >= 2) {
+
+            embedded.forEach { option ->
+                items.add(
+                    ((if (externalAudio < 0 && option.group.isTrackSelected(option.index)) "✓  " else "") +
+                            option.label) to { selectEmbeddedAudio(option) }
+                )
+            }
+
+        } else {
+            items.add(((if (externalAudio < 0) "✓  " else "") + "الأصلي") to { selectOriginalAudio() })
+        }
+
+        channel.audios.forEachIndexed { i, item ->
+            items.add(
+                ((if (externalAudio == i) "✓  " else "") + "🎙  " + item.name) to
+                        { selectExternalAudio(i) }
+            )
+        }
+
+        if (externalAudio >= 0) {
+            items.add("⏪  تأخير الصوت ثانية" to { syncExternalAudio(-1000) })
+            items.add("⏩  تقديم الصوت ثانية" to { syncExternalAudio(1000) })
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("اختر الصوت", items)
     }
 
     // =========================
@@ -8945,6 +9303,39 @@ class MainActivity : Activity() {
     // =========================
     // D-PAD
     // =========================
+
+    // a tap on the screen (fullscreen) shows the touch buttons, a swipe up / down changes the channel
+    private val gestureDetector by lazy {
+        GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+
+                override fun onSingleTapUp(e: MotionEvent): Boolean {
+                    handleScreenTap(e.rawX, e.rawY)
+                    return false
+                }
+
+                override fun onFling(
+                    e1: MotionEvent?,
+                    e2: MotionEvent,
+                    velocityX: Float,
+                    velocityY: Float
+                ): Boolean {
+                    handleFling(e1, e2, velocityX, velocityY)
+                    return false
+                }
+            }
+        )
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+
+        if (isFullscreen && !blocked && !splashVisible && !multiActive) {
+            gestureDetector.onTouchEvent(ev)
+        }
+
+        return super.dispatchTouchEvent(ev)
+    }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
@@ -9263,9 +9654,7 @@ class MainActivity : Activity() {
 
         isFullscreen = true
 
-        if (isPhone) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        }
+        setPhoneOrientation(true)
 
         cancelPreview()
 
@@ -9289,7 +9678,7 @@ class MainActivity : Activity() {
 
             webView.isFocusable = true
 
-            webView.isFocusableInTouchMode = true
+            webView.isFocusableInTouchMode = !phoneMode
 
             webView.requestFocus()
 
@@ -9297,7 +9686,7 @@ class MainActivity : Activity() {
 
             playerView.isFocusable = true
 
-            playerView.isFocusableInTouchMode = true
+            playerView.isFocusableInTouchMode = !phoneMode
 
             playerView.requestFocus()
         }
@@ -9317,9 +9706,7 @@ class MainActivity : Activity() {
 
         isFullscreen = false
 
-        if (isPhone && !multiActive) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        setPhoneOrientation(false)
 
         hideTouchControls(true)
 
@@ -9472,6 +9859,10 @@ class MainActivity : Activity() {
             tiles.forEach { it.player.playWhenReady = true }
         }
 
+        if (externalAudio >= 0) {
+            audioPlayer?.playWhenReady = true
+        }
+
         if (resumeOnStart && ::player.isInitialized && !playingWeb) {
 
             if (player.isCurrentMediaItemLive) {
@@ -9491,6 +9882,8 @@ class MainActivity : Activity() {
         }
 
         tiles.forEach { it.player.pause() }
+
+        audioPlayer?.pause()
 
         if (::player.isInitialized) {
 
@@ -9529,6 +9922,10 @@ class MainActivity : Activity() {
         }
 
         tiles.clear()
+
+        audioPlayer?.release()
+
+        audioPlayer = null
 
         try {
             netCallback?.let {
