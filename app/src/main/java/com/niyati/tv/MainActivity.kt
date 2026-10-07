@@ -489,6 +489,7 @@ class MainActivity : Activity() {
     private var stripMode = 0          // 0 = quality, 1 = servers
     private var autoFallback = false   // automatic switch to the next server when a link dies
     private lateinit var tickerAwayLogo: LogoBadge
+    private var tickerMatch: MatchItem? = null
     private lateinit var tickerLine1: TextView
     private lateinit var tickerLine2: TextView
 
@@ -5926,6 +5927,32 @@ class MainActivity : Activity() {
 
         tickerChip = chip
 
+        // tap (or OK with the remote) = open the channel of this match
+        chip.isClickable = true
+
+        chip.isFocusable = true
+
+        chip.isFocusableInTouchMode = !phoneMode
+
+        chip.setOnClickListener {
+
+            chip.animate()
+                .scaleX(0.96f)
+                .scaleY(0.96f)
+                .setDuration(80)
+                .withEndAction {
+                    chip.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                }
+                .start()
+
+            tickerMatch?.let { openMatchChannel(it) }
+        }
+
+        chip.setOnFocusChangeListener { _, focused ->
+            val scale = if (focused) 1.06f else 1f
+            chip.animate().scaleX(scale).scaleY(scale).setDuration(130).start()
+        }
+
         // left -> right: away team | time or score | home team (Arabic reading order)
         val row = LinearLayout(this)
 
@@ -6087,6 +6114,8 @@ class MainActivity : Activity() {
             .alpha(0f)
             .setDuration(180)
             .withEndAction {
+
+                tickerMatch = match
 
                 tickerHome.text = match.home
 
@@ -9247,6 +9276,65 @@ class MainActivity : Activity() {
         items.add("إلغاء" to {})
 
         showMenu("اختر الصوت", items)
+    }
+
+    // =========================
+    // Match card -> its channel
+    // =========================
+
+    private fun channelForMatch(m: MatchItem): Channel? {
+
+        val wanted = normName(m.channel)
+
+        if (wanted.length < 4) {
+            return null
+        }
+
+        val usable = channels.filter { sourcesOf(it).isNotEmpty() }
+
+        return usable.firstOrNull { normName(it.name) == wanted }
+            ?: usable.firstOrNull {
+                val name = normName(it.name)
+                name.contains(wanted) || wanted.contains(name)
+            }
+    }
+
+    // selects its package, plays the channel and scrolls the list to it
+    private fun openMatchChannel(m: MatchItem) {
+
+        if (blocked || multiActive || isFullscreen) {
+            return
+        }
+
+        val channel = channelForMatch(m)
+
+        if (channel == null) {
+            Toast.makeText(this, "لا توجد قناة مرتبطة بهذه المباراة", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val pkg = packages.firstOrNull { it.id != FAV_ID && belongs(channel, it) }
+
+        if (pkg != null && pkg.id != selectedPackage) {
+            selectPackage(pkg.id, true)
+        }
+
+        playChannel(channel)
+
+        val row = channelRows.firstOrNull { it.channel == channel }
+
+        if (row != null) {
+
+            channelScroll.post {
+                channelScroll.smoothScrollTo(0, maxOf(0, row.card.top - dp(8)))
+            }
+
+            if (!phoneMode) {
+                row.card.requestFocus()
+            }
+        }
+
+        Toast.makeText(this, "▶  ${channel.name}", Toast.LENGTH_SHORT).show()
     }
 
     // =========================
