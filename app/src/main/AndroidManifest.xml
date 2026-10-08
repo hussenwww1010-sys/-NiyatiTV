@@ -11,6 +11,10 @@
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- تثبيت التحديث من داخل التطبيق -->
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- دعم Android TV / Google TV -->
     <uses-feature
         android:name="android.software.leanback"
@@ -52,6 +56,19 @@
             </intent-filter>
 
         </activity>
+
+        <!-- مشاركة ملف التحديث مع مثبّت النظام -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+
+        </provider>
 
     </application>
 
