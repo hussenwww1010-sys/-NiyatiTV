@@ -30,6 +30,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.text.InputType
 import android.text.TextUtils
 import android.util.LruCache
 import android.util.TypedValue
@@ -45,6 +46,8 @@ import android.view.Window
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.view.animation.ScaleAnimation
@@ -54,6 +57,7 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -87,8 +91,12 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ServerValue
 import com.google.firebase.database.ValueEventListener
+import androidx.core.content.FileProvider
+import java.io.File
 import java.net.HttpURLConnection
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import org.json.JSONObject
@@ -490,6 +498,39 @@ class MainActivity : Activity() {
     private var autoFallback = false   // automatic switch to the next server when a link dies
     private lateinit var tickerAwayLogo: LogoBadge
     private var tickerMatch: MatchItem? = null
+
+    // ---- Firebase parts (only the nodes the app needs, not the whole database) ----
+    private val parts = HashMap<String, DataSnapshot>()
+    private val listeners = mutableListOf<Pair<DatabaseReference, ValueEventListener>>()
+
+    // ---- in-app update ----
+    private var downloadingUpdate = false
+    private var noticeCancelable = true
+    private lateinit var noticeProgressTrack: LinearLayout
+    private lateinit var noticeProgressFill: View
+    private lateinit var noticeProgressRest: View
+
+    // ---- activation codes ----
+    private var requireCode = false
+    private var gated = false
+    private var serverOffset = 0L
+    private var activeCode = ""
+    private var codeExpiresAt = 0L
+    private var gateMessage = "أدخل كود التفعيل للمتابعة"
+    private var expiryWarned = false
+    private var codeRef: DatabaseReference? = null
+    private var codeListener: ValueEventListener? = null
+    private lateinit var codeOverlay: FrameLayout
+    private lateinit var codeMessage: TextView
+    private lateinit var codeInput: EditText
+    private lateinit var codeStatus: TextView
+    private lateinit var codeCancelBtn: TextView
+
+    // ---- statistics ----
+    private var deviceIdCache = ""
+    private var adminDevices: Set<String> = emptySet()
+    private var watchChannel: Channel? = null
+    private var watchStart = 0L
     private lateinit var tickerLine1: TextView
     private lateinit var tickerLine2: TextView
 
@@ -671,9 +712,12 @@ class MainActivity : Activity() {
 
         rootRef = database.reference
 
-        try {
-            rootRef.keepSynced(true)
-        } catch (_: Exception) {
+        // keep only these nodes in the local cache (never the codes / stats / presence)
+        for (node in listOf("settings", "packages", "channels", "matches")) {
+            try {
+                rootRef.child(node).keepSynced(true)
+            } catch (_: Exception) {
+            }
         }
 
         favorites.addAll(prefs.getStringSet("favorites", emptySet()) ?: emptySet())
@@ -692,6 +736,18 @@ class MainActivity : Activity() {
         }
 
         startFirebase()
+
+        startPresence()
+
+        activeCode = prefs.getString("code", "") ?: ""
+
+        codeExpiresAt = prefs.getLong("code_exp", 0L)
+
+        if (activeCode.isNotEmpty()) {
+            attachCodeListener(activeCode)
+        }
+
+        cleanOldUpdates()
 
         mainHandler.post(weatherRunnable)
 
@@ -731,7 +787,7 @@ class MainActivity : Activity() {
     private var liveWindowRetries = 0
     private var playbackStarted = false
 
-    private val defaultUserAgent =
+    private var defaultUserAgent =
         "Mozilla/5.0 (Linux; Android 13; TV) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/120.0.0.0 Safari/537.36"
@@ -796,10 +852,13 @@ class MainActivity : Activity() {
                     DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
                 )
 
-        // small start buffers = channels open faster
+        // buffer size: 0 = fast start, 1 = balanced (default), 2 = most stable
         val loadControl =
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(3000, 30000, 700, 2000)
+            when (prefs.getInt("buffer_mode", 1)) {
+                0 -> DefaultLoadControl.Builder().setBufferDurationsMs(3000, 30000, 700, 2000)
+                2 -> DefaultLoadControl.Builder().setBufferDurationsMs(20000, 60000, 2500, 8000)
+                else -> DefaultLoadControl.Builder().setBufferDurationsMs(10000, 50000, 1500, 5000)
+            }
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
 
@@ -857,11 +916,11 @@ class MainActivity : Activity() {
                             if (playingChannel != null && !finalPlaybackError) {
                                 val vod = playingChannel?.let { isVodChannel(it) } == true
 
-                                showStatus(
-                                    if (vod) "انتهى الفيديو" else "انتهى البث",
-                                    if (vod) "اضغط على القناة لإعادة التشغيل" else "تم إنهاء مصدر البث",
-                                    true
-                                )
+                                if (vod) {
+                                    showStatus("انتهى الفيديو", "اضغط على القناة لإعادة التشغيل", true)
+                                } else {
+                                    reconnectLiveStream()
+                                }
                             }
                         }
 
@@ -1416,19 +1475,19 @@ class MainActivity : Activity() {
         }
 
         // 3) network/server errors: retry
-        if (retryCount < 3 && !finalPlaybackError) {
+        if (retryCount < 10 && !finalPlaybackError) {
 
             retryCount++
 
             showStatus(
-                "\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629 $retryCount/3",
+                "إعادة الاتصال $retryCount/10",
                 detailedMessage,
                 false
             )
 
             mainHandler.removeCallbacks(retryRunnable)
 
-            mainHandler.postDelayed(retryRunnable, 1500L * retryCount)
+            mainHandler.postDelayed(retryRunnable, minOf(1500L * retryCount, 6000L))
 
             return
         }
@@ -1755,6 +1814,8 @@ class MainActivity : Activity() {
         buildNoticeOverlay()
 
         buildBlockOverlay()
+
+        buildCodeOverlay()
 
         buildSplash()
 
@@ -3200,58 +3261,62 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        val listener =
-            object : ValueEventListener {
+        for (key in listOf("settings", "packages", "channels", "matches")) {
 
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    onDataLoaded(snapshot)
-                }
+            val listener =
+                object : ValueEventListener {
 
-                override fun onCancelled(error: DatabaseError) {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        parts[key] = snapshot
+                        onDataLoaded()
+                    }
 
-                    mainHandler.removeCallbacks(loadTimeout)
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        Txt.DB_ERROR,
-                        Toast.LENGTH_LONG
-                    ).show()
-
-                    if (!dataReady) {
-
-                        showListMessage(
-                            packagesList,
-                            "\u062a\u0639\u0630\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644",
-                            "\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"
-                        )
-
-                        showListMessage(
-                            channelsList,
-                            "\u062a\u0639\u0630\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644",
-                            "\u0628\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a"
-                        )
+                    override fun onCancelled(error: DatabaseError) {
+                        onDataError()
                     }
                 }
-            }
 
-        dataListener = listener
+            val ref = rootRef.child(key)
 
-        rootRef.addValueEventListener(listener)
+            listeners.add(Pair(ref, listener))
+
+            ref.addValueEventListener(listener)
+        }
     }
 
-    private fun onDataLoaded(snapshot: DataSnapshot) {
+    private fun onDataError() {
 
         mainHandler.removeCallbacks(loadTimeout)
 
-        readWeatherSettings(snapshot)
+        Toast.makeText(this, Txt.DB_ERROR, Toast.LENGTH_LONG).show()
 
-        applyRemoteSettings(snapshot)
+        if (!dataReady) {
 
-        updateMatches(snapshot)
+            showListMessage(packagesList, "تعذر الاتصال", "تحقق من الإعدادات")
 
-        val newChannels = parseChannels(snapshot)
+            showListMessage(channelsList, "تعذر الاتصال", "بقاعدة البيانات")
+        }
+    }
 
-        var newPackages = parsePackages(snapshot)
+    private fun onDataLoaded() {
+
+        val settingsPart = parts["settings"]
+
+        readWeatherSettings(settingsPart)
+
+        applyRemoteSettings(settingsPart)
+
+        updateMatches(parts["matches"])
+
+        if (!parts.containsKey("channels") && !parts.containsKey("packages")) {
+            return
+        }
+
+        mainHandler.removeCallbacks(loadTimeout)
+
+        val newChannels = parseChannels(parts["channels"])
+
+        var newPackages = parsePackages(parts["packages"])
 
         if (newPackages.isEmpty() && newChannels.isNotEmpty()) {
 
@@ -3341,11 +3406,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun parsePackages(snapshot: DataSnapshot): List<PackageItem> {
+    private fun parsePackages(snapshot: DataSnapshot?): List<PackageItem> {
 
         val result = mutableListOf<PackageItem>()
 
-        for (child in snapshot.child("packages").children) {
+        for (child in snapshot?.children ?: emptyList()) {
 
             val id = child.key ?: continue
 
@@ -3367,11 +3432,11 @@ class MainActivity : Activity() {
         return result.sortedBy { it.order }
     }
 
-    private fun parseChannels(snapshot: DataSnapshot): List<Channel> {
+    private fun parseChannels(snapshot: DataSnapshot?): List<Channel> {
 
         val result = mutableListOf<Channel>()
 
-        for (child in snapshot.child("channels").children) {
+        for (child in snapshot?.children ?: emptyList()) {
 
             val name = child.readString("name") ?: continue
 
@@ -3671,7 +3736,7 @@ class MainActivity : Activity() {
 
     private fun playChannel(channel: Channel, preview: Boolean = false) {
 
-        if (blocked) {
+        if (blocked || gated) {
             return
         }
 
@@ -3701,6 +3766,10 @@ class MainActivity : Activity() {
         playingChannel = channel
 
         playingList = visibleChannels
+
+        beginWatch(channel)
+
+        updatePresenceChannel()
 
         if (!preview) {
             prefs.edit().putString("last_channel", channelKey(channel)).apply()
@@ -4205,9 +4274,9 @@ class MainActivity : Activity() {
     }
 
     // optional Firebase settings: settings/weather_lat, weather_lon, weather_city
-    private fun readWeatherSettings(snapshot: DataSnapshot) {
+    private fun readWeatherSettings(snapshot: DataSnapshot?) {
 
-        val settings = snapshot.child("settings")
+        val settings = snapshot ?: return
 
         val lat = settings.child("weather_lat").value?.toString()?.toDoubleOrNull()
 
@@ -5449,6 +5518,26 @@ class MainActivity : Activity() {
             items.add("📺  مشاركة الشاشة مع التلفزيون" to { openScreenShare() })
         }
 
+        items.add(
+            "📶  استقرار البث: ${bufferModeName()}" to { cycleBufferMode() }
+        )
+
+        if (requireCode || activeCode.isNotEmpty()) {
+            items.add(
+                "🔑  الاشتراك: ${subscriptionText()}" to
+                        { showCodeOverlay("أدخل الكود الجديد", false) }
+            )
+        }
+
+        items.add(
+            "🆔  معرّف الجهاز: ${deviceId()}" to
+                    { Toast.makeText(this, "معرّف الجهاز: ${deviceId()}", Toast.LENGTH_LONG).show() }
+        )
+
+        if (adminDevices.contains(deviceId())) {
+            items.add("📊  الإحصائيات" to { showStatsScreen() })
+        }
+
         items.add("إلغاء" to {})
 
         showMenu("الإعدادات", items)
@@ -5544,9 +5633,9 @@ class MainActivity : Activity() {
             0L
         }
 
-    private fun applyRemoteSettings(snapshot: DataSnapshot) {
+    private fun applyRemoteSettings(snapshot: DataSnapshot?) {
 
-        val st = snapshot.child("settings")
+        val st = snapshot ?: return
 
         val appEnabled = st.readBool("appEnabled", true)
 
@@ -5562,6 +5651,24 @@ class MainActivity : Activity() {
 
         val updateUrl = st.readString("updateUrl") ?: ""
 
+        val updateNotes = st.readString("updateNotes") ?: ""
+
+        val updateSha = st.readString("updateSha256") ?: ""
+
+        val force =
+            st.readBool("forceUpdate", false) ||
+                    currentVersionCode() < st.readInt("minVersion", 0)
+
+        requireCode = st.readBool("requireCode", false)
+
+        st.readString("userAgent")?.let { defaultUserAgent = it }
+
+        adminDevices =
+            st.child("adminDevices").children
+                .filter { it.value == true }
+                .mapNotNull { it.key }
+                .toSet()
+
         // 1) app disabled or under maintenance
         if (!appEnabled || maintenance) {
 
@@ -5575,6 +5682,19 @@ class MainActivity : Activity() {
         }
 
         hideBlock()
+
+        // activation code required: nothing else until the code is valid
+        updateGate()
+
+        if (gated) {
+            return
+        }
+
+        // a forced update comes before everything else
+        if (force && latest > currentVersionCode() && updateUrl.isNotBlank()) {
+            showUpdateNotice(latest, updateUrl, updateNotes, updateSha, true)
+            return
+        }
 
         // 2) announcement (shown once for every new message)
         if (annEnabled && (annTitle.isNotBlank() || annMessage.isNotBlank())) {
@@ -5601,21 +5721,12 @@ class MainActivity : Activity() {
             hideNotice()
         }
 
-        // 3) new version available
+        // 3) new version available (downloaded and installed inside the app)
         if (latest > currentVersionCode() && updateUrl.isNotBlank() && !updateShown) {
 
             updateShown = true
 
-            showNotice(
-                "upd|$latest",
-                "⬆️",
-                "تحديث جديد متوفر",
-                "يتوفر إصدار أحدث من التطبيق، يُنصح بالتحديث للحصول على أفضل أداء.",
-                listOf(
-                    "تحديث الآن" to { openUpdateUrl(updateUrl) },
-                    "لاحقاً" to {}
-                )
-            ) {}
+            showUpdateNotice(latest, updateUrl, updateNotes, updateSha, false)
         }
     }
 
@@ -5684,6 +5795,40 @@ class MainActivity : Activity() {
             lp(matchParent, wrap).apply { topMargin = dp(10) }
         )
 
+        // download progress (in-app update)
+        noticeProgressTrack = LinearLayout(this)
+
+        noticeProgressTrack.orientation = LinearLayout.HORIZONTAL
+
+        noticeProgressTrack.visibility = View.GONE
+
+        noticeProgressTrack.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(5).toFloat()
+                setColor(Color.argb(40, 255, 255, 255))
+            }
+
+        noticeProgressFill = View(this)
+
+        noticeProgressFill.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(cyan, violet)
+            ).apply {
+                cornerRadius = dp(5).toFloat()
+            }
+
+        noticeProgressRest = View(this)
+
+        noticeProgressTrack.addView(noticeProgressFill, LinearLayout.LayoutParams(0, matchParent, 0f))
+
+        noticeProgressTrack.addView(noticeProgressRest, LinearLayout.LayoutParams(0, matchParent, 100f))
+
+        box.addView(
+            noticeProgressTrack,
+            lp(matchParent, dp(10)).apply { topMargin = dp(18) }
+        )
+
         noticeButtons = LinearLayout(this)
 
         noticeButtons.orientation = LinearLayout.HORIZONTAL
@@ -5709,12 +5854,20 @@ class MainActivity : Activity() {
         title: String,
         message: String,
         buttons: List<Pair<String, () -> Unit>>,
+        cancelable: Boolean = true,
+        keepOpenFirst: Boolean = false,
         onDismiss: () -> Unit
     ) {
 
         if (menuOpen()) {
             closeMenu()
         }
+
+        noticeCancelable = cancelable
+
+        noticeProgressTrack.visibility = View.GONE
+
+        noticeButtons.visibility = View.VISIBLE
 
         noticeKey = key
 
@@ -5739,8 +5892,13 @@ class MainActivity : Activity() {
             val item = menuItem(button.first, accentFor(i))
 
             item.setOnClickListener {
-                hideNotice()
-                button.second()
+
+                if (keepOpenFirst && i == 0) {
+                    button.second()
+                } else {
+                    hideNotice()
+                    button.second()
+                }
             }
 
             val params =
@@ -5996,11 +6154,11 @@ class MainActivity : Activity() {
         return box
     }
 
-    private fun parseMatches(snapshot: DataSnapshot): List<MatchItem> {
+    private fun parseMatches(snapshot: DataSnapshot?): List<MatchItem> {
 
         val result = mutableListOf<MatchItem>()
 
-        for (child in snapshot.child("matches").children) {
+        for (child in snapshot?.children ?: emptyList()) {
 
             if (!child.readBool("enabled", true)) {
                 continue
@@ -6030,7 +6188,7 @@ class MainActivity : Activity() {
         return result.sortedBy { it.order }
     }
 
-    private fun updateMatches(snapshot: DataSnapshot) {
+    private fun updateMatches(snapshot: DataSnapshot?) {
 
         val newMatches = parseMatches(snapshot)
 
@@ -7282,7 +7440,7 @@ class MainActivity : Activity() {
 
     private fun retryAfterReconnect() {
 
-        if (blocked) {
+        if (blocked || gated) {
             return
         }
 
@@ -7893,7 +8051,7 @@ class MainActivity : Activity() {
             return
         }
 
-        if (blocked || multiActive) {
+        if (blocked || gated || multiActive) {
             return
         }
 
@@ -9302,7 +9460,7 @@ class MainActivity : Activity() {
     // selects its package, plays the channel and scrolls the list to it
     private fun openMatchChannel(m: MatchItem) {
 
-        if (blocked || multiActive || isFullscreen) {
+        if (blocked || gated || multiActive || isFullscreen) {
             return
         }
 
@@ -9335,6 +9493,1012 @@ class MainActivity : Activity() {
         }
 
         Toast.makeText(this, "▶  ${channel.name}", Toast.LENGTH_SHORT).show()
+    }
+
+    // =========================
+    // In-app update
+    // =========================
+
+    private fun cleanOldUpdates() {
+
+        try {
+            File(cacheDir, "updates").deleteRecursively()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun canInstallPackages(): Boolean =
+        Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()
+
+    private fun askInstallPermission() {
+
+        noticeMessage.text = "فعّل خيار (السماح بتثبيت التطبيقات) لهذا التطبيق، ثم ارجع واضغط تحديث الآن."
+
+        try {
+
+            startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
+            )
+
+        } catch (_: Exception) {
+
+            Toast.makeText(
+                this,
+                "فعّل (مصادر غير معروفة) من إعدادات الأمان بالجهاز",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun showUpdateNotice(version: Int, url: String, notes: String, sha: String, force: Boolean) {
+
+        if (downloadingUpdate) {
+            return
+        }
+
+        val key = "upd|$version"
+
+        if (noticeOpen() && noticeKey == key) {
+            return
+        }
+
+        val buttons = mutableListOf<Pair<String, () -> Unit>>()
+
+        buttons.add("تحديث الآن" to { beginUpdate(url, sha, version) })
+
+        if (!force) {
+            buttons.add("لاحقاً" to {})
+        }
+
+        showNotice(
+            key,
+            "⬆️",
+            if (force) "تحديث إجباري" else "تحديث جديد متوفر",
+            notes.ifBlank { "يتوفر إصدار أحدث من التطبيق. سيتم تحميله وتثبيته من داخل التطبيق." },
+            buttons,
+            !force,
+            true
+        ) {}
+    }
+
+    private fun setUpdateProgress(percent: Int, text: String? = null) {
+
+        noticeProgressTrack.visibility = View.VISIBLE
+
+        (noticeProgressFill.layoutParams as LinearLayout.LayoutParams).weight = percent.toFloat()
+
+        (noticeProgressRest.layoutParams as LinearLayout.LayoutParams).weight = (100 - percent).toFloat()
+
+        noticeProgressTrack.requestLayout()
+
+        noticeMessage.text = text ?: "جاري تحميل التحديث…  $percent%"
+    }
+
+    // the buttons of the update window (the window stays open)
+    private fun setUpdateButtons(buttons: List<Pair<String, () -> Unit>>) {
+
+        noticeButtons.removeAllViews()
+
+        noticeButtons.visibility = View.VISIBLE
+
+        var first: View? = null
+
+        buttons.forEachIndexed { i, button ->
+
+            val item = menuItem(button.first, accentFor(i))
+
+            item.setOnClickListener { button.second() }
+
+            noticeButtons.addView(
+                item,
+                lp(0, dp(48), 1f).apply { setMargins(dp(6), 0, dp(6), 0) }
+            )
+
+            if (first == null) {
+                first = item
+            }
+        }
+
+        first?.requestFocus()
+    }
+
+    private fun beginUpdate(url: String, sha: String, version: Int) {
+
+        if (downloadingUpdate) {
+            return
+        }
+
+        if (!canInstallPackages()) {
+            askInstallPermission()
+            return
+        }
+
+        downloadingUpdate = true
+
+        noticeButtons.visibility = View.GONE
+
+        setUpdateProgress(0)
+
+        Thread {
+
+            var connection: HttpURLConnection? = null
+
+            try {
+
+                val dir = File(cacheDir, "updates")
+
+                dir.mkdirs()
+
+                val file = File(dir, "niyati-$version.apk")
+
+                if (file.exists()) {
+                    file.delete()
+                }
+
+                connection = URL(url).openConnection() as HttpURLConnection
+
+                connection.connectTimeout = 15000
+
+                connection.readTimeout = 30000
+
+                connection.instanceFollowRedirects = true
+
+                connection.setRequestProperty("User-Agent", "NiyatiTV")
+
+                connection.connect()
+
+                if (connection.responseCode !in 200..299) {
+                    throw Exception("HTTP ${connection.responseCode}")
+                }
+
+                val total = connection.contentLengthLong
+
+                var done = 0L
+
+                var lastReport = -1L
+
+                connection.inputStream.use { input ->
+
+                    file.outputStream().use { output ->
+
+                        val buffer = ByteArray(64 * 1024)
+
+                        var read = input.read(buffer)
+
+                        while (read >= 0) {
+
+                            output.write(buffer, 0, read)
+
+                            done += read
+
+                            val report = if (total > 0) done * 100 / total else done / (512 * 1024)
+
+                            if (report != lastReport) {
+
+                                lastReport = report
+
+                                mainHandler.post {
+                                    if (total > 0) {
+                                        setUpdateProgress(report.toInt())
+                                    } else {
+                                        setUpdateProgress(0, "جاري تحميل التحديث…  ${done / 1048576} MB")
+                                    }
+                                }
+                            }
+
+                            read = input.read(buffer)
+                        }
+                    }
+                }
+
+                if (total > 0 && file.length() != total) {
+                    throw Exception("size")
+                }
+
+                // optional security check: the SHA-256 written in Firebase must match
+                if (sha.isNotBlank()) {
+
+                    val digest = MessageDigest.getInstance("SHA-256")
+
+                    file.inputStream().use { input ->
+
+                        val buffer = ByteArray(64 * 1024)
+
+                        var read = input.read(buffer)
+
+                        while (read > 0) {
+                            digest.update(buffer, 0, read)
+                            read = input.read(buffer)
+                        }
+                    }
+
+                    val hex = digest.digest().joinToString("") { "%02x".format(it) }
+
+                    if (!hex.equals(sha.trim(), true)) {
+                        throw Exception("sha")
+                    }
+                }
+
+                mainHandler.post { onUpdateDownloaded(file) }
+
+            } catch (_: Exception) {
+
+                mainHandler.post { onUpdateFailed(url, sha, version) }
+
+            } finally {
+
+                connection?.disconnect()
+            }
+
+        }.start()
+    }
+
+    private fun onUpdateFailed(url: String, sha: String, version: Int) {
+
+        downloadingUpdate = false
+
+        noticeProgressTrack.visibility = View.GONE
+
+        noticeMessage.text = "تعذر تحميل التحديث. تحقق من الاتصال وحاول مرة أخرى."
+
+        val buttons = mutableListOf<Pair<String, () -> Unit>>()
+
+        buttons.add("إعادة المحاولة" to { beginUpdate(url, sha, version) })
+
+        if (noticeCancelable) {
+            buttons.add("إلغاء" to { hideNotice() })
+        }
+
+        setUpdateButtons(buttons)
+    }
+
+    private fun onUpdateDownloaded(file: File) {
+
+        downloadingUpdate = false
+
+        noticeProgressTrack.visibility = View.GONE
+
+        noticeMessage.text = "اكتمل التحميل. اضغط تثبيت لإكمال التحديث."
+
+        val buttons = mutableListOf<Pair<String, () -> Unit>>()
+
+        buttons.add("تثبيت الآن" to { installApk(file) })
+
+        if (noticeCancelable) {
+            buttons.add("إلغاء" to { hideNotice() })
+        }
+
+        setUpdateButtons(buttons)
+
+        installApk(file)
+    }
+
+    private fun installApk(file: File) {
+
+        try {
+
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+
+            val intent =
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+
+            startActivity(intent)
+
+        } catch (_: Exception) {
+
+            Toast.makeText(this, "تعذر فتح شاشة التثبيت", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // =========================
+    // Activation codes
+    // =========================
+
+    private val dayMillis = 24L * 60 * 60 * 1000
+
+    private fun serverNow(): Long = System.currentTimeMillis() + serverOffset
+
+    private fun deviceId(): String {
+
+        if (deviceIdCache.isNotEmpty()) {
+            return deviceIdCache
+        }
+
+        var id = prefs.getString("device_id", "") ?: ""
+
+        if (id.isEmpty()) {
+
+            val raw =
+                try {
+                    android.provider.Settings.Secure.getString(
+                        contentResolver,
+                        android.provider.Settings.Secure.ANDROID_ID
+                    )
+                } catch (_: Exception) {
+                    null
+                } ?: java.util.UUID.randomUUID().toString()
+
+            val digest = MessageDigest.getInstance("SHA-256").digest((raw + "niyati").toByteArray())
+
+            id = digest.joinToString("") { "%02x".format(it) }.take(12)
+
+            prefs.edit().putString("device_id", id).apply()
+        }
+
+        deviceIdCache = id
+
+        return id
+    }
+
+    private fun codeValid(): Boolean =
+        activeCode.isNotEmpty() && (codeExpiresAt == 0L || serverNow() < codeExpiresAt)
+
+    private fun subscriptionText(): String {
+
+        if (activeCode.isEmpty()) {
+            return "غير مفعّل"
+        }
+
+        if (codeExpiresAt == 0L) {
+            return "غير محدود"
+        }
+
+        val days = (codeExpiresAt - serverNow() + dayMillis - 1) / dayMillis
+
+        return if (days <= 0) "منتهي" else "متبقي $days يوم"
+    }
+
+    private fun updateGate() {
+
+        if (!requireCode || codeValid()) {
+
+            if (gated) {
+                hideCodeOverlay(true)
+            }
+
+            return
+        }
+
+        if (!gated) {
+            showCodeOverlay(gateMessage, true)
+        }
+    }
+
+    private fun codeGateOpen(): Boolean =
+        ::codeOverlay.isInitialized && codeOverlay.visibility == View.VISIBLE
+
+    private fun buildCodeOverlay() {
+
+        codeOverlay = FrameLayout(this)
+
+        codeOverlay.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(bgTop, bgMid, bgBottom)
+            )
+
+        codeOverlay.isClickable = true
+
+        codeOverlay.visibility = View.GONE
+
+        val col = LinearLayout(this)
+
+        col.orientation = LinearLayout.VERTICAL
+
+        col.gravity = Gravity.CENTER_HORIZONTAL
+
+        col.setPadding(dp(16), dp(16), dp(16), dp(16))
+
+        val icon = TextView(this)
+
+        icon.text = "🔑"
+
+        icon.textSize = 46f
+
+        icon.gravity = Gravity.CENTER
+
+        col.addView(icon, lp(wrap, wrap))
+
+        col.addView(
+            label("تفعيل الاشتراك", 24f, white, true, Gravity.CENTER),
+            lp(matchParent, wrap).apply { topMargin = dp(8) }
+        )
+
+        codeMessage = label("", 15f, gray, false, Gravity.CENTER, 3)
+
+        col.addView(codeMessage, lp(matchParent, wrap).apply { topMargin = dp(6) })
+
+        codeInput = EditText(this)
+
+        codeInput.setSingleLine(true)
+
+        codeInput.inputType =
+            InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or
+                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+
+        codeInput.imeOptions = EditorInfo.IME_ACTION_DONE
+
+        codeInput.hint = "XXXX-XXXX"
+
+        codeInput.setHintTextColor(gray)
+
+        codeInput.setTextColor(white)
+
+        codeInput.textSize = 22f
+
+        codeInput.gravity = Gravity.CENTER
+
+        codeInput.typeface = Typeface.DEFAULT_BOLD
+
+        codeInput.letterSpacing = 0.12f
+
+        codeInput.layoutDirection = View.LAYOUT_DIRECTION_LTR
+
+        codeInput.textDirection = View.TEXT_DIRECTION_LTR
+
+        codeInput.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.argb(40, 255, 255, 255))
+                setStroke(dp(1), Color.argb(130, 255, 255, 255))
+            }
+
+        codeInput.setOnEditorActionListener { _, actionId, _ ->
+
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                activateCode(codeInput.text.toString())
+                true
+            } else {
+                false
+            }
+        }
+
+        col.addView(
+            codeInput,
+            lp(matchParent, dp(58)).apply { topMargin = dp(16) }
+        )
+
+        codeStatus = label("", 14f, Color.rgb(255, 120, 130), true, Gravity.CENTER, 2)
+
+        col.addView(codeStatus, lp(matchParent, wrap).apply { topMargin = dp(10) })
+
+        val row = LinearLayout(this)
+
+        row.orientation = LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER
+
+        val activate = menuItem("تفعيل", accentFor(0))
+
+        activate.setOnClickListener { activateCode(codeInput.text.toString()) }
+
+        codeCancelBtn = menuItem("خروج", accentFor(2))
+
+        row.addView(activate, lp(0, dp(50), 1f).apply { setMargins(dp(6), 0, dp(6), 0) })
+
+        row.addView(codeCancelBtn, lp(0, dp(50), 1f).apply { setMargins(dp(6), 0, dp(6), 0) })
+
+        col.addView(row, lp(matchParent, wrap).apply { topMargin = dp(14) })
+
+        codeOverlay.addView(col, FrameLayout.LayoutParams(boxWidth(520), wrap, Gravity.CENTER))
+
+        root.addView(codeOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    // required = true: the app is locked until a valid code is entered
+    private fun showCodeOverlay(message: String, required: Boolean) {
+
+        if (required) {
+
+            gated = true
+
+            // stop everything that is playing
+            try {
+                player.stop()
+                player.clearMediaItems()
+            } catch (_: Exception) {
+            }
+
+            mainHandler.removeCallbacks(retryRunnable)
+
+            stopWeb()
+
+            stopExternalAudio()
+
+            flushWatch()
+
+            if (multiActive) {
+                exitMultiView(false)
+            }
+
+            if (isFullscreen) {
+                exitFullscreen()
+            }
+        }
+
+        if (noticeOpen()) {
+            hideNotice()
+        }
+
+        if (menuOpen()) {
+            closeMenu()
+        }
+
+        codeMessage.text = message
+
+        codeStatus.text = ""
+
+        codeInput.setText("")
+
+        codeCancelBtn.text = if (required) "خروج" else "إلغاء"
+
+        codeCancelBtn.setOnClickListener {
+            if (required) finish() else hideCodeOverlay(false)
+        }
+
+        codeOverlay.visibility = View.VISIBLE
+
+        codeInput.requestFocus()
+
+        codeInput.postDelayed({ showKeyboard() }, 300)
+    }
+
+    private fun hideCodeOverlay(resume: Boolean) {
+
+        gated = false
+
+        hideKeyboard()
+
+        codeOverlay.visibility = View.GONE
+
+        if (resume) {
+            playingChannel?.let { playChannel(it) }
+        }
+    }
+
+    private fun showKeyboard() {
+
+        try {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .showSoftInput(codeInput, InputMethodManager.SHOW_IMPLICIT)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hideKeyboard() {
+
+        try {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .hideSoftInputFromWindow(codeInput.windowToken, 0)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun activateCode(input: String) {
+
+        val code = input.trim().uppercase(Locale.US).filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+
+        if (code.length < 4) {
+            codeStatus.setTextColor(Color.rgb(255, 120, 130))
+            codeStatus.text = "اكتب كوداً صحيحاً"
+            return
+        }
+
+        codeStatus.setTextColor(gray)
+
+        codeStatus.text = "جاري التحقق…"
+
+        hideKeyboard()
+
+        rootRef.child("codes").child(code).addListenerForSingleValueEvent(
+            object : ValueEventListener {
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    evaluateCode(code, snapshot, true)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    codeStatus.setTextColor(Color.rgb(255, 120, 130))
+                    codeStatus.text = "تعذر الاتصال، تحقق من الإنترنت"
+                }
+            }
+        )
+    }
+
+    private fun parseDateEnd(text: String): Long? =
+        try {
+            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(text)?.time?.plus(dayMillis - 1)
+        } catch (_: Exception) {
+            null
+        }
+
+    // codes/<CODE>: enabled, days or expires (yyyy-MM-dd) or expiresAt, maxDevices, devices/*
+    private fun evaluateCode(code: String, snap: DataSnapshot, interactive: Boolean) {
+
+        fun fail(message: String) {
+
+            if (interactive) {
+
+                codeStatus.setTextColor(Color.rgb(255, 120, 130))
+
+                codeStatus.text = message
+
+            } else {
+
+                revokeCode(message)
+            }
+        }
+
+        if (!snap.exists()) {
+            fail("الكود غير صحيح")
+            return
+        }
+
+        if (!snap.readBool("enabled", true)) {
+            fail("هذا الكود موقوف")
+            return
+        }
+
+        val now = serverNow()
+
+        var expires: Long? = (snap.child("expiresAt").value as? Number)?.toLong()
+
+        if (expires == null) {
+            expires = snap.readString("expires")?.let { parseDateEnd(it) }
+        }
+
+        val days = snap.readInt("days", 0)
+
+        // the days start counting at the first use
+        if (expires == null && days > 0) {
+
+            val newExpire = now + days * dayMillis
+
+            expires = newExpire
+
+            snap.ref.updateChildren(
+                mapOf<String, Any>("activatedAt" to now, "expiresAt" to newExpire)
+            )
+        }
+
+        if (expires != null && now > expires) {
+            fail("انتهى اشتراك هذا الكود")
+            return
+        }
+
+        val id = deviceId()
+
+        val devices = snap.child("devices")
+
+        if (!devices.hasChild(id) && devices.childrenCount >= snap.readInt("maxDevices", 1)) {
+            fail("هذا الكود مستخدم على جهاز آخر")
+            return
+        }
+
+        val seen = (devices.child(id).value as? Number)?.toLong() ?: 0L
+
+        if (seen == 0L || now - seen > 3_600_000L) {
+            snap.ref.child("devices").child(id).setValue(now)
+        }
+
+        // accepted
+        activeCode = code
+
+        codeExpiresAt = expires ?: 0L
+
+        prefs.edit().putString("code", code).putLong("code_exp", codeExpiresAt).apply()
+
+        if (interactive) {
+
+            codeStatus.setTextColor(Color.rgb(80, 220, 150))
+
+            codeStatus.text = "✔ تم التفعيل"
+
+            attachCodeListener(code)
+
+            Toast.makeText(this, "تم تفعيل الاشتراك: ${subscriptionText()}", Toast.LENGTH_LONG).show()
+
+            mainHandler.postDelayed({
+                if (codeValid()) {
+                    hideCodeOverlay(true)
+                }
+            }, 600)
+        }
+
+        if (!expiryWarned && expires != null && expires - now < 3 * dayMillis) {
+
+            expiryWarned = true
+
+            Toast.makeText(this, "ينتهي اشتراكك قريباً: ${subscriptionText()}", Toast.LENGTH_LONG).show()
+        }
+
+        if (!interactive) {
+            updateGate()
+        }
+    }
+
+    private fun revokeCode(message: String) {
+
+        detachCodeListener()
+
+        activeCode = ""
+
+        codeExpiresAt = 0L
+
+        prefs.edit().remove("code").remove("code_exp").apply()
+
+        gateMessage = message
+
+        updateGate()
+    }
+
+    private fun attachCodeListener(code: String) {
+
+        detachCodeListener()
+
+        val ref = rootRef.child("codes").child(code)
+
+        val listener =
+            object : ValueEventListener {
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    evaluateCode(code, snapshot, false)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                }
+            }
+
+        codeRef = ref
+
+        codeListener = listener
+
+        ref.addValueEventListener(listener)
+    }
+
+    private fun detachCodeListener() {
+
+        codeListener?.let { codeRef?.removeEventListener(it) }
+
+        codeListener = null
+
+        codeRef = null
+    }
+
+    // =========================
+    // Statistics
+    // =========================
+
+    private fun todayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(serverNow()))
+
+    private fun statKey(channel: Channel): String =
+        channel.name.map { if (it in ".$#[]/") '_' else it }.joinToString("").take(80)
+
+    // online viewers: /presence/<device> exists while the app is connected
+    private fun startPresence() {
+
+        try {
+
+            database.getReference(".info/serverTimeOffset").addValueEventListener(
+                object : ValueEventListener {
+
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        serverOffset = (snapshot.value as? Number)?.toLong() ?: 0L
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                    }
+                }
+            )
+
+            val ref = rootRef.child("presence").child(deviceId())
+
+            database.getReference(".info/connected").addValueEventListener(
+                object : ValueEventListener {
+
+                    override fun onDataChange(snapshot: DataSnapshot) {
+
+                        if (snapshot.value == true) {
+
+                            ref.onDisconnect().removeValue()
+
+                            ref.setValue(
+                                mapOf<String, Any>(
+                                    "ts" to ServerValue.TIMESTAMP,
+                                    "ch" to (playingChannel?.name ?: "")
+                                )
+                            )
+                        }
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                    }
+                }
+            )
+
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun updatePresenceChannel() {
+
+        try {
+            rootRef.child("presence").child(deviceId()).child("ch").setValue(playingChannel?.name ?: "")
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun beginWatch(channel: Channel) {
+
+        flushWatch()
+
+        watchChannel = channel
+
+        watchStart = SystemClock.elapsedRealtime()
+    }
+
+    // a watch of 30 seconds or more counts as one view
+    private fun flushWatch() {
+
+        val channel = watchChannel ?: return
+
+        watchChannel = null
+
+        val seconds = (SystemClock.elapsedRealtime() - watchStart) / 1000
+
+        if (seconds < 30 || !online) {
+            return
+        }
+
+        try {
+
+            rootRef.child("stats").child("channels").child(statKey(channel)).updateChildren(
+                mapOf<String, Any>(
+                    "name" to channel.name,
+                    "views" to ServerValue.increment(1),
+                    "seconds" to ServerValue.increment(seconds)
+                )
+            )
+
+            val day = rootRef.child("stats").child("daily").child(todayKey())
+
+            day.child("views").setValue(ServerValue.increment(1))
+
+            if (prefs.getString("stats_day", "") != todayKey()) {
+
+                day.child("users").child(deviceId()).setValue(true)
+
+                prefs.edit().putString("stats_day", todayKey()).apply()
+            }
+
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun readOnce(ref: DatabaseReference, done: (DataSnapshot?) -> Unit) {
+
+        ref.addListenerForSingleValueEvent(
+            object : ValueEventListener {
+
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    done(snapshot)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    done(null)
+                }
+            }
+        )
+    }
+
+    // only for the devices listed in settings/adminDevices
+    private fun showStatsScreen() {
+
+        Toast.makeText(this, "جاري تحميل الإحصائيات…", Toast.LENGTH_SHORT).show()
+
+        readOnce(rootRef.child("presence")) { presence ->
+
+            readOnce(rootRef.child("stats").child("channels")) { channelStats ->
+
+                readOnce(rootRef.child("stats").child("daily").child(todayKey()).child("users")) { users ->
+
+                    val lines = mutableListOf<String>()
+
+                    lines.add("🟢 المتصلون الآن: ${presence?.childrenCount ?: 0}")
+
+                    lines.add("👥 مستخدمو اليوم: ${users?.childrenCount ?: 0}")
+
+                    val top =
+                        (channelStats?.children ?: emptyList())
+                            .map {
+                                Triple(
+                                    it.readString("name") ?: (it.key ?: "-"),
+                                    it.readInt("views", 0),
+                                    it.readInt("seconds", 0)
+                                )
+                            }
+                            .sortedByDescending { it.second }
+                            .take(6)
+
+                    lines.add("أكثر القنوات مشاهدة:")
+
+                    if (top.isEmpty()) {
+                        lines.add("لا توجد بيانات بعد")
+                    }
+
+                    top.forEachIndexed { i, t ->
+                        lines.add("${i + 1}. ${t.first} — ${t.second} مشاهدة · ${t.third / 60} د")
+                    }
+
+                    showNotice(
+                        "stats",
+                        "📊",
+                        "الإحصائيات",
+                        lines.joinToString("\n"),
+                        listOf("حسناً" to {})
+                    ) {}
+                }
+            }
+        }
+    }
+
+    // =========================
+    // Stream stability
+    // =========================
+
+    private fun bufferModeName(): String =
+        when (prefs.getInt("buffer_mode", 1)) {
+            0 -> "سريع"
+            2 -> "مستقر"
+            else -> "متوازن"
+        }
+
+    // fast -> balanced -> stable (the player is rebuilt, the app restarts the screen)
+    private fun cycleBufferMode() {
+
+        val next = (prefs.getInt("buffer_mode", 1) + 1) % 3
+
+        prefs.edit()
+            .putInt("buffer_mode", next)
+            .putBoolean("skip_splash_once", true)
+            .apply()
+
+        recreate()
+    }
+
+    // the server closed the live connection: connect again by itself
+    private fun reconnectLiveStream() {
+
+        val channel = playingChannel ?: return
+
+        if (retryCount >= 10) {
+
+            finalPlaybackError = true
+
+            livePill.visibility = View.GONE
+
+            showStatus("انقطع البث", "تعذر إعادة الاتصال" + serverHint(), true)
+
+            return
+        }
+
+        retryCount++
+
+        showStatus("إعادة الاتصال $retryCount/10", channel.name, false)
+
+        player.seekToDefaultPosition()
+
+        mainHandler.removeCallbacks(retryRunnable)
+
+        mainHandler.postDelayed(retryRunnable, minOf(1500L * retryCount, 6000L))
     }
 
     // =========================
@@ -9465,11 +10629,41 @@ class MainActivity : Activity() {
             return true
         }
 
+        // activation code screen
+        if (codeGateOpen()) {
+
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+
+                    if (!gated) {
+
+                        hideCodeOverlay(false)
+
+                    } else {
+
+                        val now = System.currentTimeMillis()
+
+                        if (now - backPressedAt < 2000) {
+                            finish()
+                        } else {
+                            backPressedAt = now
+                            Toast.makeText(this, "اضغط رجوع مرة أخرى للخروج", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                return true
+            }
+
+            return super.dispatchKeyEvent(event)
+        }
+
         // announcement / update notice
         if (noticeOpen()) {
 
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                if (event.action == KeyEvent.ACTION_DOWN) {
+                if (event.action == KeyEvent.ACTION_DOWN && noticeCancelable && !downloadingUpdate) {
                     hideNotice()
                     noticeDismiss?.invoke()
                 }
@@ -9951,6 +11145,12 @@ class MainActivity : Activity() {
             audioPlayer?.playWhenReady = true
         }
 
+        playingChannel?.let {
+            if (!multiActive && !blocked && !gated) {
+                beginWatch(it)
+            }
+        }
+
         if (resumeOnStart && ::player.isInitialized && !playingWeb) {
 
             if (player.isCurrentMediaItemLive) {
@@ -9973,6 +11173,8 @@ class MainActivity : Activity() {
 
         audioPlayer?.pause()
 
+        flushWatch()
+
         if (::player.isInitialized) {
 
             resumeOnStart =
@@ -9987,9 +11189,13 @@ class MainActivity : Activity() {
 
         mainHandler.removeCallbacksAndMessages(null)
 
-        dataListener?.let {
-            rootRef.removeEventListener(it)
-        }
+        listeners.forEach { it.first.removeEventListener(it.second) }
+
+        listeners.clear()
+
+        detachCodeListener()
+
+        flushWatch()
 
         ioExecutor.shutdownNow()
 
