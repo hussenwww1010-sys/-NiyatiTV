@@ -86,6 +86,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -505,6 +506,11 @@ class MainActivity : Activity() {
 
     // ---- in-app update ----
     private var downloadingUpdate = false
+    private var aspectMode = 0   // 0 = original, 1 = stretch, 2 = zoom
+    private lateinit var noticeBox: LedFrame
+    private lateinit var menuBox: LedFrame
+    private lateinit var statusRing: SpinnerRing
+    private lateinit var statusRetry: TextView
     private var noticeCancelable = true
     private lateinit var noticeProgressTrack: LinearLayout
     private lateinit var noticeProgressFill: View
@@ -674,6 +680,8 @@ class MainActivity : Activity() {
         uiSound = prefs.getBoolean("ui_sound", true)
 
         autoFallback = prefs.getBoolean("auto_fallback", false)
+
+        aspectMode = prefs.getInt("aspect", 0).coerceIn(0, 2)
 
         val skipSplash = prefs.getBoolean("skip_splash_once", false)
 
@@ -1397,7 +1405,7 @@ class MainActivity : Activity() {
 
             if (attemptIndex > 0) {
                 showStatus(
-                    "\u062a\u062c\u0631\u0628\u0629 \u0635\u064a\u063a\u0629 ${kind.label}\u2026",
+                    "جاري التحضير…",
                     channel.name,
                     false
                 )
@@ -1480,8 +1488,8 @@ class MainActivity : Activity() {
             retryCount++
 
             showStatus(
-                "إعادة الاتصال $retryCount/10",
-                detailedMessage,
+                "جاري إعادة الاتصال…",
+                friendlyError(error).first + "  •  المحاولة $retryCount من 10",
                 false
             )
 
@@ -1518,9 +1526,11 @@ class MainActivity : Activity() {
                 ""
             }
 
+        val friendly = friendlyError(shown)
+
         showStatus(
-            "\u062e\u0637\u0623 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0628\u062b",
-            buildPlaybackErrorMessage(shown) + tried + serverHint(),
+            friendly.first,
+            friendly.second + serverHint(),
             true
         )
     }
@@ -1775,6 +1785,8 @@ class MainActivity : Activity() {
         playerView.isFocusable = false
 
         playerView.player = player
+
+        applyAspect()
 
         buildStatusOverlay()
 
@@ -2161,12 +2173,19 @@ class MainActivity : Activity() {
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(
-                    Color.rgb(12, 16, 38),
+                    mix(violet, bgTop, 0.16f),
                     Color.rgb(7, 9, 22)
                 )
             )
 
+        // animated ring around the icon
         statusIcon = FrameLayout(this)
+
+        statusRing = SpinnerRing()
+
+        statusIcon.addView(statusRing, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        val disc = FrameLayout(this)
 
         statusPlay = PlayIcon(Color.WHITE)
 
@@ -2179,28 +2198,36 @@ class MainActivity : Activity() {
         statusBang.gravity = Gravity.CENTER
         statusBang.visibility = View.GONE
 
-        statusIcon.addView(
+        disc.addView(
             statusPlay,
             FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply {
                 leftMargin = dp(4)
             }
         )
 
-        statusIcon.addView(
+        disc.addView(
             statusBang,
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
-        statusOverlay.addView(statusIcon, lp(dp(58), dp(58)))
+        statusIcon.addView(
+            disc,
+            FrameLayout.LayoutParams(dp(54), dp(54), Gravity.CENTER)
+        )
 
-        statusTitle = label("", 17f, white, true, Gravity.CENTER, 3)
+        // keep the icon tag for showStatus (the colored disc)
+        statusIcon.tag = disc
 
-        statusSub = label("", 12f, gray, false, Gravity.CENTER, 7)
+        statusOverlay.addView(statusIcon, lp(dp(84), dp(84)))
+
+        statusTitle = label("", 17f, white, true, Gravity.CENTER, 2)
+
+        statusSub = label("", 12.5f, gray, false, Gravity.CENTER, 3)
 
         statusOverlay.addView(
             statusTitle,
             lp(matchParent, wrap).apply {
-                topMargin = dp(14)
+                topMargin = dp(12)
             }
         )
 
@@ -2210,13 +2237,32 @@ class MainActivity : Activity() {
                 topMargin = dp(4)
             }
         )
+
+        statusRetry = menuItem("إعادة المحاولة", accentFor(0))
+
+        statusRetry.visibility = View.GONE
+
+        statusRetry.setOnClickListener {
+            retryPlayback()
+        }
+
+        statusOverlay.addView(
+            statusRetry,
+            lp(dp(190), dp(44)).apply {
+                topMargin = dp(14)
+            }
+        )
     }
 
     private fun showStatus(title: String, sub: String, error: Boolean) {
 
+        val idle = title == Txt.IDLE_TITLE
+
         statusTitle.text = title
 
         statusSub.text = sub
+
+        statusSub.visibility = if (sub.isBlank()) View.GONE else View.VISIBLE
 
         val colors =
             if (error) {
@@ -2225,7 +2271,7 @@ class MainActivity : Activity() {
                 intArrayOf(cyan, violet)
             }
 
-        statusIcon.background =
+        (statusIcon.tag as? View)?.background =
             GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 colors
@@ -2233,14 +2279,74 @@ class MainActivity : Activity() {
                 shape = GradientDrawable.OVAL
             }
 
+        statusRing.setMode(if (error) 1 else if (idle) 2 else 0)
+
         statusPlay.visibility = if (error) View.GONE else View.VISIBLE
 
         statusBang.visibility = if (error) View.VISIBLE else View.GONE
+
+        statusRetry.visibility = if (error) View.VISIBLE else View.GONE
 
         statusOverlay.visibility = View.VISIBLE
 
         if (error && ::qualityBadge.isInitialized) {
             qualityBadge.visibility = View.GONE
+        }
+    }
+
+    // try the current channel again from the start
+    private fun retryPlayback() {
+
+        val channel = playingChannel ?: return
+
+        playToken++
+
+        retryCount = 0
+
+        startSource(channel, savedServerIndex(channel))
+    }
+
+    // short Arabic message instead of the technical error codes
+    private fun friendlyError(error: PlaybackException?): Pair<String, String> {
+
+        val http = if (error != null) findHttpException(error) else null
+
+        if (http != null) {
+
+            return when (http.responseCode) {
+
+                401, 403 -> Pair("السيرفر رفض الاتصال", "قد يكون الاشتراك أو الرابط غير صالح")
+
+                404 -> Pair("القناة غير متوفرة حالياً", "الرابط غير موجود على السيرفر")
+
+                429 -> Pair("السيرفر مشغول", "كثرة الطلبات، جرّب بعد قليل")
+
+                511 -> Pair("تعذر الوصول للسيرفر", "قد تحجب شبكتك هذا الرابط، جرّب شبكة أخرى")
+
+                in 500..599 -> Pair("السيرفر لا يستجيب حالياً", "المشكلة من مصدر البث، جرّب بعد قليل")
+
+                else -> Pair("تعذر تشغيل القناة", "استجابة غير متوقعة من السيرفر")
+            }
+        }
+
+        return when (error?.errorCode) {
+
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                Pair("لا يوجد اتصال بالسيرفر", "تحقق من الإنترنت")
+
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ->
+                Pair("صيغة البث غير مدعومة", "جرّب سيرفراً آخر")
+
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
+                Pair("جهازك لا يدعم هذا البث", "")
+
+            else -> Pair("تعذر تشغيل القناة", "حاول مرة أخرى بعد قليل")
         }
     }
 
@@ -3846,9 +3952,7 @@ class MainActivity : Activity() {
 
         showStatus(
             "جاري تشغيل القناة…",
-            channel.name + "\n" +
-                    (if (index > 0) "السيرفر ${index + 1}  •  " else "") +
-                    "المصدر: ${attempts[0].label}",
+            channel.name + (if (index > 0) "  •  السيرفر ${index + 1}" else ""),
             false
         )
 
@@ -3934,7 +4038,14 @@ class MainActivity : Activity() {
                 "\u062e\u0637\u0623 \u062f\u0627\u062e\u0644\u064a\n${shortenError(text)}"
             }
 
-        showStatus("\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629", message + serverHint(), true)
+        val friendly =
+            if (error != null) {
+                friendlyError(error)
+            } else {
+                Pair("تعذر تشغيل القناة", "حدث خطأ غير متوقع")
+            }
+
+        showStatus(friendly.first, friendly.second + serverHint(), true)
     }
 
     private fun updatePlayingMarks() {
@@ -4593,20 +4704,19 @@ class MainActivity : Activity() {
 
         menuOverlay.visibility = View.GONE
 
-        val box = LinearLayout(this)
+        val box = LedFrame()
+
+        menuBox = box
+
+        box.cornerDp = 26
+
+        box.setColors(cyan, violet)
 
         box.orientation = LinearLayout.VERTICAL
 
-        box.setPadding(dp(18), dp(18), dp(18), dp(16))
+        box.setPadding(dp(20), dp(20), dp(20), dp(18))
 
-        box.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.rgb(24, 20, 60), Color.rgb(10, 14, 34))
-            ).apply {
-                cornerRadius = dp(26).toFloat()
-                setStroke(dp(1), withAlpha(cyan, 120))
-            }
+        box.background = fancyCardBackground(26)
 
         menuTitle = label("", 18f, white, true, Gravity.CENTER, 2)
 
@@ -4682,6 +4792,10 @@ class MainActivity : Activity() {
         menuTitle.text = title
 
         menuList.removeAllViews()
+
+        (menuBox.layoutParams as FrameLayout.LayoutParams).width = boxWidth(380)
+
+        menuBox.requestLayout()
 
         var first: View? = null
 
@@ -5488,59 +5602,249 @@ class MainActivity : Activity() {
             return
         }
 
-        val items = mutableListOf<Pair<String, () -> Unit>>()
+        val views = mutableListOf<View>()
 
-        items.add("🎨  الثيم: ${themes[themeIndex].name}" to { showThemeMenu() })
+        var first: View? = null
 
-        items.add(
-            "✨  الخلفية المتحركة: ${if (dynBgEnabled) "مفعّلة" else "متوقفة"}" to
-                    { toggleDynamicBackground() }
-        )
-
-        items.add(
-            "👁  المعاينة التلقائية: ${if (previewEnabled) "مفعّلة" else "متوقفة"}" to
-                    { togglePreview() }
-        )
-
-        items.add(
-            "🔔  أصوات التنقل: ${if (uiSound) "مفعّلة" else "متوقفة"}" to
-                    { toggleUiSound() }
-        )
-
-        items.add(
-            "🖥  التبديل التلقائي للسيرفر: ${if (autoFallback) "مفعّل" else "متوقف"}" to
-                    { toggleAutoFallback() }
-        )
-
-        items.add("🔲  المشاهدة المتعددة (${multiList.size}/4)" to { showMultiMenu() })
-
-        if (!isTvDevice()) {
-            items.add("📺  مشاركة الشاشة مع التلفزيون" to { openScreenShare() })
+        fun section(title: String) {
+            views.add(settingsSection(title))
         }
 
-        items.add(
-            "📶  استقرار البث: ${bufferModeName()}" to { cycleBufferMode() }
-        )
+        fun row(
+            icon: String,
+            title: String,
+            value: String,
+            toggle: (() -> Boolean)?,
+            initial: Boolean,
+            action: (() -> Unit)?
+        ) {
+
+            val view = settingRow(icon, title, value, toggle, initial, action)
+
+            views.add(view)
+
+            if (first == null) {
+                first = view
+            }
+        }
+
+        section("المظهر")
+
+        row("🎨", "الثيم", themes[themeIndex].name, null, false) { showThemeMenu() }
+
+        row("✨", "الخلفية المتحركة", "", { toggleDynamicBackground(); dynBgEnabled }, dynBgEnabled, null)
+
+        section("التشغيل")
+
+        row("📶", "استقرار البث", bufferModeName(), null, false) { cycleBufferMode() }
+
+        row("🖥", "التبديل التلقائي للسيرفر", "", { toggleAutoFallback(); autoFallback }, autoFallback, null)
+
+        row("👁", "المعاينة التلقائية", "", { togglePreview(); previewEnabled }, previewEnabled, null)
+
+        row("🔲", "المشاهدة المتعددة", "${multiList.size}/4", null, false) { showMultiMenu() }
+
+        row("📐", "أبعاد الشاشة", aspectName(), null, false) { showAspectMenu() }
+
+        section("التنقل")
+
+        row("🔔", "أصوات التنقل", "", { toggleUiSound(); uiSound }, uiSound, null)
+
+        section("الحساب والجهاز")
 
         if (requireCode || activeCode.isNotEmpty()) {
-            items.add(
-                "🔑  الاشتراك: ${subscriptionText()}" to
-                        { showCodeOverlay("أدخل الكود الجديد", false) }
-            )
+            row("🔑", "الاشتراك", subscriptionText(), null, false) {
+                showCodeOverlay("أدخل الكود الجديد", false)
+            }
         }
 
-        items.add(
-            "🆔  معرّف الجهاز: ${deviceId()}" to
-                    { Toast.makeText(this, "معرّف الجهاز: ${deviceId()}", Toast.LENGTH_LONG).show() }
-        )
+        row("🆔", "معرّف الجهاز", deviceId(), null, false) {
+            Toast.makeText(this, "معرّف الجهاز: ${deviceId()}", Toast.LENGTH_LONG).show()
+        }
+
+        if (!isTvDevice()) {
+            row("📺", "مشاركة الشاشة", "", null, false) { openScreenShare() }
+        }
 
         if (adminDevices.contains(deviceId())) {
-            items.add("📊  الإحصائيات" to { showStatsScreen() })
+            row("📊", "الإحصائيات", "", null, false) { showStatsScreen() }
         }
 
-        items.add("إلغاء" to {})
+        val close = menuItem("إغلاق", accentFor(2))
 
-        showMenu("الإعدادات", items)
+        close.setOnClickListener { closeMenu() }
+
+        close.layoutParams = lp(matchParent, dp(48)).apply { topMargin = dp(14) }
+
+        views.add(close)
+
+        showMenuViews("الإعدادات", views, first, 440)
+    }
+
+    private fun settingsSection(title: String): TextView {
+
+        val header = label(title, 12.5f, cyan, true, Gravity.RIGHT)
+
+        header.letterSpacing = 0.08f
+
+        header.layoutParams = lp(matchParent, wrap).apply { setMargins(dp(8), dp(14), dp(8), dp(2)) }
+
+        return header
+    }
+
+    // one line of the settings: icon | title | value or on/off switch
+    private fun settingRow(
+        icon: String,
+        title: String,
+        value: String,
+        toggle: (() -> Boolean)?,
+        initial: Boolean,
+        action: (() -> Unit)?
+    ): View {
+
+        val row = LinearLayout(this)
+
+        row.orientation = LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER_VERTICAL
+
+        row.setPadding(dp(14), 0, dp(14), 0)
+
+        row.isFocusable = true
+
+        row.isFocusableInTouchMode = !phoneMode
+
+        row.isClickable = true
+
+        row.layoutParams = lp(matchParent, dp(58)).apply { topMargin = dp(6) }
+
+        // value / switch (left)
+        val pill = TextView(this)
+
+        pill.textSize = 12.5f
+
+        pill.typeface = Typeface.DEFAULT_BOLD
+
+        pill.gravity = Gravity.CENTER
+
+        pill.setPadding(dp(12), dp(3), dp(12), dp(3))
+
+        fun stylePill(on: Boolean) {
+
+            if (toggle != null) {
+
+                pill.text = if (on) "مفعّل" else "متوقف"
+
+                pill.setTextColor(if (on) Color.rgb(8, 24, 20) else gray)
+
+                pill.background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(14).toFloat()
+                        setColor(if (on) Color.rgb(52, 211, 153) else Color.argb(40, 255, 255, 255))
+                    }
+
+            } else {
+
+                pill.text = if (value.isBlank()) "›" else "$value  ›"
+
+                pill.setTextColor(dimWhite)
+
+                pill.background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(14).toFloat()
+                        setColor(Color.argb(34, 255, 255, 255))
+                    }
+            }
+        }
+
+        stylePill(initial)
+
+        row.addView(pill, lp(wrap, wrap))
+
+        row.addView(
+            label(title, 16f, white, true),
+            lp(0, wrap, 1f).apply { setMargins(dp(12), 0, dp(12), 0) }
+        )
+
+        val iconView = TextView(this)
+
+        iconView.text = icon
+
+        iconView.textSize = 19f
+
+        iconView.gravity = Gravity.CENTER
+
+        iconView.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(36, 255, 255, 255))
+            }
+
+        row.addView(iconView, lp(dp(40), dp(40)))
+
+        fun style(focused: Boolean) {
+
+            row.background =
+                if (focused) {
+                    GradientDrawable(
+                        GradientDrawable.Orientation.LEFT_RIGHT,
+                        intArrayOf(mix(cyan, bgMid, 0.5f), mix(violet, bgMid, 0.5f))
+                    ).apply {
+                        cornerRadius = dp(18).toFloat()
+                        setStroke(dp(2), Color.WHITE)
+                    }
+                } else {
+                    GradientDrawable().apply {
+                        cornerRadius = dp(18).toFloat()
+                        setColor(Color.argb(22, 255, 255, 255))
+                        setStroke(dp(1), Color.argb(28, 255, 255, 255))
+                    }
+                }
+        }
+
+        style(false)
+
+        row.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        row.setOnClickListener {
+
+            if (toggle != null) {
+
+                stylePill(toggle())
+
+            } else {
+
+                closeMenu()
+
+                action?.invoke()
+            }
+        }
+
+        return row
+    }
+
+    // like showMenu but with ready made rows
+    private fun showMenuViews(title: String, views: List<View>, first: View?, widthDp: Int) {
+
+        menuReturnFocus = currentFocus
+
+        menuTitle.text = title
+
+        menuList.removeAllViews()
+
+        views.forEach { menuList.addView(it) }
+
+        (menuBox.layoutParams as FrameLayout.LayoutParams).width = boxWidth(widthDp)
+
+        menuBox.requestLayout()
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        menuOverlay.visibility = View.VISIBLE
+
+        first?.requestFocus()
     }
 
     private fun showThemeMenu() {
@@ -5756,22 +6060,19 @@ class MainActivity : Activity() {
 
         noticeOverlay.visibility = View.GONE
 
-        val box = LinearLayout(this)
+        val box = LedFrame()
+
+        noticeBox = box
+
+        box.cornerDp = 28
 
         box.orientation = LinearLayout.VERTICAL
 
         box.gravity = Gravity.CENTER_HORIZONTAL
 
-        box.setPadding(dp(26), dp(24), dp(26), dp(22))
+        box.setPadding(dp(28), dp(26), dp(28), dp(24))
 
-        box.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.rgb(26, 22, 66), Color.rgb(10, 14, 34))
-            ).apply {
-                cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), withAlpha(cyan, 130))
-            }
+        box.background = fancyCardBackground(28)
 
         noticeIcon = TextView(this)
 
@@ -5779,7 +6080,14 @@ class MainActivity : Activity() {
 
         noticeIcon.gravity = Gravity.CENTER
 
-        box.addView(noticeIcon, lp(wrap, wrap))
+        noticeIcon.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(40, 255, 255, 255))
+                setStroke(dp(1), Color.argb(100, 255, 255, 255))
+            }
+
+        box.addView(noticeIcon, lp(dp(78), dp(78)))
 
         noticeTitle = label("", 22f, white, true, Gravity.CENTER, 2)
 
@@ -5864,6 +6172,15 @@ class MainActivity : Activity() {
         }
 
         noticeCancelable = cancelable
+
+        when {
+            key.startsWith("upd|") ->
+                noticeBox.setColors(Color.rgb(255, 196, 61), Color.rgb(255, 120, 60))
+            key.startsWith("ann|") ->
+                noticeBox.setColors(cyan, violet)
+            else ->
+                noticeBox.setColors(Color.rgb(52, 211, 153), cyan)
+        }
 
         noticeProgressTrack.visibility = View.GONE
 
@@ -5957,11 +6274,19 @@ class MainActivity : Activity() {
 
         blockOverlay.visibility = View.GONE
 
-        val col = LinearLayout(this)
+        val col = LedFrame()
+
+        col.cornerDp = 30
+
+        col.setColors(Color.rgb(255, 59, 92), Color.rgb(255, 159, 67))
 
         col.orientation = LinearLayout.VERTICAL
 
         col.gravity = Gravity.CENTER_HORIZONTAL
+
+        col.setPadding(dp(30), dp(28), dp(30), dp(28))
+
+        col.background = fancyCardBackground(30)
 
         blockIcon = TextView(this)
 
@@ -6389,7 +6714,7 @@ class MainActivity : Activity() {
             ledOn = on
 
             if (attached) {
-                if (on) startAnim() else stopAnim()
+                if (on && isShown) startAnim() else stopAnim()
             }
 
             invalidate()
@@ -6449,7 +6774,7 @@ class MainActivity : Activity() {
 
             attached = true
 
-            if (ledOn) {
+            if (ledOn && isShown) {
                 startAnim()
             }
         }
@@ -6461,6 +6786,15 @@ class MainActivity : Activity() {
             stopAnim()
 
             super.onDetachedFromWindow()
+        }
+
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+
+            super.onVisibilityChanged(changedView, visibility)
+
+            if (attached && ledOn) {
+                if (isShown) startAnim() else stopAnim()
+            }
         }
 
         private fun drawRange(canvas: Canvas, from: Float, to: Float, paint: Paint) {
@@ -7197,6 +7531,15 @@ class MainActivity : Activity() {
 
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 enterDigit(digit)
+            }
+
+            return true
+        }
+
+        if (code == KeyEvent.KEYCODE_TV_ZOOM_MODE) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                cycleAspect()
             }
 
             return true
@@ -8457,7 +8800,7 @@ class MainActivity : Activity() {
         val channel = playingChannel ?: return ""
 
         return if (sourcesOf(channel).size > 1) {
-            "\nجرّب سيرفراً آخر: الزر الأحمر (أو اضغط مطولاً على المشغل)"
+            "\nيمكنك تجربة سيرفر آخر من خيارات المشغل"
         } else {
             ""
         }
@@ -8572,6 +8915,8 @@ class MainActivity : Activity() {
         val items = mutableListOf<Pair<String, () -> Unit>>()
 
         items.add("🎚  الجودة" to { showQualityMenu() })
+
+        items.add("📐  أبعاد الشاشة (${aspectName()})" to { showAspectMenu() })
 
         if (audioAvailable()) {
             items.add("🎙  الصوت (المعلق)" to { showAudioMenu() })
@@ -8954,6 +9299,8 @@ class MainActivity : Activity() {
 
         touchControls.addView(touchButton("🎚", "الجودة") { openQualityStrip() }, size)
 
+        touchControls.addView(touchButton("📐", "الأبعاد") { openAspectStrip() }, size)
+
         touchControls.addView(touchButton("📋", "القنوات") { openChannelPanel() }, size)
 
         fullscreenContainer.addView(
@@ -9147,7 +9494,7 @@ class MainActivity : Activity() {
                 (playingChannel?.audios?.isNotEmpty() == true || collectEmbeddedAudio().size >= 2)
 
     private fun stripModeCount(): Int =
-        1 + (if (serversAvailable()) 1 else 0) + (if (audioAvailable()) 1 else 0)
+        1 + (if (serversAvailable()) 1 else 0) + (if (audioAvailable()) 1 else 0) + (if (!playingWeb) 1 else 0)
 
     // up / down: quality -> servers -> audio
     private fun cycleStrip() {
@@ -9162,6 +9509,10 @@ class MainActivity : Activity() {
             modes.add(2)
         }
 
+        if (!playingWeb) {
+            modes.add(3)
+        }
+
         if (modes.size < 2) {
             return
         }
@@ -9171,7 +9522,8 @@ class MainActivity : Activity() {
         when (next) {
             0 -> openQualityStrip()
             1 -> openServerStrip()
-            else -> openAudioStrip()
+            2 -> openAudioStrip()
+            else -> openAspectStrip()
         }
     }
 
@@ -9887,13 +10239,19 @@ class MainActivity : Activity() {
 
         codeOverlay.visibility = View.GONE
 
-        val col = LinearLayout(this)
+        val col = LedFrame()
+
+        col.cornerDp = 28
+
+        col.setColors(cyan, violet)
 
         col.orientation = LinearLayout.VERTICAL
 
         col.gravity = Gravity.CENTER_HORIZONTAL
 
-        col.setPadding(dp(16), dp(16), dp(16), dp(16))
+        col.setPadding(dp(26), dp(24), dp(26), dp(22))
+
+        col.background = fancyCardBackground(28)
 
         val icon = TextView(this)
 
@@ -10492,13 +10850,266 @@ class MainActivity : Activity() {
 
         retryCount++
 
-        showStatus("إعادة الاتصال $retryCount/10", channel.name, false)
+        showStatus("جاري إعادة الاتصال…", "المحاولة $retryCount من 10", false)
 
         player.seekToDefaultPosition()
 
         mainHandler.removeCallbacks(retryRunnable)
 
         mainHandler.postDelayed(retryRunnable, minOf(1500L * retryCount, 6000L))
+    }
+
+    // =========================
+    // Shared card style + player ring
+    // =========================
+
+    // the background of every card (notice, menu, code, maintenance)
+    private fun fancyCardBackground(radiusDp: Int): GradientDrawable =
+        GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(
+                withAlpha(mix(violet, bgTop, 0.32f), 246),
+                withAlpha(mix(bgMid, bgTop, 0.7f), 250),
+                withAlpha(bgBottom, 250)
+            )
+        ).apply {
+            cornerRadius = dp(radiusDp).toFloat()
+        }
+
+    // mode: 0 = loading (turning), 1 = error (red), 2 = idle (quiet ring)
+    private inner class SpinnerRing : View(this@MainActivity) {
+
+        private val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = dp(4).toFloat()
+                strokeCap = Paint.Cap.ROUND
+            }
+
+        private val rect = RectF()
+        private var angle = 0f
+        private var mode = 0
+        private var anim: ValueAnimator? = null
+
+        fun setMode(value: Int) {
+            mode = value
+            refreshAnim()
+            invalidate()
+        }
+
+        private fun refreshAnim() {
+
+            if (mode == 0 && isShown && isAttachedToWindow) {
+
+                if (anim == null) {
+
+                    val a = ValueAnimator.ofFloat(0f, 360f)
+
+                    a.duration = 1100
+
+                    a.repeatCount = ValueAnimator.INFINITE
+
+                    a.interpolator = android.view.animation.LinearInterpolator()
+
+                    a.addUpdateListener {
+                        angle = it.animatedValue as Float
+                        invalidate()
+                    }
+
+                    anim = a
+
+                    a.start()
+                }
+
+            } else {
+                anim?.cancel()
+                anim = null
+            }
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            refreshAnim()
+        }
+
+        override fun onDetachedFromWindow() {
+            anim?.cancel()
+            anim = null
+            super.onDetachedFromWindow()
+        }
+
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+            super.onVisibilityChanged(changedView, visibility)
+            refreshAnim()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val inset = paint.strokeWidth
+
+            rect.set(inset, inset, width - inset, height - inset)
+
+            paint.color =
+                when (mode) {
+                    1 -> Color.argb(190, 255, 82, 82)
+                    2 -> Color.argb(46, 255, 255, 255)
+                    else -> Color.argb(34, 255, 255, 255)
+                }
+
+            canvas.drawOval(rect, paint)
+
+            if (mode == 0) {
+
+                paint.color = cyan
+
+                canvas.drawArc(rect, angle, 110f, false, paint)
+
+                paint.color = violet
+
+                canvas.drawArc(rect, angle + 180f, 70f, false, paint)
+            }
+        }
+    }
+
+    // =========================
+    // Screen size (aspect ratio)
+    // =========================
+
+    private val aspectNames = listOf("أصلي", "تمديد", "تكبير")
+
+    private fun aspectName(): String = aspectNames[aspectMode]
+
+    private fun applyAspect() {
+
+        playerView.resizeMode =
+            when (aspectMode) {
+                1 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+    }
+
+    private fun setAspect(mode: Int) {
+
+        aspectMode = mode
+
+        prefs.edit().putInt("aspect", mode).apply()
+
+        applyAspect()
+    }
+
+    // original -> stretch -> zoom (remote zoom key)
+    private fun cycleAspect() {
+
+        if (playingWeb) {
+            return
+        }
+
+        setAspect((aspectMode + 1) % 3)
+
+        Toast.makeText(this, "أبعاد الشاشة: ${aspectName()}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showAspectMenu() {
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        aspectNames.forEachIndexed { i, name ->
+            items.add(
+                ((if (i == aspectMode) "✓  " else "") + name) to {
+                    setAspect(i)
+                    Toast.makeText(this, "أبعاد الشاشة: $name", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("أبعاد الشاشة", items)
+    }
+
+    // fullscreen: the chips stay open so the effect can be seen at once
+    private fun openAspectStrip() {
+
+        if (!isFullscreen) {
+            return
+        }
+
+        if (playingWeb) {
+            Toast.makeText(this, "الأبعاد غير متاحة لقنوات يوتيوب / فيسبوك", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        closeChannelPanel(true)
+
+        mainHandler.removeCallbacks(hideZapRunnable)
+
+        zapBanner.animate().cancel()
+
+        zapBanner.visibility = View.GONE
+
+        stripMode = 3
+
+        stripTitle.text = "الأبعاد"
+
+        stripHint.text = if (stripModeCount() > 1) "▲▼ تبديل" else ""
+
+        qualityStripChips.removeAllViews()
+
+        val chips = mutableListOf<TextView>()
+
+        var target: View? = null
+
+        aspectNames.forEachIndexed { i, name ->
+
+            val chip = menuItem((if (i == aspectMode) "✓ " else "") + name, accentFor(0))
+
+            chip.setPadding(dp(16), 0, dp(16), 0)
+
+            chip.setOnClickListener {
+
+                setAspect(i)
+
+                chips.forEachIndexed { j, c ->
+                    c.text = (if (j == aspectMode) "✓ " else "") + aspectNames[j]
+                }
+
+                mainHandler.removeCallbacks(hideQualityRunnable)
+
+                mainHandler.postDelayed(hideQualityRunnable, 5000)
+            }
+
+            chips.add(chip)
+
+            qualityStripChips.addView(
+                chip,
+                lp(wrap, dp(40)).apply { setMargins(dp(4), 0, dp(4), 0) }
+            )
+
+            if (i == aspectMode) {
+                target = chip
+            }
+        }
+
+        setVideoFocusable(false)
+
+        qualityStrip.animate().cancel()
+
+        qualityStrip.alpha = 0f
+
+        qualityStrip.translationY = -dp(14).toFloat()
+
+        qualityStrip.visibility = View.VISIBLE
+
+        qualityStrip.animate().alpha(1f).translationY(0f).setDuration(180).start()
+
+        qualityStrip.post {
+            target?.requestFocus()
+        }
+
+        mainHandler.removeCallbacks(hideQualityRunnable)
+
+        mainHandler.postDelayed(hideQualityRunnable, 5000)
     }
 
     // =========================
