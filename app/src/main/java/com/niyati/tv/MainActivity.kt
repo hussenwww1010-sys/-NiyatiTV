@@ -84,6 +84,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -506,6 +507,11 @@ class MainActivity : Activity() {
 
     // ---- in-app update ----
     private var downloadingUpdate = false
+    private var lightMode = false
+    private val dayFormat by lazy { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    private val dateTextFormat by lazy {
+        SimpleDateFormat("EEEE d MMMM yyyy", Locale.forLanguageTag("ar-IQ-u-nu-latn"))
+    }
     private var uaIndex = 0
     private var aspectMode = 0   // 0 = original, 1 = stretch, 2 = zoom
     private lateinit var noticeBox: LedFrame
@@ -692,6 +698,8 @@ class MainActivity : Activity() {
 
         aspectMode = prefs.getInt("aspect", 0).coerceIn(0, 2)
 
+        lightMode = prefs.getBoolean("light_mode", false)
+
         val skipSplash = prefs.getBoolean("skip_splash_once", false)
 
         if (skipSplash) {
@@ -860,6 +868,7 @@ class MainActivity : Activity() {
 
         val mediaSourceFactory =
             DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
+                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(8))
 
         // fall back to another decoder if the primary one fails
         val renderersFactory =
@@ -4350,13 +4359,7 @@ class MainActivity : Activity() {
 
         try {
 
-            val format =
-                SimpleDateFormat(
-                    "EEEE d MMMM yyyy",
-                    Locale.forLanguageTag("ar-IQ-u-nu-latn")
-                )
-
-            dateView.text = format.format(Date())
+            dateView.text = dateTextFormat.format(Date())
 
         } catch (_: Exception) {
         }
@@ -5698,6 +5701,8 @@ class MainActivity : Activity() {
 
         row("📐", "أبعاد الشاشة", aspectName(), null, false) { showAspectMenu() }
 
+        row("⚡", "وضع الأداء", if (lightMode) "خفيف" else "عادي", null, false) { toggleLightMode() }
+
         section("التنقل")
 
         row("🔔", "أصوات التنقل", "", { toggleUiSound(); uiSound }, uiSound, null)
@@ -6584,7 +6589,7 @@ class MainActivity : Activity() {
     // only today's matches (a match without a date counts as today)
     private fun todayMatches(): List<MatchItem> {
 
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val today = dayFormat.format(Date())
 
         return matches.filter { it.date.isBlank() || it.date == today }
     }
@@ -6774,7 +6779,7 @@ class MainActivity : Activity() {
 
         private fun startAnim() {
 
-            if (anim != null) {
+            if (anim != null || lightMode) {
                 return
             }
 
@@ -6926,6 +6931,13 @@ class MainActivity : Activity() {
                 canvas.drawPath(path, basePaint)
             }
 
+            // light mode: a still glowing border instead of the running lights
+            if (lightMode) {
+                corePaint.color = withAlpha(colorA, 170)
+                canvas.drawPath(path, corePaint)
+                return
+            }
+
             comet(canvas, progress, colorA)
 
             comet(canvas, (progress + 0.5f) % 1f, colorB)
@@ -6947,7 +6959,7 @@ class MainActivity : Activity() {
 
         private fun refreshAnim() {
 
-            if (isShown && isAttachedToWindow) {
+            if (!lightMode && isShown && isAttachedToWindow) {
 
                 if (anim == null) {
 
@@ -7058,6 +7070,11 @@ class MainActivity : Activity() {
 
             super.onAttachedToWindow()
 
+            if (lightMode) {
+                breath = 1f
+                return
+            }
+
             val a = ValueAnimator.ofFloat(0.6f, 1f)
 
             a.duration = 1800
@@ -7129,6 +7146,10 @@ class MainActivity : Activity() {
         override fun onAttachedToWindow() {
 
             super.onAttachedToWindow()
+
+            if (lightMode) {
+                return
+            }
 
             val a = ValueAnimator.ofFloat(0f, 1f)
 
@@ -10687,7 +10708,7 @@ class MainActivity : Activity() {
     // =========================
 
     private fun todayKey(): String =
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(serverNow()))
+        dayFormat.format(Date(serverNow()))
 
     private fun statKey(channel: Channel): String =
         channel.name.map { if (it in ".$#[]/") '_' else it }.joinToString("").take(80)
@@ -11180,6 +11201,17 @@ class MainActivity : Activity() {
         val saved = prefs.getInt("ua_" + channelKey(channel), 0)
 
         return if (saved in uaOptions(channel).indices) saved else 0
+    }
+
+    // light mode = no running lights / glow (helps weak TVs to play smoothly)
+    private fun toggleLightMode() {
+
+        prefs.edit()
+            .putBoolean("light_mode", !lightMode)
+            .putBoolean("skip_splash_once", true)
+            .apply()
+
+        recreate()
     }
 
     // =========================
