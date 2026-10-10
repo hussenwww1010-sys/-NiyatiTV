@@ -698,7 +698,12 @@ class MainActivity : Activity() {
 
         aspectMode = prefs.getInt("aspect", 0).coerceIn(0, 2)
 
-        lightMode = prefs.getBoolean("light_mode", false)
+        lightMode =
+            if (prefs.contains("light_mode")) {
+                prefs.getBoolean("light_mode", false)
+            } else {
+                (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice
+            }
 
         val skipSplash = prefs.getBoolean("skip_splash_once", false)
 
@@ -907,6 +912,13 @@ class MainActivity : Activity() {
                     when (playbackState) {
 
                         Player.STATE_BUFFERING -> {
+                            // watchdog: a long buffering after the start = a dead connection
+                            mainHandler.removeCallbacks(stallRunnable)
+
+                            if (playbackStarted) {
+                                mainHandler.postDelayed(stallRunnable, 12000)
+                            }
+
                             // full-screen status only at the start of playback,
                             // after that PlayerView shows its own buffering spinner
                             if (
@@ -927,6 +939,8 @@ class MainActivity : Activity() {
                             liveWindowRetries = 0
                             finalPlaybackError = false
                             playbackStarted = true
+
+                            mainHandler.removeCallbacks(stallRunnable)
 
                             hideStatus()
 
@@ -1842,6 +1856,8 @@ class MainActivity : Activity() {
         playerView.isFocusable = false
 
         playerView.player = player
+
+        playerView.setKeepContentOnPlayerReset(true)
 
         applyAspect()
 
@@ -10905,7 +10921,7 @@ class MainActivity : Activity() {
         recreate()
     }
 
-    // the server closed the live connection: connect again by itself
+    // the server ended / cut the live stream: load it again at once, without a message
     private fun reconnectLiveStream() {
 
         val channel = playingChannel ?: return
@@ -10923,13 +10939,42 @@ class MainActivity : Activity() {
 
         retryCount++
 
-        showStatus("جاري إعادة الاتصال…", "المحاولة $retryCount من 10", false)
+        // the first tries are silent: the last picture stays on the screen
+        val silent = retryCount <= 3
 
-        player.seekToDefaultPosition()
+        if (!silent) {
+            showStatus("جاري إعادة الاتصال…", "المحاولة $retryCount من 10", false)
+        }
 
         mainHandler.removeCallbacks(retryRunnable)
 
-        mainHandler.postDelayed(retryRunnable, minOf(1500L * retryCount, 6000L))
+        val token = playToken
+
+        mainHandler.postDelayed(
+            {
+                if (token == playToken && !finalPlaybackError && playingChannel == channel && !playingWeb) {
+                    // a fresh start of the same link (a new playlist / token)
+                    startCurrentAttempt(channel)
+                }
+            },
+            if (silent) 100L else minOf(1500L * retryCount, 6000L)
+        )
+    }
+
+    // watchdog: buffering for 12 seconds = the connection is dead, start again
+    private val stallRunnable = Runnable {
+
+        val channel = playingChannel
+
+        if (
+            channel != null &&
+            !finalPlaybackError &&
+            !playingWeb &&
+            !multiActive &&
+            player.playbackState == Player.STATE_BUFFERING
+        ) {
+            reconnectLiveStream()
+        }
     }
 
     // =========================
