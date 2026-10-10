@@ -506,6 +506,7 @@ class MainActivity : Activity() {
 
     // ---- in-app update ----
     private var downloadingUpdate = false
+    private var uaIndex = 0
     private var aspectMode = 0   // 0 = original, 1 = stretch, 2 = zoom
     private lateinit var noticeBox: LedFrame
     private lateinit var menuBox: LedFrame
@@ -666,6 +667,14 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        // keep the cookies of the stream servers (like the other players do)
+        try {
+            java.net.CookieHandler.setDefault(
+                java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL)
+            )
+        } catch (_: Exception) {
+        }
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -911,6 +920,12 @@ class MainActivity : Activity() {
                             playbackStarted = true
 
                             hideStatus()
+
+                            playingChannel?.let {
+                                if (uaIndex > 0) {
+                                    prefs.edit().putInt("ua_" + channelKey(it), uaIndex).apply()
+                                }
+                            }
 
                             livePill.visibility =
                                 if (playingChannel?.let { isVodChannel(it) } == true) {
@@ -1354,7 +1369,8 @@ class MainActivity : Activity() {
     private fun applyRequestHeaders(
         channel: Channel,
         source: Source,
-        factory: DefaultHttpDataSource.Factory = httpFactory
+        factory: DefaultHttpDataSource.Factory = httpFactory,
+        uaIdx: Int = uaIndex
     ) {
 
         val headers =
@@ -1363,10 +1379,7 @@ class MainActivity : Activity() {
                 "Accept-Language" to "ar-IQ,ar;q=0.9,en;q=0.8"
             )
 
-        var userAgent =
-            channel.userAgent.ifBlank {
-                defaultUserAgent
-            }
+        var userAgent = uaOptions(channel).getOrElse(uaIdx) { defaultUserAgent }
 
         if (channel.referer.isNotBlank()) {
 
@@ -1482,6 +1495,34 @@ class MainActivity : Activity() {
             return
         }
 
+        // 3a) the server refuses this "client": try another User-Agent (as the other players do)
+        val refused = findHttpException(error)
+
+        if (refused != null && refused.responseCode in listOf(401, 403) && !finalPlaybackError) {
+
+            if (uaIndex + 1 < uaOptions(channel).size) {
+
+                uaIndex++
+
+                val token = playToken
+
+                showStatus("جاري تجربة طريقة اتصال أخرى…", "", false)
+
+                mainHandler.removeCallbacks(retryRunnable)
+
+                mainHandler.postDelayed(
+                    {
+                        if (token == playToken && !finalPlaybackError) {
+                            startSource(channel, sourceIndex, false)
+                        }
+                    },
+                    700
+                )
+
+                return
+            }
+        }
+
         // 3) network/server errors: retry
         if (retryCount < 10 && !finalPlaybackError) {
 
@@ -1495,7 +1536,14 @@ class MainActivity : Activity() {
 
             mainHandler.removeCallbacks(retryRunnable)
 
-            mainHandler.postDelayed(retryRunnable, minOf(1500L * retryCount, 6000L))
+            mainHandler.postDelayed(
+                retryRunnable,
+                if (refused != null && refused.responseCode in listOf(401, 403, 429)) {
+                    4000L
+                } else {
+                    minOf(1500L * retryCount, 6000L)
+                }
+            )
 
             return
         }
@@ -3895,7 +3943,7 @@ class MainActivity : Activity() {
     }
 
     // starts one of the channel links (0 = main link, 1.. = backups)
-    private fun startSource(channel: Channel, index: Int) {
+    private fun startSource(channel: Channel, index: Int, resetUa: Boolean = true) {
 
         val raw = sourcesOf(channel).getOrNull(index) ?: return
 
@@ -3908,6 +3956,10 @@ class MainActivity : Activity() {
         finalPlaybackError = false
         playbackStarted = false
         firstError = null
+
+        if (resetUa) {
+            uaIndex = savedUaIndex(channel)
+        }
 
         mainHandler.removeCallbacks(retryRunnable)
         mainHandler.removeCallbacks(hideWebStatusRunnable)
@@ -8351,7 +8403,7 @@ class MainActivity : Activity() {
 
         val source = parseSource(raw)
 
-        applyRequestHeaders(tile.channel, source, tile.http)
+        applyRequestHeaders(tile.channel, source, tile.http, 0)
 
         tile.status.text = "جاري التحميل…"
 
@@ -11110,6 +11162,24 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(hideQualityRunnable)
 
         mainHandler.postDelayed(hideQualityRunnable, 5000)
+    }
+
+    // =========================
+    // Client names (User-Agent)
+    // =========================
+
+    private val altUserAgents =
+        listOf("VLC/3.0.18 LibVLC/3.0.18", "Lavf/60.3.100", "IPTVSmartersPro/1.1.1")
+
+    // the channel's own User-Agent (or the default), then common player names
+    private fun uaOptions(channel: Channel): List<String> =
+        (listOf(channel.userAgent.ifBlank { defaultUserAgent }) + altUserAgents).distinct()
+
+    private fun savedUaIndex(channel: Channel): Int {
+
+        val saved = prefs.getInt("ua_" + channelKey(channel), 0)
+
+        return if (saved in uaOptions(channel).indices) saved else 0
     }
 
     // =========================
