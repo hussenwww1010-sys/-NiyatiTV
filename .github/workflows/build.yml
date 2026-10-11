@@ -9,10 +9,10 @@ contents: write
 jobs:
 build:
 runs-on: ubuntu-latest
-steps:
-- name: Checkout
-uses: actions/checkout@v4
 
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
   - name: Setup Java
     uses: actions/setup-java@v5
     with:
@@ -41,4 +41,7 @@ uses: actions/checkout@v4
       GH_TOKEN: ${{ github.token }}
     run: |
       TAG="build-${{ github.run_number }}"
-      gh release create "$TAG" release/Niyati-TV-debug.apk --title "Niyati TV Build ${{ github.run_number }}" --notes "Niyati TV debug APK"
+      gh release create "$TAG" \
+        release/Niyati-TV-debug.apk \
+        --title "Niyati TV Build ${{ github.run_number }}" \
+        --notes "Niyati TV debug APK"
