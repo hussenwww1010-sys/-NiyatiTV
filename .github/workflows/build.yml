@@ -1,6 +1,6 @@
 name: Build Niyati TV
 
-on:
+‘on’:
 workflow_dispatch:
 
 permissions:
@@ -9,10 +9,10 @@ contents: write
 jobs:
 build:
 runs-on: ubuntu-latest
-
 steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+- name: Checkout
+uses: actions/checkout@v4
+
   - name: Setup Java
     uses: actions/setup-java@v5
     with:
@@ -24,15 +24,12 @@ steps:
       gradle-version: '8.11.1'
   - name: Build APK
     run: gradle assembleDebug
-  - name: Check signing
+  - name: Verify APK signature
     run: |
-      BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -n 1)
-      APK=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-      echo "== keystore =="
-      keytool -list -v -keystore app/niyati.keystore -storepass niyati123 | grep "SHA256"
-      echo "== apk =="
-      $BT/aapt2 dump badging "$APK" | grep "package:"
-      $BT/apksigner verify --print-certs "$APK" | grep "SHA-256"
+      BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+      APK="app/build/outputs/apk/debug/app-debug.apk"
+      "$BT/aapt2" dump badging "$APK" | grep "^package:"
+      "$BT/apksigner" verify --print-certs "$APK"
   - name: Prepare APK
     run: |
       mkdir -p release
