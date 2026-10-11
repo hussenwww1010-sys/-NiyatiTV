@@ -26,13 +26,13 @@ steps:
     run: gradle assembleDebug
   - name: Check signing
     run: |
-      BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -n 1)
-      APK=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+      BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+      APK="app/build/outputs/apk/debug/app-debug.apk"
       echo "== keystore =="
       keytool -list -v -keystore app/niyati.keystore -storepass niyati123 | grep "SHA256"
       echo "== apk =="
-      $BT/aapt2 dump badging "$APK" | grep "package:"
-      $BT/apksigner verify --print-certs "$APK" | grep "SHA-256"
+      "$BT/aapt2" dump badging "$APK" | grep "package:"
+      "$BT/apksigner" verify --print-certs "$APK" | grep "SHA-256"
   - name: Prepare APK
     run: |
       mkdir -p release
