@@ -1,6 +1,6 @@
 name: Build Niyati TV
 
-on:
+“on”:
 workflow_dispatch:
 
 permissions:
