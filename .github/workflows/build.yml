@@ -1,47 +1,52 @@
 name: Build Niyati TV
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: Checkout
-uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Java
-    uses: actions/setup-java@v5
-    with:
-      distribution: temurin
-      java-version: '17'
-  - name: Setup Gradle
-    uses: gradle/actions/setup-gradle@v4
-    with:
-      gradle-version: '8.11.1'
-  - name: Build APK
-    run: gradle assembleDebug
-  - name: Check signing
-    run: |
-      BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-      echo "== APK package =="
-      "$BT/aapt2" dump badging "$APK" | grep "^package:"
-      echo "== APK signature =="
-      "$BT/apksigner" verify --print-certs "$APK"
-  - name: Prepare APK
-    run: |
-      mkdir -p release
-      cp app/build/outputs/apk/debug/app-debug.apk release/Niyati-TV-debug.apk
-  - name: Create Release
-    env:
-      GH_TOKEN: ${{ github.token }}
-    run: |
-      TAG="build-${{ github.run_number }}"
-      gh release create "$TAG" \
-        release/Niyati-TV-debug.apk \
-        --title "Niyati TV Build ${{ github.run_number }}" \
-        --notes "Niyati TV debug APK"
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        run: gradle assembleDebug
+
+      - name: Check signing
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          echo "== APK package =="
+          "$BT/aapt2" dump badging "$APK" | grep "^package:"
+          echo "== APK signature =="
+          "$BT/apksigner" verify --print-certs "$APK"
+
+      - name: Prepare APK
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk release/Niyati-TV-debug.apk
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" \
+            release/Niyati-TV-debug.apk \
+            --title "Niyati TV Build ${{ github.run_number }}" \
+            --notes "Niyati TV debug APK"
