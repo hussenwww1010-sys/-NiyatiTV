@@ -5735,6 +5735,18 @@ class MainActivity : Activity() {
             Toast.makeText(this, "معرّف الجهاز: ${deviceId()}", Toast.LENGTH_LONG).show()
         }
 
+        row("ℹ️", "الإصدار", versionLabel(), null, false) {
+            Toast.makeText(this, "رقم الإصدار: ${versionLabel()}", Toast.LENGTH_LONG).show()
+        }
+
+        row("🔏", "بصمة التوقيع", signatureFingerprint(), null, false) {
+            Toast.makeText(
+                this,
+                "إذا تغيرت هذه البصمة بين نسختين، فالتحديث لن يثبت فوق القديمة",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
         if (!isTvDevice()) {
             row("📺", "مشاركة الشاشة", "", null, false) { openScreenShare() }
         }
@@ -11258,6 +11270,49 @@ class MainActivity : Activity() {
 
         recreate()
     }
+
+    // =========================
+    // Version + signature (to find why an update does not install)
+    // =========================
+
+    private fun versionLabel(): String =
+        try {
+            "${packageManager.getPackageInfo(packageName, 0).versionName} (${currentVersionCode()})"
+        } catch (_: Exception) {
+            "?"
+        }
+
+    // first bytes of the SHA-256 of the signing certificate: must be the same in every build
+    @Suppress("DEPRECATION")
+    private fun signatureFingerprint(): String =
+        try {
+
+            val signature =
+                if (Build.VERSION.SDK_INT >= 28) {
+                    packageManager
+                        .getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+                        .signingInfo
+                        ?.apkContentsSigners
+                        ?.firstOrNull()
+                } else {
+                    packageManager
+                        .getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+                        .signatures
+                        ?.firstOrNull()
+                }
+
+            if (signature == null) {
+                "?"
+            } else {
+                MessageDigest.getInstance("SHA-256")
+                    .digest(signature.toByteArray())
+                    .take(4)
+                    .joinToString(":") { "%02X".format(it) }
+            }
+
+        } catch (_: Exception) {
+            "?"
+        }
 
     // =========================
     // Focus helpers
