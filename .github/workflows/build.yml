@@ -1,6 +1,6 @@
 name: Build Niyati TV
 
-‘on’:
+on:
 workflow_dispatch:
 
 permissions:
@@ -24,11 +24,13 @@ uses: actions/checkout@v4
       gradle-version: '8.11.1'
   - name: Build APK
     run: gradle assembleDebug
-  - name: Verify APK signature
+  - name: Check signing
     run: |
       BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
       APK="app/build/outputs/apk/debug/app-debug.apk"
+      echo "== APK package =="
       "$BT/aapt2" dump badging "$APK" | grep "^package:"
+      echo "== APK signature =="
       "$BT/apksigner" verify --print-certs "$APK"
   - name: Prepare APK
     run: |
@@ -39,7 +41,4 @@ uses: actions/checkout@v4
       GH_TOKEN: ${{ github.token }}
     run: |
       TAG="build-${{ github.run_number }}"
-      gh release create "$TAG" \
-        release/Niyati-TV-debug.apk \
-        --title "Niyati TV Build ${{ github.run_number }}" \
-        --notes "Niyati TV debug APK"
+      gh release create "$TAG" release/Niyati-TV-debug.apk --title "Niyati TV Build ${{ github.run_number }}" --notes "Niyati TV debug APK"
