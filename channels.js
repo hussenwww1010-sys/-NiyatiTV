@@ -13,7 +13,7 @@ window.channels = [
         qualities: [
             {
                 name: "HLS",
-                url: "http://194.76.0.163/8zpo3GsVY7/beneficial2concern/652372?token=ShJdY2ZmQQNHCmMZCDZXUh9GSHAWGFMD.ZDsGQVN.WGBFNX013GR9YV1QbGBp0QE9SWmpcXlQXXlUHWlcbRxFACmcDY1tXEVkbVAoAAQJUFxUbRFldAxdeUAdaVAFcUwcHAhwWQlpXQQMLTFhUG0FQQU1VQl4HWTsFVBQLVABGCVxEXFgeEVwNZgFcWVlZBxcDGwESHERcFxETWAxCCQgfEFNZQEBSRwYbX1dBVFtPF1pWRV5EFExGWxMmJxVJRlZKRVVaQVpcDRtfG0BLFU8XUEpvQlUVQRYEUA8HRUdeEQITHBZfUks8WgpXWl1UF1xWV0MSCkQERk0TDw1ZDBBcQG5AXVYRCQ1MCVVJ"
+                url: "http://89.45.13.194:8080/live/10375497945304/24779171855387/601396.ts?token=babzyU.dzUUcd.X.fzbbcHf.yHXdHyyzzc.X.y.IQ.ts.d00201eb47286b62912a944d9a585477d45f26694f73a6ed176a7070a5ef5eba...c2lsa2EubTN1bTl4cGx1cy5vcmc="
             }
         ]
     },
