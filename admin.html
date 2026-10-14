@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة تحكم Niyati TV</title>
+<style>
+:root{--bg:#070a1c;--card:#12163a;--line:rgba(255,255,255,.12);--cy:#00e5ff;--vi:#a855f7;--tx:#e8ecf8;--mu:#93a0c0;--red:#ff4d6d;--gr:#34d399}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(700px 400px at 90% 0,rgba(168,85,247,.3),transparent 70%),radial-gradient(700px 400px at 0 100%,rgba(0,229,255,.16),transparent 70%),var(--bg);color:var(--tx);min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:sticky;top:0;background:rgba(7,10,28,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:5}
+header b{font-size:18px;letter-spacing:1px}
+nav{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
+nav button{flex:none;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--mu);padding:9px 16px;border-radius:20px;font-size:15px;cursor:pointer}
+nav button.on{background:linear-gradient(135deg,#00b4d8,#7c3aed);color:#fff;border-color:transparent}
+main{padding:4px 16px 80px;max-width:900px;margin:0 auto}
+.card{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.row small{color:var(--mu);display:block;margin-top:3px;line-height:1.5}
+.btn{border:0;border-radius:12px;padding:9px 15px;font-size:14px;color:#fff;background:linear-gradient(135deg,#00b4d8,#7c3aed);cursor:pointer}
+.btn.g{background:rgba(255,255,255,.1);border:1px solid var(--line)}
+.btn.r{background:rgba(255,77,109,.18);border:1px solid var(--red);color:#ffb3c0}
+.btn.s{padding:6px 11px;font-size:13px}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
+input,select,textarea{width:100%;background:#0c1030;color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:11px;font-size:15px;font-family:inherit}
+textarea{min-height:90px}
+label{display:block;margin:12px 0 5px;color:var(--mu);font-size:14px}
+.chk{display:flex;align-items:center;gap:10px;margin:14px 0}
+.chk input{width:auto}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:20}
+#modal .box{background:#0d1130;border:1px solid var(--line);border-radius:22px 22px 0 0;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:16px 16px 28px}
+@media(min-width:700px){#modal{align-items:center}#modal .box{border-radius:22px}}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700}
+.ok{background:rgba(52,211,153,.18);color:var(--gr)}.bad{background:rgba(255,77,109,.18);color:#ff8fa3}.warn{background:rgba(251,191,36,.18);color:#fbbf24}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1b2150;border:1px solid var(--cy);padding:10px 20px;border-radius:16px;display:none;z-index:30}
+#login{max-width:380px;margin:12vh auto;padding:0 18px}
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat .card b{font-size:30px;display:block}
+table{width:100%;border-collapse:collapse}td{padding:8px 4px;border-bottom:1px solid var(--line)}
+.mu{color:var(--mu)}
+</style>
+</head>
+<body>
+<div id="login">
+<h2>لوحة تحكم Niyati TV</h2>
+<p class="mu">سجّل الدخول بحساب المدير.</p>
+<label>البريد الإلكتروني</label><input id="em" type="email" autocomplete="username">
+<label>كلمة السر</label><input id="pw" type="password" autocomplete="current-password">
+<p id="lerr" style="color:#ff8fa3"></p>
+<button class="btn" style="width:100%;padding:13px" onclick="login()">دخول</button>
+</div>
+<div id="app" style="display:none">
+<header><b>Niyati TV · لوحة التحكم</b><button class="btn g s" onclick="auth.signOut()">خروج</button></header>
+<nav id="nav"></nav>
+<main id="view"></main>
+</div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+// ====== 1) ضع هنا إعدادات مشروعك (Firebase > Project settings > Your apps > Web) ======
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY_HERE",
+  authDomain: "niyati-tv.firebaseapp.com",
+  databaseURL: "https://niyati-tv-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "niyati-tv"
+};
+// =====================================================================================
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.database();
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean = s => String(s).replace(/[.#$\[\]\/]/g, '_').slice(0, 80);
+const DAY = 86400000;
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2600)}
+function fmt(ms){return ms?new Date(ms).toLocaleString('ar-IQ'):'-'}
+
+function login(){
+  auth.signInWithEmailAndPassword($('#em').value.trim(), $('#pw').value)
+    .catch(e => $('#lerr').textContent = 'تعذر الدخول: ' + e.message);
+}
+auth.onAuthStateChanged(u => {
+  $('#login').style.display = u ? 'none' : 'block';
+  $('#app').style.display = u ? 'block' : 'none';
+  if (u) go(localStorage.getItem('tab') || 'channels');
+});
+
+// ---------------- التبويبات ----------------
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+function go(t){
+  localStorage.setItem('tab', t);
+  $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
+  $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
+  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
+}
+
+// ---------------- قوائم عامة (قنوات / باقات / مباريات) ----------------
+const PK = {path:'packages', title:'الباقات', key:v=>clean(v.name), fields:[
+  {k:'name',l:'اسم الباقة',t:'text',req:1},{k:'logo',l:'رابط الشعار',t:'text'},{k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'مفعّلة',t:'bool',d:true}],
+  row:v=>[v.name, (v.enabled===false?'معطلة':'ظاهرة')+' · ترتيب '+(v.order??'-')]};
+const CH = {path:'channels', title:'القنوات', fields:[
+  {k:'name',l:'اسم القناة',t:'text',req:1},{k:'group',l:'الباقة',t:'pkg',req:1},
+  {k:'url',l:'الرابط (السيرفر 1)',t:'text',req:1},{k:'url2',l:'السيرفر 2',t:'text'},{k:'url3',l:'السيرفر 3',t:'text'},{k:'url4',l:'السيرفر 4',t:'text'},{k:'url5',l:'السيرفر 5',t:'text'},
+  {k:'logo',l:'رابط الشعار',t:'text'},{k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'مفعّلة',t:'bool',d:true},{k:'new',l:'علامة «جديد»',t:'bool'},
+  {k:'userAgent',l:'User-Agent (اختياري)',t:'text'},{k:'referer',l:'Referer (اختياري)',t:'text'},{k:'epgId',l:'معرّف دليل البرامج (EPG)',t:'text'},
+  {k:'audios',l:'قنوات صوتية (المعلقين)',t:'audios'}],
+  row:v=>[v.name, (v.group||'-')+' · '+(v.enabled===false?'معطلة':'تعمل')+(v.url2?' · '+(2+['url3','url4','url5'].filter(k=>v[k]).length)+' سيرفرات':'')]};
+const MT = {path:'matches', title:'المباريات', fields:[
+  {k:'home',l:'الفريق الأول',t:'text',req:1},{k:'away',l:'الفريق الثاني',t:'text',req:1},{k:'league',l:'البطولة',t:'text'},
+  {k:'date',l:'التاريخ (فارغ = اليوم)',t:'date'},{k:'time',l:'الوقت (مثل 21:45)',t:'text'},
+  {k:'status',l:'الحالة',t:'sel',o:[['','لم تبدأ'],['live','مباشرة'],['ft','انتهت']]},{k:'score',l:'النتيجة (مثل 1-0)',t:'text'},
+  {k:'channel',l:'القناة الناقلة',t:'chan'},{k:'homeLogo',l:'شعار الأول',t:'text'},{k:'awayLogo',l:'شعار الثاني',t:'text'},
+  {k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'مفعّلة',t:'bool',d:true}],
+  row:v=>[v.home+' × '+v.away, (v.status==='live'?'🔴 مباشرة ':'')+(v.time||'')+' · '+(v.league||'')]};
+
+let CFG, DATA = {}, PKG = [], CHN = [];
+async function list(cfg){
+  CFG = cfg;
+  const snap = await db.ref(cfg.path).once('value'); DATA = snap.val() || {};
+  const ps = await db.ref('packages').once('value'); PKG = Object.values(ps.val()||{}).map(p=>p.name).filter(Boolean);
+  const cs = await db.ref('channels').once('value'); CHN = Object.values(cs.val()||{}).map(c=>c.name).filter(Boolean);
+  const rows = Object.entries(DATA).sort((a,b)=>(a[1].order??999)-(b[1].order??999));
+  $('#view').innerHTML = `<div class="bar"><b>${cfg.title} (${rows.length})</b><button class="btn" onclick="edit('')">+ إضافة</button></div>
+  <input id="q" placeholder="بحث…" oninput="filt()">` +
+  rows.map(([k,v]) => { const [t,s] = cfg.row(v); return `<div class="card row" data-s="${esc((t+' '+s).toLowerCase())}"><div><b>${esc(t)}</b><small>${esc(s)}</small></div><div><button class="btn g s" onclick="edit('${esc(k)}')">تعديل</button></div></div>`; }).join('');
+}
+function filt(){const q=$('#q').value.toLowerCase();document.querySelectorAll('[data-s]').forEach(e=>e.style.display=e.dataset.s.includes(q)?'':'none')}
+
+function field(f, v){
+  const id = 'f_' + f.k, val = v === undefined ? (f.d ?? '') : v;
+  if (f.t==='bool') return `<div class="chk"><input id="${id}" type="checkbox" ${val===true||val==='true'?'checked':''}><span>${f.l}</span></div>`;
+  let inner;
+  if (f.t==='pkg') inner = `<select id="${id}"><option value="">— اختر —</option>${PKG.map(p=>`<option ${p===val?'selected':''}>${esc(p)}</option>`).join('')}</select>`;
+  else if (f.t==='chan') inner = `<input id="${id}" list="dl_${id}" value="${esc(val)}"><datalist id="dl_${id}">${CHN.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
+  else if (f.t==='sel') inner = `<select id="${id}">${f.o.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  else if (f.t==='area') inner = `<textarea id="${id}">${esc(val)}</textarea>`;
+  else if (f.t==='audios'){ const a=(val&&typeof val==='object')?Object.values(val):[];
+    inner=[0,1,2].map(i=>`<div class="row" style="margin:5px 0"><input id="${id}n${i}" placeholder="اسم المعلق" value="${esc(a[i]?.name)}"><input id="${id}u${i}" placeholder="رابط الصوت" value="${esc(a[i]?.url)}"></div>`).join('') }
+  else inner = `<input id="${id}" type="${f.t==='num'?'number':f.t==='date'?'date':'text'}" value="${esc(val)}">`;
+  return `<label>${f.l}${f.req?' *':''}</label>${inner}`;
+}
+function read(f){
+  const id = 'f_' + f.k;
+  if (f.t==='bool') return $('#'+id).checked;
+  if (f.t==='audios'){ const o={}; [0,1,2].forEach(i=>{const n=$('#'+id+'n'+i).value.trim(),u=$('#'+id+'u'+i).value.trim(); if(u) o['a'+(i+1)]={name:n||('تعليق '+(i+1)),url:u}}); return Object.keys(o).length?o:null }
+  const x = $('#'+id).value.trim();
+  if (x==='') return null;
+  return f.t==='num' ? Number(x) : x;
+}
+function edit(key){
+  const v = key ? DATA[key] : {}, c = CFG;
+  $('#mbox').innerHTML = `<h3>${key?'تعديل':'إضافة'} · ${c.title}</h3>${c.fields.map(f=>field(f, key?v[f.k]:undefined)).join('')}
+  <div class="row" style="margin-top:18px"><button class="btn" onclick="save('${esc(key)}')">حفظ</button>${key?`<button class="btn r" onclick="del('${esc(key)}')">حذف</button>`:''}<button class="btn g" onclick="closeM()">إلغاء</button></div>`;
+  $('#modal').style.display='flex';
+}
+function closeM(){$('#modal').style.display='none'}
+async function save(key){
+  const out = {};
+  for (const f of CFG.fields){ const x = read(f); if (f.req && (x===null||x==='')) return toast('الحقل مطلوب: '+f.l); out[f.k] = x; }
+  const k = key || (CFG.key ? CFG.key(out) : db.ref(CFG.path).push().key);
+  try { await db.ref(CFG.path+'/'+k).update(out); closeM(); toast('تم الحفظ'); list(CFG); } catch(e){ toast('فشل: '+e.message) }
+}
+async function del(key){
+  if (!confirm('حذف نهائي؟')) return;
+  await db.ref(CFG.path+'/'+key).remove(); closeM(); toast('تم الحذف'); list(CFG);
+}
+
+// ---------------- الأكواد ----------------
+function rand(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<8;i++){s+=a[Math.floor(Math.random()*a.length)];if(i===3)s+='-'}return s}
+async function viewCodes(){
+  const snap = await db.ref('codes').once('value'); const d = snap.val() || {};
+  const now = Date.now();
+  $('#view').innerHTML = `<div class="bar"><b>الأكواد (${Object.keys(d).length})</b><button class="btn" onclick="newCode()">+ كود جديد</button></div>` +
+  Object.entries(d).map(([k,v]) => {
+    const exp = v.expiresAt || (v.expires ? Date.parse(v.expires+'T23:59:59') : null);
+    const dev = Object.keys(v.devices||{}).length;
+    const st = v.enabled===false ? ['موقوف','bad'] : exp ? (exp<now ? ['منتهي','bad'] : [Math.ceil((exp-now)/DAY)+' يوم','ok']) : (v.days ? ['لم يُفعَّل بعد · '+v.days+' يوم','warn'] : ['غير محدود','ok']);
+    return `<div class="card"><div class="row"><div><b style="letter-spacing:2px">${esc(k)}</b><small>${esc(v.name||'')}</small></div><span class="pill ${st[1]}">${st[0]}</span></div>
+    <small>الأجهزة: ${dev}/${v.maxDevices||1}${exp?' · ينتهي: '+fmt(exp):''}</small>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;justify-content:flex-start">
+    <button class="btn g s" onclick="codeAct('${k}','toggle')">${v.enabled===false?'تفعيل':'إيقاف'}</button>
+    <button class="btn g s" onclick="codeAct('${k}','ext')">+30 يوم</button>
+    <button class="btn g s" onclick="codeAct('${k}','devs')">تصفير الأجهزة</button>
+    <button class="btn g s" onclick="navigator.clipboard.writeText('${k}');toast('تم النسخ')">نسخ</button>
+    <button class="btn r s" onclick="codeAct('${k}','del')">حذف</button></div></div>`;
+  }).join('');
+}
+function newCode(){
+  $('#mbox').innerHTML = `<h3>كود جديد</h3><label>الكود</label><input id="c_code" value="${rand()}">
+  <label>اسم المشترك / ملاحظة</label><input id="c_name">
+  <label>عدد الأيام (يبدأ العد عند أول استخدام)</label><input id="c_days" type="number" value="30">
+  <label>أو تاريخ انتهاء ثابت (يلغي الأيام)</label><input id="c_exp" type="date">
+  <label>عدد الأجهزة المسموحة</label><input id="c_max" type="number" value="1">
+  <div class="row" style="margin-top:18px"><button class="btn" onclick="saveCode()">حفظ</button><button class="btn g" onclick="closeM()">إلغاء</button></div>`;
+  $('#modal').style.display='flex';
+}
+async function saveCode(){
+  const code = $('#c_code').value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
+  if (code.length<4) return toast('الكود قصير');
+  const o = {enabled:true, maxDevices:Number($('#c_max').value)||1, name:$('#c_name').value.trim()||null};
+  if ($('#c_exp').value) o.expires = $('#c_exp').value; else o.days = Number($('#c_days').value)||30;
+  await db.ref('codes/'+code).set(o); closeM(); toast('تم إنشاء الكود'); viewCodes();
+}
+async function codeAct(k, a){
+  const r = db.ref('codes/'+k);
+  if (a==='del'){ if(!confirm('حذف الكود؟')) return; await r.remove(); }
+  else if (a==='toggle'){ const v=(await r.once('value')).val()||{}; await r.update({enabled: v.enabled===false}); }
+  else if (a==='devs'){ await r.child('devices').remove(); }
+  else if (a==='ext'){ const v=(await r.once('value')).val()||{};
+    if (v.expiresAt) await r.update({expiresAt: Math.max(v.expiresAt, Date.now()) + 30*DAY, enabled:true});
+    else if (v.expires) await r.update({expires: new Date(Math.max(Date.parse(v.expires), Date.now())+30*DAY).toISOString().slice(0,10), enabled:true});
+    else await r.update({days:(v.days||0)+30, enabled:true}); }
+  viewCodes();
+}
+
+// ---------------- الإعدادات ----------------
+const SET = [
+ {k:'appEnabled',l:'التطبيق يعمل',t:'bool',d:true},{k:'maintenance',l:'وضع الصيانة',t:'bool'},
+ {k:'announcementEnabled',l:'إظهار إعلان',t:'bool'},{k:'announcementTitle',l:'عنوان الإعلان',t:'text'},{k:'announcementMessage',l:'نص الإعلان (أو رسالة الصيانة)',t:'area'},
+ {k:'latestVersion',l:'آخر رقم إصدار (versionCode)',t:'num'},{k:'updateUrl',l:'رابط ملف التحديث (APK مباشر)',t:'text'},{k:'updateNotes',l:'ملاحظات التحديث',t:'area'},
+ {k:'forceUpdate',l:'تحديث إجباري',t:'bool'},{k:'minVersion',l:'أقل إصدار مسموح',t:'num'},{k:'updateSha256',l:'SHA-256 للملف (اختياري)',t:'text'},
+ {k:'requireCode',l:'اشتراط كود التفعيل',t:'bool'},{k:'userAgent',l:'User-Agent الافتراضي',t:'text'},
+ {k:'weather_city',l:'مدينة الطقس',t:'text'},{k:'weather_lat',l:'خط العرض',t:'num'},{k:'weather_lon',l:'خط الطول',t:'num'},
+ {k:'adminDevices',l:'معرّفات أجهزة المدير (سطر لكل جهاز)',t:'area'}];
+async function viewSettings(){
+  const v = (await db.ref('settings').once('value')).val() || {};
+  CFG = {fields:SET};
+  const av = Object.keys(v.adminDevices||{}).join('\n');
+  $('#view').innerHTML = `<div class="card">${SET.map(f=>field(f, f.k==='adminDevices'?av:v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveSet()">حفظ الإعدادات</button></div>`;
+}
+async function saveSet(){
+  const o = {};
+  SET.forEach(f=>{ let x = read(f); if (f.k==='adminDevices'){ const ids=(x||'').split(/\s+/).filter(Boolean); x = ids.length?Object.fromEntries(ids.map(i=>[i,true])):null } o[f.k]=x });
+  await db.ref('settings').update(o); toast('تم حفظ الإعدادات'); 
+}
+
+// ---------------- البلاغات ----------------
+async function viewReports(){
+  const d = (await db.ref('reports').once('value')).val() || {};
+  const rows = Object.entries(d).sort((a,b)=>((b[1].count||0)+(b[1].auto||0))-((a[1].count||0)+(a[1].auto||0)));
+  $('#view').innerHTML = `<div class="bar"><b>القنوات المبلّغ عنها (${rows.length})</b><button class="btn g s" onclick="viewReports()">تحديث</button></div>` +
+  (rows.map(([k,v]) => `<div class="card row"><div><b>${esc(v.name||k)}</b><small>بلاغات المشاهدين: ${v.count||0} · فشل تلقائي: ${v.auto||0}<br>آخر سبب: ${esc(v.reason||'-')} · ${fmt(v.last)}</small></div><button class="btn r s" onclick="rmReport('${esc(k)}')">تم الإصلاح</button></div>`).join('') || '<p class="mu">لا توجد بلاغات 👍</p>');
+}
+async function rmReport(k){ await db.ref('reports/'+k).remove(); viewReports(); }
+
+// ---------------- الإحصائيات ----------------
+async function viewStats(){
+  const today = new Date().toISOString().slice(0,10);
+  const [pr, us, ch] = await Promise.all([db.ref('presence').once('value'), db.ref('stats/daily/'+today+'/users').once('value'), db.ref('stats/channels').once('value')]);
+  const top = Object.values(ch.val()||{}).sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,15);
+  $('#view').innerHTML = `<div class="stat"><div class="card">المتصلون الآن<b>${pr.numChildren()}</b></div><div class="card">مستخدمو اليوم<b>${us.numChildren()}</b></div></div>
+  <div class="card"><b>أكثر القنوات مشاهدة</b><table>${top.map((c,i)=>`<tr><td>${i+1}</td><td>${esc(c.name)}</td><td>${c.views||0} مشاهدة</td><td class="mu">${Math.round((c.seconds||0)/60)} د</td></tr>`).join('')||'<tr><td class="mu">لا توجد بيانات بعد</td></tr>'}</table></div>
+  <button class="btn g" onclick="viewStats()">تحديث</button>`;
+}
+
+// ---------------- دليل البرامج (XMLTV) ----------------
+function viewEpg(){
+  $('#view').innerHTML = `<div class="card"><b>استيراد دليل البرامج (XMLTV)</b>
+  <p class="mu" style="line-height:1.7">اختر ملف <code>.xml</code> أو الصق رابطه. تُربط القنوات تلقائياً إذا كان «معرّف دليل البرامج» للقناة يساوي معرّف القناة في الملف، أو إذا تطابق الاسم. تُحفظ برامج الـ 48 ساعة القادمة فقط.</p>
+  <label>ملف XMLTV</label><input id="e_file" type="file" accept=".xml,text/xml">
+  <label>أو رابط الملف (قد يمنعه المتصفح)</label><input id="e_url" placeholder="https://…/epg.xml">
+  <button class="btn" style="margin-top:16px;width:100%" onclick="importEpg()">استيراد</button><pre id="e_log" class="mu" style="white-space:pre-wrap"></pre></div>`;
+}
+function xt(s){const m=(s||'').match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-])?(\d{2})?(\d{2})?/);if(!m)return NaN;let t=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);if(m[7])t-=((+m[8]*60)+(+m[9]||0))*60000*(m[7]==='-'?-1:1);return t}
+const nz = s => String(s||'').toLowerCase().replace(/[\s\-_.]/g,'');
+async function importEpg(){
+  const log = m => $('#e_log').textContent += m + '\n'; $('#e_log').textContent = '';
+  let text = '';
+  try { const f = $('#e_file').files[0]; text = f ? await f.text() : await (await fetch($('#e_url').value.trim())).text(); }
+  catch(e){ return log('تعذر قراءة الملف: ' + e.message) }
+  const xml = new DOMParser().parseFromString(text, 'text/xml');
+  if (xml.querySelector('parsererror')) return log('الملف ليس XMLTV صالحاً');
+  const names = {}; xml.querySelectorAll('channel').forEach(c => { names[c.getAttribute('id')] = [c.getAttribute('id'), ...[...c.querySelectorAll('display-name')].map(d => d.textContent)].map(nz) });
+  const app = (await db.ref('channels').once('value')).val() || {};
+  const map = {};
+  Object.values(app).forEach(c => { const key = c.epgId || clean(c.name || ''); const mine = [nz(c.epgId), nz(c.name)].filter(Boolean);
+    for (const [id, ns] of Object.entries(names)) if (ns.some(n => mine.includes(n))) { map[id] = key; break } });
+  const from = Date.now() - 3*3600000, to = Date.now() + 48*3600000, out = {}; let total = 0;
+  xml.querySelectorAll('programme').forEach(p => { const key = map[p.getAttribute('channel')]; if (!key) return;
+    const s = xt(p.getAttribute('start')), e = xt(p.getAttribute('stop')); if (isNaN(s) || isNaN(e) || e < from || s > to) return;
+    (out[key] = out[key] || {})[s] = {e, t: (p.querySelector('title')?.textContent || '').trim()}; total++ });
+  log('قنوات مطابقة: ' + Object.keys(out).length + ' · برامج: ' + total);
+  if (!total) return log('لم تتطابق أي قناة. ضع «معرّف دليل البرامج» في القناة بنفس معرّف الملف.');
+  for (const [k, v] of Object.entries(out)) await db.ref('epg/' + k).set(v);
+  log('✔ تم التحديث'); toast('تم تحديث دليل البرامج');
+}
+</script>
+</body>
+</html>
