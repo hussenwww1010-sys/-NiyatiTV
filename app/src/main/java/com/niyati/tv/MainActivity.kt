@@ -916,7 +916,7 @@ class MainActivity : Activity() {
                             mainHandler.removeCallbacks(stallRunnable)
 
                             if (playbackStarted) {
-                                mainHandler.postDelayed(stallRunnable, 12000)
+                                mainHandler.postDelayed(stallRunnable, 30000)
                             }
 
                             // full-screen status only at the start of playback,
