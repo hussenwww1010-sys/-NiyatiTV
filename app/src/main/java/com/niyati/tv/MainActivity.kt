@@ -203,7 +203,15 @@ class MainActivity : Activity() {
         val referer: String = "",
         val backups: List<String> = emptyList(),
         val isNew: Boolean = false,
-        val audios: List<AudioItem> = emptyList()
+        val audios: List<AudioItem> = emptyList(),
+        val epgId: String = ""
+    )
+
+    // one program of the TV guide
+    data class Program(
+        val start: Long,
+        val end: Long,
+        val title: String
     )
 
     // an extra audio channel (second commentator) added to a channel from the dashboard
@@ -486,6 +494,21 @@ class MainActivity : Activity() {
     private lateinit var touchFavIcon: TextView
     private lateinit var touchServerBtn: View
     private lateinit var touchAudioBtn: View
+    private lateinit var hudTop: LinearLayout
+    private lateinit var hudLogo: LogoBadge
+    private lateinit var hudName: TextView
+    private lateinit var hudSub: TextView
+    private lateinit var hudLive: TextView
+    private lateinit var hudQuality: TextView
+    private lateinit var hudSeekRow: LinearLayout
+    private lateinit var hudSeek: SeekBarView
+    private lateinit var hudTimeCur: TextView
+    private lateinit var hudTimeTotal: TextView
+    private lateinit var hudPlayIcon: TextView
+    private val hudVodButtons = mutableListOf<View>()
+    private var hudFirstButton: View? = null
+    private var epgMap: Map<String, List<Program>> = emptyMap()
+    private val timeFormat by lazy { SimpleDateFormat("HH:mm", Locale.US) }
 
     // ---- extra audio (commentators) ----
     private class AudioOption(val label: String, val group: Tracks.Group, val index: Int)
@@ -743,7 +766,7 @@ class MainActivity : Activity() {
         rootRef = database.reference
 
         // keep only these nodes in the local cache (never the codes / stats / presence)
-        for (node in listOf("settings", "packages", "channels", "matches")) {
+        for (node in listOf("settings", "packages", "channels", "matches", "epg")) {
             try {
                 rootRef.child(node).keepSynced(true)
             } catch (_: Exception) {
@@ -784,6 +807,8 @@ class MainActivity : Activity() {
         mainHandler.post(dateRunnable)
 
         mainHandler.post(tickerRunnable)
+
+        mainHandler.postDelayed(epgRunnable, 60_000L)
     }
 
     // =========================
@@ -916,7 +941,7 @@ class MainActivity : Activity() {
                             mainHandler.removeCallbacks(stallRunnable)
 
                             if (playbackStarted) {
-                                mainHandler.postDelayed(stallRunnable, 30000)
+                                mainHandler.postDelayed(stallRunnable, 12000)
                             }
 
                             // full-screen status only at the start of playback,
@@ -1598,6 +1623,8 @@ class MainActivity : Activity() {
             }
 
         val friendly = friendlyError(shown)
+
+        reportChannel(channel, friendly.first, true)
 
         showStatus(
             friendly.first,
@@ -3355,10 +3382,13 @@ class MainActivity : Activity() {
             // a match of today on this channel replaces "live broadcast"
             val match = if (hasUrl) matchForChannel(channel) else null
 
+            val epg = if (hasUrl) epgNowText(channel) else null
+
             card.subView.text =
                 when {
                     !hasUrl -> "غير متاح حالياً"
                     match != null -> matchSubText(match)
+                    epg != null -> epg
                     playing -> "يعرض الآن"
                     isVod -> "فيديو"
                     else -> "بث مباشر"
@@ -3368,6 +3398,7 @@ class MainActivity : Activity() {
                 when {
                     focused -> dimWhite
                     match != null -> if (isLiveMatch(match)) Color.rgb(255, 99, 120) else gold
+                    epg != null -> accent.start
                     playing -> accent.start
                     else -> gray
                 }
@@ -3440,7 +3471,7 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        for (key in listOf("settings", "packages", "channels", "matches")) {
+        for (key in listOf("settings", "packages", "channels", "matches", "epg")) {
 
             val listener =
                 object : ValueEventListener {
@@ -3486,6 +3517,8 @@ class MainActivity : Activity() {
         applyRemoteSettings(settingsPart)
 
         updateMatches(parts["matches"])
+
+        updateEpg(parts["epg"])
 
         if (!parts.containsKey("channels") && !parts.containsKey("packages")) {
             return
@@ -3640,7 +3673,8 @@ class MainActivity : Activity() {
                     referer = child.readString("referer") ?: "",
                     backups = collectBackups(child),
                     isNew = isNewChannel(child),
-                    audios = collectAudios(child)
+                    audios = collectAudios(child),
+                    epgId = child.readString("epgId") ?: ""
                 )
             )
         }
@@ -4222,7 +4256,7 @@ class MainActivity : Activity() {
         fun pkgName(c: Channel): String =
             realPackageName(c)
 
-        bannerCur.bind(channel, index + 1, pkgName(channel))
+        bannerCur.bind(channel, index + 1, epgNowText(channel) ?: pkgName(channel))
 
         bannerCur.setQuality(qualityText, qualityColor)
 
@@ -5241,7 +5275,7 @@ class MainActivity : Activity() {
 
         val vod = playingChannel?.let { isVodChannel(it) } == true
 
-        playerView.useController = isFullscreen && !playingWeb && vod
+        playerView.useController = false
     }
 
     // =========================
@@ -7348,7 +7382,14 @@ class MainActivity : Activity() {
 
         val base = realPackageName(channel)
 
-        val m = matchForChannel(channel) ?: return base
+        val m = matchForChannel(channel)
+
+        if (m == null) {
+
+            val guide = epgLine(channel)
+
+            return if (guide != null) "$guide  •  $base" else base
+        }
 
         val middle =
             if (isLiveMatch(m) || isFinishedMatch(m)) {
@@ -9019,6 +9060,8 @@ class MainActivity : Activity() {
 
         items.add("📐  أبعاد الشاشة (${aspectName()})" to { showAspectMenu() })
 
+        items.add("⚠  إبلاغ عن مشكلة" to { showReportMenu() })
+
         if (audioAvailable()) {
             items.add("🎙  الصوت (المعلق)" to { showAudioMenu() })
         }
@@ -9304,10 +9347,52 @@ class MainActivity : Activity() {
         hideTouchControls()
     }
 
+    private fun resetHudTimer() {
+        mainHandler.removeCallbacks(hideTouchRunnable)
+        mainHandler.postDelayed(hideTouchRunnable, 6000)
+    }
+
     private fun touchControlsVisible(): Boolean =
         ::touchControls.isInitialized && touchControls.visibility == View.VISIBLE
 
-    private fun touchButton(icon: String, text: String, action: () -> Unit): LinearLayout {
+    private fun hudStates(radiusDp: Int, base: Int): android.graphics.drawable.StateListDrawable {
+
+        val pressed =
+            GradientDrawable().apply {
+                cornerRadius = dp(radiusDp).toFloat()
+                setColor(withAlpha(cyan, 100))
+            }
+
+        val lit =
+            GradientDrawable().apply {
+                cornerRadius = dp(radiusDp).toFloat()
+                setColor(withAlpha(cyan, 110))
+                setStroke(dp(2), Color.WHITE)
+            }
+
+        val states = android.graphics.drawable.StateListDrawable()
+
+        states.addState(intArrayOf(android.R.attr.state_pressed), pressed)
+
+        states.addState(intArrayOf(android.R.attr.state_focused), lit)
+
+        states.addState(
+            intArrayOf(),
+            GradientDrawable().apply {
+                cornerRadius = dp(radiusDp).toFloat()
+                setColor(base)
+            }
+        )
+
+        return states
+    }
+
+    private fun touchButton(
+        icon: String,
+        text: String,
+        keepOpen: Boolean = false,
+        action: () -> Unit
+    ): LinearLayout {
 
         val button = LinearLayout(this)
 
@@ -9319,19 +9404,11 @@ class MainActivity : Activity() {
 
         button.isClickable = true
 
-        val pressed =
-            GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(withAlpha(cyan, 90))
-            }
+        button.isFocusable = true
 
-        val states = android.graphics.drawable.StateListDrawable()
+        button.isFocusableInTouchMode = !phoneMode
 
-        states.addState(intArrayOf(android.R.attr.state_pressed), pressed)
-
-        states.addState(intArrayOf(), GradientDrawable().apply { setColor(Color.TRANSPARENT) })
-
-        button.background = states
+        button.background = hudStates(16, Color.TRANSPARENT)
 
         val iconView = TextView(this)
 
@@ -9348,6 +9425,40 @@ class MainActivity : Activity() {
         button.addView(label(text, 10.5f, dimWhite, false, Gravity.CENTER), lp(wrap, wrap))
 
         button.setOnClickListener {
+
+            if (keepOpen) {
+                resetHudTimer()
+            } else {
+                hideTouchControls(true)
+            }
+
+            action()
+        }
+
+        return button
+    }
+
+    private fun roundIcon(icon: String, action: () -> Unit): TextView {
+
+        val button = TextView(this)
+
+        button.text = icon
+
+        button.textSize = 20f
+
+        button.setTextColor(white)
+
+        button.gravity = Gravity.CENTER
+
+        button.isClickable = true
+
+        button.isFocusable = true
+
+        button.isFocusableInTouchMode = !phoneMode
+
+        button.background = hudStates(23, Color.argb(70, 255, 255, 255))
+
+        button.setOnClickListener {
             hideTouchControls(true)
             action()
         }
@@ -9355,32 +9466,274 @@ class MainActivity : Activity() {
         return button
     }
 
+    // seek bar with the buffered part and a round handle (videos)
+    private inner class SeekBarView : View(this@MainActivity) {
+
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val rect = RectF()
+        private var progress = 0f
+        private var buffered = 0f
+        private var dragging = false
+
+        var onSeek: ((Float) -> Unit)? = null
+
+        fun setPosition(p: Float, b: Float) {
+
+            if (!dragging) {
+                progress = p.coerceIn(0f, 1f)
+            }
+
+            buffered = b.coerceIn(0f, 1f)
+
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val w = width.toFloat()
+
+            val h = height.toFloat()
+
+            val track = dp(5).toFloat()
+
+            val top = h / 2 - track / 2
+
+            paint.shader = null
+
+            paint.color = Color.argb(60, 255, 255, 255)
+
+            rect.set(0f, top, w, top + track)
+
+            canvas.drawRoundRect(rect, track / 2, track / 2, paint)
+
+            paint.color = Color.argb(115, 255, 255, 255)
+
+            rect.set(0f, top, w * buffered, top + track)
+
+            canvas.drawRoundRect(rect, track / 2, track / 2, paint)
+
+            paint.shader = LinearGradient(0f, 0f, maxOf(w, 1f), 0f, cyan, violet, Shader.TileMode.CLAMP)
+
+            rect.set(0f, top, w * progress, top + track)
+
+            canvas.drawRoundRect(rect, track / 2, track / 2, paint)
+
+            paint.shader = null
+
+            paint.color = Color.WHITE
+
+            canvas.drawCircle(w * progress, h / 2, dp(if (dragging) 10 else 8).toFloat(), paint)
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+
+            when (event.action) {
+
+                MotionEvent.ACTION_DOWN -> {
+                    dragging = true
+                    parent.requestDisallowInterceptTouchEvent(true)
+                    progress = (event.x / width).coerceIn(0f, 1f)
+                    resetHudTimer()
+                    invalidate()
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    progress = (event.x / width).coerceIn(0f, 1f)
+                    invalidate()
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    dragging = false
+                    onSeek?.invoke(progress)
+                    resetHudTimer()
+                    invalidate()
+                }
+            }
+
+            return true
+        }
+    }
+
     private fun buildTouchControls() {
 
-        touchControls = LinearLayout(this)
+        // ---------- top bar: exit, clock, channel info ----------
+        hudTop = LinearLayout(this)
 
-        touchControls.orientation = LinearLayout.HORIZONTAL
+        hudTop.orientation = LinearLayout.HORIZONTAL
 
-        touchControls.gravity = Gravity.CENTER
+        hudTop.gravity = Gravity.CENTER_VERTICAL
 
-        touchControls.setPadding(dp(8), dp(4), dp(8), dp(4))
+        hudTop.setPadding(dp(18), dp(14), dp(18), dp(34))
 
-        touchControls.visibility = View.GONE
+        hudTop.visibility = View.GONE
 
-        touchControls.background =
+        hudTop.background =
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(205, 22, 26, 66), Color.argb(225, 8, 10, 28))
+                intArrayOf(Color.argb(225, 4, 6, 18), Color.argb(0, 4, 6, 18))
+            )
+
+        hudTop.addView(roundIcon("⤢") { exitFullscreen() }, lp(dp(46), dp(46)))
+
+        val clock = TextClock(this)
+
+        clock.format12Hour = "hh:mm a"
+
+        clock.format24Hour = "hh:mm a"
+
+        clock.textSize = 15f
+
+        clock.setTextColor(white)
+
+        clock.typeface = Typeface.DEFAULT_BOLD
+
+        hudTop.addView(clock, lp(wrap, wrap).apply { setMargins(dp(14), 0, 0, 0) })
+
+        hudTop.addView(View(this), lp(0, 1, 1f))
+
+        hudLive = label("● مباشر", 12f, white, true, Gravity.CENTER)
+
+        hudLive.setPadding(dp(12), dp(3), dp(12), dp(3))
+
+        hudLive.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(Color.argb(200, 220, 38, 38))
+            }
+
+        hudTop.addView(hudLive, lp(wrap, wrap).apply { setMargins(0, 0, dp(8), 0) })
+
+        hudQuality = label("", 12f, cyan, true, Gravity.CENTER)
+
+        hudQuality.setPadding(dp(10), dp(3), dp(10), dp(3))
+
+        hudQuality.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(Color.argb(150, 8, 10, 28))
+                setStroke(dp(1), cyan)
+            }
+
+        hudTop.addView(hudQuality, lp(wrap, wrap).apply { setMargins(0, 0, dp(12), 0) })
+
+        val info = LinearLayout(this)
+
+        info.orientation = LinearLayout.VERTICAL
+
+        hudName = label("", 18f, white, true)
+
+        setupFit(hudName, 18, 11)
+
+        hudName.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+
+        hudSub = label("", 12f, dimWhite)
+
+        info.addView(hudName, lp(dp(300), dp(26)))
+
+        info.addView(hudSub, lp(dp(300), wrap))
+
+        hudTop.addView(info, lp(wrap, wrap).apply { setMargins(0, 0, dp(10), 0) })
+
+        hudLogo = LogoBadge(48, accentFor(0))
+
+        hudTop.addView(hudLogo, lp(dp(48), dp(48)))
+
+        fullscreenContainer.addView(
+            hudTop,
+            FrameLayout.LayoutParams(matchParent, wrap, Gravity.TOP)
+        )
+
+        // ---------- bottom card with LED border ----------
+        val card = LedFrame()
+
+        touchControls = card
+
+        card.cornerDp = 28
+
+        card.setColors(cyan, violet)
+
+        card.orientation = LinearLayout.VERTICAL
+
+        card.gravity = Gravity.CENTER_HORIZONTAL
+
+        card.setPadding(dp(14), dp(10), dp(14), dp(8))
+
+        card.visibility = View.GONE
+
+        card.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(
+                    withAlpha(mix(violet, bgTop, 0.32f), 215),
+                    withAlpha(mix(bgMid, bgTop, 0.7f), 225),
+                    withAlpha(bgBottom, 230)
+                )
             ).apply {
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), Color.argb(90, 255, 255, 255))
             }
+
+        // seek row (videos only)
+        hudSeekRow = LinearLayout(this)
+
+        hudSeekRow.orientation = LinearLayout.HORIZONTAL
+
+        hudSeekRow.gravity = Gravity.CENTER_VERTICAL
+
+        hudSeekRow.minimumWidth = dp(520)
+
+        hudSeekRow.visibility = View.GONE
+
+        hudTimeCur = label("0:00", 12f, white, true, Gravity.LEFT)
+
+        hudSeek = SeekBarView()
+
+        hudSeek.onSeek = { fraction ->
+            val duration = player.duration
+            if (duration > 0) {
+                player.seekTo((fraction * duration).toLong())
+            }
+        }
+
+        hudTimeTotal = label("0:00", 12f, white, true, Gravity.RIGHT)
+
+        hudSeekRow.addView(hudTimeCur, lp(dp(54), wrap))
+
+        hudSeekRow.addView(hudSeek, lp(0, dp(30), 1f))
+
+        hudSeekRow.addView(hudTimeTotal, lp(dp(54), wrap))
+
+        card.addView(hudSeekRow, lp(matchParent, wrap))
+
+        // buttons
+        val buttons = LinearLayout(this)
+
+        buttons.orientation = LinearLayout.HORIZONTAL
+
+        buttons.gravity = Gravity.CENTER
 
         val size = lp(dp(64), wrap).apply { setMargins(dp(2), 0, dp(2), 0) }
 
-        touchControls.addView(touchButton("⤢", "خروج") { exitFullscreen() }, size)
+        hudVodButtons.clear()
 
-        touchControls.addView(touchButton("⏮", "السابقة") { goPreviousChannel() }, size)
+        val back = touchButton("⏪", "10 ث", true) { seekBy(-10000L) }
+
+        val play = touchButton("⏸", "تشغيل", true) { togglePlayPause() }
+
+        hudPlayIcon = play.getChildAt(0) as TextView
+
+        val forward = touchButton("⏩", "10 ث", true) { seekBy(10000L) }
+
+        hudVodButtons.add(back)
+        hudVodButtons.add(play)
+        hudVodButtons.add(forward)
+
+        hudVodButtons.forEach {
+            it.visibility = View.GONE
+            buttons.addView(it, size)
+        }
+
+        buttons.addView(touchButton("⏮", "السابقة") { goPreviousChannel() }, size)
 
         val fav = touchButton("☆", "المفضلة") {
             playingChannel?.let { toggleFavorite(it) }
@@ -9388,35 +9741,134 @@ class MainActivity : Activity() {
 
         touchFavIcon = fav.getChildAt(0) as TextView
 
-        touchControls.addView(fav, size)
+        buttons.addView(fav, size)
 
         touchAudioBtn = touchButton("🎙", "الصوت") { openAudioStrip() }
 
-        touchControls.addView(touchAudioBtn, size)
+        buttons.addView(touchAudioBtn, size)
 
         touchServerBtn = touchButton("🖥", "السيرفر") { openServerStrip() }
 
-        touchControls.addView(touchServerBtn, size)
+        buttons.addView(touchServerBtn, size)
 
-        touchControls.addView(touchButton("🎚", "الجودة") { openQualityStrip() }, size)
+        buttons.addView(touchButton("🎚", "الجودة") { openQualityStrip() }, size)
 
-        touchControls.addView(touchButton("📐", "الأبعاد") { openAspectStrip() }, size)
+        buttons.addView(touchButton("📐", "الأبعاد") { openAspectStrip() }, size)
 
-        touchControls.addView(touchButton("📋", "القنوات") { openChannelPanel() }, size)
+        buttons.addView(touchButton("⚠", "إبلاغ") { showReportMenu() }, size)
+
+        val channelsButton = touchButton("📋", "القنوات") { openChannelPanel() }
+
+        hudFirstButton = channelsButton
+
+        buttons.addView(channelsButton, size)
+
+        card.addView(buttons, lp(wrap, wrap))
 
         fullscreenContainer.addView(
-            touchControls,
+            card,
             FrameLayout.LayoutParams(wrap, wrap, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = dp(22)
             }
         )
     }
 
-    private fun showTouchControls() {
+    private fun fmtTime(ms: Long): String {
 
-        if (!isFullscreen || playingChannel == null) {
+        val total = (ms / 1000).coerceAtLeast(0)
+
+        val h = total / 3600
+
+        val m = (total % 3600) / 60
+
+        val sec = total % 60
+
+        return if (h > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", h, m, sec)
+        } else {
+            String.format(Locale.US, "%d:%02d", m, sec)
+        }
+    }
+
+    private fun togglePlayPause() {
+
+        if (player.playbackState == Player.STATE_ENDED) {
+            player.seekTo(0)
+            player.playWhenReady = true
             return
         }
+
+        player.playWhenReady = !player.playWhenReady
+    }
+
+    private fun seekBy(deltaMs: Long) {
+
+        val duration = player.duration
+
+        val target = player.currentPosition + deltaMs
+
+        player.seekTo(if (duration > 0) target.coerceIn(0L, duration) else maxOf(0L, target))
+    }
+
+    // double tap on the left / right half = 10 seconds (videos)
+    private fun handleDoubleTap(x: Float) {
+
+        val channel = playingChannel ?: return
+
+        if (playingWeb || !isVodChannel(channel) || panelOpen() || menuOpen()) {
+            return
+        }
+
+        val back = x < resources.displayMetrics.widthPixels / 2f
+
+        seekBy(if (back) -10000L else 10000L)
+
+        Toast.makeText(this, if (back) "⏪ 10 ثوانٍ" else "⏩ 10 ثوانٍ", Toast.LENGTH_SHORT).show()
+    }
+
+    private val hudTickRunnable = object : Runnable {
+
+        override fun run() {
+
+            if (!touchControlsVisible()) {
+                return
+            }
+
+            val channel = playingChannel
+
+            if (channel != null && !playingWeb && isVodChannel(channel)) {
+
+                val duration = player.duration
+
+                if (duration > 0) {
+
+                    hudSeek.setPosition(
+                        player.currentPosition.toFloat() / duration,
+                        player.bufferedPosition.toFloat() / duration
+                    )
+
+                    hudTimeCur.text = fmtTime(player.currentPosition)
+
+                    hudTimeTotal.text = fmtTime(duration)
+                }
+
+                hudPlayIcon.text =
+                    if (player.playWhenReady && player.playbackState != Player.STATE_ENDED) "⏸" else "▶"
+            }
+
+            mainHandler.postDelayed(this, 500)
+        }
+    }
+
+    private fun showTouchControls() {
+
+        val channel = playingChannel ?: return
+
+        if (!isFullscreen) {
+            return
+        }
+
+        val vod = isVodChannel(channel)
 
         // keep the picture clean
         mainHandler.removeCallbacks(hideZapRunnable)
@@ -9425,14 +9877,43 @@ class MainActivity : Activity() {
 
         zapBanner.visibility = View.GONE
 
-        touchFavIcon.text = if (playingChannel?.let { isFavorite(it) } == true) "★" else "☆"
+        // top bar: the channel and what is on now
+        fitName(hudName, channel.name, 18, 11)
+
+        hudSub.text = epgLine(channel) ?: nowSubText(channel)
+
+        hudLogo.bind(channel.name, channel.logo)
+
+        hudLive.visibility = if (vod) View.GONE else View.VISIBLE
+
+        hudQuality.text = qualityText
+
+        hudQuality.visibility = if (qualityText.isEmpty()) View.GONE else View.VISIBLE
+
+        // bottom card
+        touchFavIcon.text = if (isFavorite(channel)) "★" else "☆"
 
         touchFavIcon.setTextColor(if (touchFavIcon.text == "★") gold else white)
 
-        // only the buttons that make sense for this channel
+        hudVodButtons.forEach { it.visibility = if (vod) View.VISIBLE else View.GONE }
+
+        hudSeekRow.visibility = if (vod) View.VISIBLE else View.GONE
+
         touchServerBtn.visibility = if (serversAvailable()) View.VISIBLE else View.GONE
 
         touchAudioBtn.visibility = if (audioAvailable()) View.VISIBLE else View.GONE
+
+        if (!phoneMode) {
+            setVideoFocusable(false)
+        }
+
+        hudTop.animate().cancel()
+
+        hudTop.alpha = 0f
+
+        hudTop.visibility = View.VISIBLE
+
+        hudTop.animate().alpha(1f).setDuration(160).start()
 
         touchControls.animate().cancel()
 
@@ -9442,26 +9923,40 @@ class MainActivity : Activity() {
 
         touchControls.animate().alpha(1f).setDuration(160).start()
 
-        mainHandler.removeCallbacks(hideTouchRunnable)
+        mainHandler.removeCallbacks(hudTickRunnable)
 
-        mainHandler.postDelayed(hideTouchRunnable, 5000)
+        mainHandler.post(hudTickRunnable)
+
+        resetHudTimer()
+
+        if (!phoneMode) {
+            touchControls.post { hudFirstButton?.requestFocus() }
+        }
     }
 
     private fun hideTouchControls(immediate: Boolean = false) {
 
         mainHandler.removeCallbacks(hideTouchRunnable)
 
+        mainHandler.removeCallbacks(hudTickRunnable)
+
         if (!touchControlsVisible()) {
             return
         }
+
+        hudTop.animate().cancel()
 
         touchControls.animate().cancel()
 
         if (immediate) {
 
+            hudTop.visibility = View.GONE
+
             touchControls.visibility = View.GONE
 
         } else {
+
+            hudTop.animate().alpha(0f).setDuration(180).withEndAction { hudTop.visibility = View.GONE }.start()
 
             touchControls.animate()
                 .alpha(0f)
@@ -9469,6 +9964,31 @@ class MainActivity : Activity() {
                 .withEndAction { touchControls.visibility = View.GONE }
                 .start()
         }
+
+        if (!phoneMode && isFullscreen) {
+
+            setVideoFocusable(true)
+
+            if (!panelOpen() && !qualityStripOpen()) {
+                if (playingWeb) webView.requestFocus() else playerView.requestFocus()
+            }
+        }
+    }
+
+    private fun handleHudKey(event: KeyEvent): Boolean {
+
+        resetHudTimer()
+
+        if (event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_MENU) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                hideTouchControls()
+            }
+
+            return true
+        }
+
+        return super.dispatchKeyEvent(event)
     }
 
     private fun hitView(view: View, x: Float, y: Float): Boolean {
@@ -9503,7 +10023,7 @@ class MainActivity : Activity() {
         }
 
         if (touchControlsVisible()) {
-            if (!hitView(touchControls, x, y)) {
+            if (!hitView(touchControls, x, y) && !hitView(hudTop, x, y)) {
                 hideTouchControls()
             }
             return
@@ -11315,6 +11835,161 @@ class MainActivity : Activity() {
         }
 
     // =========================
+    // Reports: "this channel does not work"
+    // =========================
+
+    private fun showReportMenu() {
+
+        val channel = playingChannel ?: return
+
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+
+        for (reason in listOf("لا يوجد بث", "الصورة تتقطع", "لا يوجد صوت", "القناة غير صحيحة")) {
+            items.add(reason to { reportChannel(channel, reason, false) })
+        }
+
+        items.add("إلغاء" to {})
+
+        showMenu("ما المشكلة؟", items)
+    }
+
+    // /reports/<channel>: count (viewers), auto (the app itself could not play it), reason, last
+    private fun reportChannel(channel: Channel, reason: String, auto: Boolean) {
+
+        val key = statKey(channel)
+
+        val prefKey = (if (auto) "arep_" else "rep_") + key
+
+        val now = System.currentTimeMillis()
+
+        // not more than one report per channel every 10 minutes (30 for the automatic ones)
+        if (now - prefs.getLong(prefKey, 0L) < (if (auto) 30 else 10) * 60_000L) {
+
+            if (!auto) {
+                Toast.makeText(this, "تم إرسال بلاغك قبل قليل، شكراً", Toast.LENGTH_SHORT).show()
+            }
+
+            return
+        }
+
+        prefs.edit().putLong(prefKey, now).apply()
+
+        try {
+
+            rootRef.child("reports").child(key).updateChildren(
+                mapOf<String, Any>(
+                    "name" to channel.name,
+                    (if (auto) "auto" else "count") to ServerValue.increment(1),
+                    "last" to ServerValue.TIMESTAMP,
+                    "reason" to reason
+                )
+            )
+
+        } catch (_: Exception) {
+        }
+
+        if (!auto) {
+            Toast.makeText(this, "شكراً، تم إرسال البلاغ", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // =========================
+    // TV guide (EPG): /epg/<epgId>/<startMillis> = { e: endMillis, t: title }
+    // =========================
+
+    private val epgRunnable = object : Runnable {
+
+        override fun run() {
+            refreshMatchViews()
+            mainHandler.postDelayed(this, 60_000L)
+        }
+    }
+
+    private fun parseEpg(node: DataSnapshot?): Map<String, List<Program>> {
+
+        val result = HashMap<String, List<Program>>()
+
+        for (channelNode in node?.children ?: emptyList()) {
+
+            val key = channelNode.key ?: continue
+
+            val list = mutableListOf<Program>()
+
+            for (p in channelNode.children) {
+
+                val start: Long =
+                    p.key?.toLongOrNull()
+                        ?: (p.child("s").value as? Number)?.toLong()
+                        ?: continue
+
+                val end = (p.child("e").value as? Number)?.toLong() ?: continue
+
+                val title = p.child("t").value?.toString() ?: continue
+
+                list.add(Program(start, end, title))
+            }
+
+            result[key] = list.sortedBy { it.start }
+        }
+
+        return result
+    }
+
+    private fun updateEpg(node: DataSnapshot?) {
+
+        val parsed = parseEpg(node)
+
+        if (parsed != epgMap) {
+            epgMap = parsed
+            refreshMatchViews()
+        }
+    }
+
+    private fun epgKeyOf(channel: Channel): String =
+        channel.epgId.ifBlank { statKey(channel) }
+
+    private fun epgNow(channel: Channel): Program? {
+
+        val now = serverNow()
+
+        return epgMap[epgKeyOf(channel)]?.firstOrNull { it.start <= now && now < it.end }
+    }
+
+    private fun epgNext(channel: Channel): Program? {
+
+        val now = serverNow()
+
+        return epgMap[epgKeyOf(channel)]?.firstOrNull { it.start > now }
+    }
+
+    private fun epgNowText(channel: Channel): String? =
+        epgNow(channel)?.let { "الآن: ${it.title}" }
+
+    // "Now: X  •  Next: Y 21:00"
+    private fun epgLine(channel: Channel): String? {
+
+        val now = epgNow(channel)
+
+        val next = epgNext(channel)
+
+        if (now == null && next == null) {
+            return null
+        }
+
+        val parts = mutableListOf<String>()
+
+        if (now != null) {
+            parts.add("الآن: ${now.title}")
+        }
+
+        if (next != null) {
+            parts.add("التالي: ${next.title} ${timeFormat.format(Date(next.start))}")
+        }
+
+        return parts.joinToString("  •  ")
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -11377,6 +12052,11 @@ class MainActivity : Activity() {
 
                 override fun onSingleTapUp(e: MotionEvent): Boolean {
                     handleScreenTap(e.rawX, e.rawY)
+                    return false
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    handleDoubleTap(e.rawX)
                     return false
                 }
 
@@ -11509,6 +12189,11 @@ class MainActivity : Activity() {
             return true
         }
 
+        // player panel on the TV: the D-pad moves between its buttons
+        if (touchControlsVisible() && !phoneMode && isFullscreen) {
+            return handleHudKey(event)
+        }
+
         // quality strip
         if (qualityStripOpen()) {
             return handleQualityStripKey(event)
@@ -11622,13 +12307,36 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
-        if (
-            event.keyCode == KeyEvent.KEYCODE_MENU ||
-            event.keyCode == KeyEvent.KEYCODE_PROG_BLUE
-        ) {
+        // menu = the player panel (channel info, seek bar, buttons)
+        if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                showTouchControls()
+            }
+
+            return true
+        }
+
+        if (event.keyCode == KeyEvent.KEYCODE_PROG_BLUE) {
 
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 openQualityStrip()
+            }
+
+            return true
+        }
+
+        // video: left / right = 10 seconds back / forward
+        if (
+            (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+                    event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) &&
+            !playingWeb &&
+            playingChannel?.let { isVodChannel(it) } == true
+        ) {
+
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                seekBy(if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -10000L else 10000L)
+                showTouchControls()
             }
 
             return true
@@ -11689,7 +12397,13 @@ class MainActivity : Activity() {
 
             // OK = open the glass channel list
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                openChannelPanel()
+
+                if (!playingWeb && playingChannel?.let { isVodChannel(it) } == true) {
+                    togglePlayPause()
+                    showTouchControls()
+                } else {
+                    openChannelPanel()
+                }
             }
 
             return true
