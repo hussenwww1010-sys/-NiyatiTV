@@ -1,20 +1,33 @@
-
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.gms.google-services'
 }
 
+// رقم الإصدار يأتي من الـ build تلقائياً: gradle assembleDebug -Pvc=1005
+// (إذا ما مُرِّر يستخدم 3)
+def appVersionCode = (project.findProperty('vc') ?: '3').toString().toInteger()
+
 android {
     namespace 'com.niyati.tv'
-    compileSdk 36
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.niyati.tv'
         minSdk 23
         targetSdk 35
-        versionCode 5
-        versionName '4.0'
+        versionCode appVersionCode
+        versionName "1.${appVersionCode}"
+    }
+
+    // توقيع ثابت: يخلي التحديث يثبت فوق النسخة القديمة بدون حذفها
+    signingConfigs {
+        niyati {
+            storeFile file('niyati.keystore')
+            storePassword 'niyati123'
+            keyAlias 'niyati'
+            keyPassword 'niyati123'
+        }
     }
 
     compileOptions {
@@ -27,8 +40,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.niyati
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.niyati
         }
     }
 }
@@ -41,18 +58,16 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.7.0')
     implementation 'com.google.firebase:firebase-database'
 
-    // Media3 / ExoPlayer 1.11.1
-    def media3_version = '1.11.1'
-
-    implementation "androidx.media3:media3-exoplayer:$media3_version"
-    implementation "androidx.media3:media3-ui:$media3_version"
+    // Media3 / ExoPlayer
+    implementation 'androidx.media3:media3-exoplayer:1.5.1'
+    implementation 'androidx.media3:media3-ui:1.5.1'
 
     // HLS / M3U8
-    implementation "androidx.media3:media3-exoplayer-hls:$media3_version"
+    implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
 
     // DASH / MPD
-    implementation "androidx.media3:media3-exoplayer-dash:$media3_version"
+    implementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
 
     // SmoothStreaming / ISM
-    implementation "androidx.media3:media3-exoplayer-smoothstreaming:$media3_version"
+    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.5.1'
 }
