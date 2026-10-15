@@ -12,6 +12,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Matrix
+import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
@@ -38,6 +39,7 @@ import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.ViewOutlineProvider
 import android.view.HapticFeedbackConstants
 import android.view.SoundEffectConstants
 import android.view.KeyEvent
@@ -205,7 +207,8 @@ class MainActivity : Activity() {
         val backups: List<String> = emptyList(),
         val isNew: Boolean = false,
         val audios: List<AudioItem> = emptyList(),
-        val epgId: String = ""
+        val epgId: String = "",
+        val isVod: Boolean = false
     )
 
     // one program of the TV guide
@@ -214,6 +217,40 @@ class MainActivity : Activity() {
         val end: Long,
         val title: String
     )
+
+    // movies and series (library)
+    data class Episode(
+        val season: Int,
+        val number: Int,
+        val title: String,
+        val url: String,
+        val duration: Int,
+        val thumb: String,
+        val overview: String
+    )
+
+    data class VodItem(
+        val id: String,
+        val series: Boolean,
+        val title: String,
+        val poster: String,
+        val backdrop: String,
+        val url: String,
+        val genre: String,
+        val year: String,
+        val rating: String,
+        val duration: Int,
+        val overview: String,
+        val isNew: Boolean,
+        val featured: Boolean,
+        val order: Int,
+        val episodes: List<Episode>
+    )
+
+    private class VodPlay(val item: VodItem, val episode: Episode?) {
+        val key: String
+            get() = if (episode == null) item.id else "${item.id}_s${episode.season}e${episode.number}"
+    }
 
     // an extra audio channel (second commentator) added to a channel from the dashboard
     data class AudioItem(
@@ -546,6 +583,36 @@ class MainActivity : Activity() {
 
     // ---- in-app update ----
     private var downloadingUpdate = false
+
+    // ---- sections (live / movies / series) ----
+    private var currentSection = 0
+    private lateinit var liveHost: LinearLayout
+    private lateinit var vodHost: FrameLayout
+    private var sectionBarView: View? = null
+    private val sectionTabViews = mutableListOf<LinearLayout>()
+    private var movies: List<VodItem> = emptyList()
+    private var seriesList: List<VodItem> = emptyList()
+    private var vodGenre = ""
+    private lateinit var libGenres: LinearLayout
+    private lateinit var libGenreHeader: SectionHeader
+    private lateinit var libScroll: ScrollView
+    private lateinit var libContent: LinearLayout
+    private var libFirstFocus: View? = null
+    private lateinit var detailOverlay: FrameLayout
+    private lateinit var detailBackdrop: ImageView
+    private lateinit var detailCol: LinearLayout
+    private lateinit var detailScroll: ScrollView
+    private var detailItem: VodItem? = null
+    private var detailSeason = 1
+    private var detailPrimary: View? = null
+    private var detailReturnFocus: View? = null
+    private var vodPlay: VodPlay? = null
+    private var pendingSeek = 0L
+    private var liveBeforeVod: Channel? = null
+    private val posterCache =
+        object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
+            override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+        }
     private var lightMode = false
     private val dayFormat by lazy { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     private val dateTextFormat by lazy {
@@ -782,7 +849,7 @@ class MainActivity : Activity() {
         rootRef = database.reference
 
         // keep only these nodes in the local cache (never the codes / stats / presence)
-        for (node in listOf("settings", "packages", "channels", "matches", "epg")) {
+        for (node in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
             try {
                 rootRef.child(node).keepSynced(true)
             } catch (_: Exception) {
@@ -983,6 +1050,12 @@ class MainActivity : Activity() {
 
                             mainHandler.removeCallbacks(stallRunnable)
 
+                            // resume a movie / episode where it stopped
+                            if (pendingSeek > 0L) {
+                                player.seekTo(pendingSeek)
+                                pendingSeek = 0L
+                            }
+
                             hideStatus()
 
                             playingChannel?.let {
@@ -1004,7 +1077,7 @@ class MainActivity : Activity() {
                                 val vod = playingChannel?.let { isVodChannel(it) } == true
 
                                 if (vod) {
-                                    showStatus("انتهى الفيديو", "اضغط على القناة لإعادة التشغيل", true)
+                                    onVodEnded()
                                 } else {
                                     reconnectLiveStream()
                                 }
@@ -1640,7 +1713,9 @@ class MainActivity : Activity() {
 
         val friendly = friendlyError(shown)
 
-        reportChannel(channel, friendly.first, true)
+        if (!channel.isVod) {
+            reportChannel(channel, friendly.first, true)
+        }
 
         showStatus(
             friendly.first,
@@ -1784,6 +1859,8 @@ class MainActivity : Activity() {
 
         normalScreen.addView(buildHeader(), lp(matchParent, dp(78)))
 
+        normalScreen.addView(buildSectionBar(), lp(matchParent, wrap))
+
         val contentRow = LinearLayout(this)
 
         contentRow.orientation = LinearLayout.HORIZONTAL
@@ -1791,6 +1868,10 @@ class MainActivity : Activity() {
         contentRow.setPadding(dp(18), dp(4), dp(18), dp(16))
 
         normalScreen.addView(contentRow, lp(matchParent, 0, 1f))
+
+        liveHost = contentRow
+
+        buildVodHost()
 
         // ---- Packages ----
 
@@ -1936,6 +2017,8 @@ class MainActivity : Activity() {
         buildNumberOverlay()
 
         buildOfflineBanner()
+
+        buildDetailOverlay()
 
         buildMenuOverlay()
 
@@ -3487,7 +3570,7 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        for (key in listOf("settings", "packages", "channels", "matches", "epg")) {
+        for (key in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
 
             val listener =
                 object : ValueEventListener {
@@ -3535,6 +3618,8 @@ class MainActivity : Activity() {
         updateMatches(parts["matches"])
 
         updateEpg(parts["epg"])
+
+        updateVod(parts["movies"], parts["series"])
 
         if (!parts.containsKey("channels") && !parts.containsKey("packages")) {
             return
@@ -3985,7 +4070,7 @@ class MainActivity : Activity() {
 
         val old = playingChannel
 
-        if (old != null && old != channel) {
+        if (old != null && old != channel && !old.isVod && !channel.isVod) {
             previousChannel = old
         }
 
@@ -4000,7 +4085,7 @@ class MainActivity : Activity() {
 
         updatePresenceChannel()
 
-        if (!preview) {
+        if (!preview && !channel.isVod) {
             prefs.edit().putString("last_channel", channelKey(channel)).apply()
         }
 
@@ -4545,8 +4630,9 @@ class MainActivity : Activity() {
         favorites.contains(channelKey(channel))
 
     private fun isVodChannel(channel: Channel): Boolean =
-        channel.url.isNotBlank() &&
-                detectKind(parseSource(channel.url).url) == StreamKind.MP4
+        channel.isVod ||
+                (channel.url.isNotBlank() &&
+                        detectKind(parseSource(channel.url).url) == StreamKind.MP4)
 
     private fun accentOfPackage(pkg: PackageItem): Accent {
 
@@ -7396,6 +7482,17 @@ class MainActivity : Activity() {
 
     private fun nowSubText(channel: Channel): String {
 
+        if (channel.isVod) {
+
+            val episode = vodPlay?.episode
+
+            return if (episode != null) {
+                "الموسم ${episode.season} • الحلقة ${episode.number}"
+            } else {
+                "فيلم"
+            }
+        }
+
         val base = realPackageName(channel)
 
         val m = matchForChannel(channel)
@@ -9283,7 +9380,19 @@ class MainActivity : Activity() {
 
         normalScreen.addView(buildPhoneHeader(), lp(matchParent, dp(56)))
 
-        normalScreen.addView(
+        normalScreen.addView(buildSectionBar(), lp(matchParent, wrap))
+
+        val live = LinearLayout(this)
+
+        live.orientation = LinearLayout.VERTICAL
+
+        liveHost = live
+
+        normalScreen.addView(live, lp(matchParent, 0, 1f))
+
+        buildVodHost()
+
+        live.addView(
             buildTicker(),
             lp(matchParent, wrap).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) }
         )
@@ -9312,12 +9421,12 @@ class MainActivity : Activity() {
 
         val playerWidth = resources.displayMetrics.widthPixels - dp(16)
 
-        normalScreen.addView(
+        live.addView(
             playerFrame,
             lp(matchParent, playerWidth * 9 / 16).apply { setMargins(dp(8), dp(2), dp(8), 0) }
         )
 
-        normalScreen.addView(
+        live.addView(
             buildInfoBar(),
             lp(matchParent, dp(56)).apply { setMargins(dp(8), dp(6), dp(8), 0) }
         )
@@ -9339,12 +9448,12 @@ class MainActivity : Activity() {
 
         packageScroll.addView(packagesList)
 
-        normalScreen.addView(packageScroll, lp(matchParent, dp(78)))
+        live.addView(packageScroll, lp(matchParent, dp(78)))
 
         // ---- channels: the vertical list ----
         channelsHeader = SectionHeader("القنوات", "CHANNELS", accentFor(1))
 
-        normalScreen.addView(channelsHeader, lp(matchParent, dp(52)))
+        live.addView(channelsHeader, lp(matchParent, dp(52)))
 
         channelScroll = createScroll()
 
@@ -9352,7 +9461,7 @@ class MainActivity : Activity() {
 
         channelScroll.addView(channelsList)
 
-        normalScreen.addView(channelScroll, lp(matchParent, 0, 1f))
+        live.addView(channelScroll, lp(matchParent, 0, 1f))
     }
 
     // =========================
@@ -10923,19 +11032,25 @@ class MainActivity : Activity() {
 
         noticeProgressTrack.visibility = View.GONE
 
-        noticeMessage.text = "اكتمل التحميل. اضغط تثبيت لإكمال التحديث."
+        val problem = checkApk(file)
+
+        noticeMessage.text =
+            problem ?: "اكتمل التحميل. اضغط تثبيت لإكمال التحديث."
 
         val buttons = mutableListOf<Pair<String, () -> Unit>>()
 
-        buttons.add("تثبيت الآن" to { installApk(file) })
+        buttons.add((if (problem != null) "محاولة التثبيت" else "تثبيت الآن") to { installApk(file) })
 
         if (noticeCancelable) {
-            buttons.add("إلغاء" to { hideNotice() })
+            buttons.add("إغلاق" to { hideNotice() })
         }
 
         setUpdateButtons(buttons)
 
-        installApk(file)
+        // a known problem is explained instead of the unclear "app not installed"
+        if (problem == null) {
+            installApk(file)
+        }
     }
 
     private fun installApk(file: File) {
@@ -12179,6 +12294,1672 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Sections: live / movies / series
+    // =========================
+
+    private fun genresOf(item: VodItem): List<String> =
+        item.genre.split(",", "،").map { it.trim() }.filter { it.isNotEmpty() }
+
+    private fun parseVod(node: DataSnapshot?, series: Boolean): List<VodItem> {
+
+        val result = mutableListOf<VodItem>()
+
+        for (c in node?.children ?: emptyList()) {
+
+            val id = c.key ?: continue
+
+            if (!c.readBool("enabled", true)) {
+                continue
+            }
+
+            val title = c.readString("title") ?: continue
+
+            val episodes = mutableListOf<Episode>()
+
+            for (e in c.child("episodes").children) {
+
+                val url = e.readString("url") ?: continue
+
+                val number = e.readInt("e", episodes.size + 1)
+
+                episodes.add(
+                    Episode(
+                        season = e.readInt("s", 1),
+                        number = number,
+                        title = e.readString("title") ?: "الحلقة $number",
+                        url = url,
+                        duration = e.readInt("duration", 0),
+                        thumb = e.readString("thumb") ?: "",
+                        overview = e.readString("overview") ?: ""
+                    )
+                )
+            }
+
+            result.add(
+                VodItem(
+                    id = id,
+                    series = series,
+                    title = title,
+                    poster = c.readString("poster") ?: "",
+                    backdrop = c.readString("backdrop") ?: "",
+                    url = c.readString("url") ?: "",
+                    genre = c.readString("genre") ?: "",
+                    year = c.readString("year") ?: "",
+                    rating = c.readString("rating") ?: "",
+                    duration = c.readInt("duration", 0),
+                    overview = c.readString("overview") ?: "",
+                    isNew = c.readBool("new", false),
+                    featured = c.readBool("featured", false),
+                    order = c.readInt("order", 999),
+                    episodes = episodes.sortedWith(compareBy({ it.season }, { it.number }))
+                )
+            )
+        }
+
+        return result.sortedBy { it.order }
+    }
+
+    private fun updateVod(moviesNode: DataSnapshot?, seriesNode: DataSnapshot?) {
+
+        val newMovies = parseVod(moviesNode, false)
+
+        val newSeries = parseVod(seriesNode, true)
+
+        if (newMovies != movies || newSeries != seriesList) {
+
+            movies = newMovies
+
+            seriesList = newSeries
+
+            if (currentSection != 0 && ::libContent.isInitialized) {
+                renderLibrary()
+            }
+        }
+    }
+
+    // ---- section bar ----
+
+    private fun isInSectionBar(view: View?): Boolean {
+
+        val bar = sectionBarView ?: return false
+
+        var v: View? = view
+
+        while (v != null) {
+            if (v === bar) {
+                return true
+            }
+            v = v.parent as? View
+        }
+
+        return false
+    }
+
+    private fun buildSectionBar(): View {
+
+        val holder = LinearLayout(this)
+
+        holder.orientation = LinearLayout.HORIZONTAL
+
+        holder.gravity = Gravity.CENTER
+
+        holder.setPadding(dp(18), dp(2), dp(18), dp(8))
+
+        val pill = LinearLayout(this)
+
+        pill.orientation = LinearLayout.HORIZONTAL
+
+        pill.setPadding(dp(5), dp(4), dp(5), dp(4))
+
+        pill.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(28).toFloat()
+                setColor(Color.argb(26, 255, 255, 255))
+                setStroke(dp(1), Color.argb(40, 255, 255, 255))
+            }
+
+        sectionTabViews.clear()
+
+        val defs =
+            listOf(
+                Triple("مباشر", "M3 6h18v11H3zM8 21h8", 0),
+                Triple("أفلام", "M3 5h18v14H3zM7 5v14M17 5v14M3 10h4M3 14h4M17 10h4M17 14h4", 1),
+                Triple("مسلسلات", "M5 8h14v12H5zM8 5h8M10.5 2.5h3", 2)
+            )
+
+        defs.forEach { (name, path, index) ->
+
+            val tab = LinearLayout(this)
+
+            tab.orientation = LinearLayout.HORIZONTAL
+
+            tab.gravity = Gravity.CENTER
+
+            tab.setPadding(dp(22), 0, dp(22), 0)
+
+            tab.isClickable = true
+
+            tab.isFocusable = true
+
+            tab.isFocusableInTouchMode = !phoneMode
+
+            val icon = LineIconView()
+
+            icon.setIcon(path)
+
+            tab.addView(icon, lp(dp(20), dp(20)))
+
+            tab.addView(
+                label(name, 16f, white, true, Gravity.CENTER),
+                lp(wrap, wrap).apply { setMargins(dp(8), 0, 0, 0) }
+            )
+
+            tab.tag = index
+
+            tab.setOnClickListener { switchSection(index) }
+
+            tab.setOnFocusChangeListener { _, _ -> refreshTabs() }
+
+            pill.addView(tab, lp(wrap, dp(44)))
+
+            sectionTabViews.add(tab)
+        }
+
+        holder.addView(pill, lp(wrap, wrap))
+
+        sectionBarView = holder
+
+        refreshTabs()
+
+        return holder
+    }
+
+    private fun refreshTabs() {
+
+        sectionTabViews.forEach { tab ->
+
+            val selected = (tab.tag as Int) == currentSection
+
+            val focused = tab.hasFocus()
+
+            tab.background =
+                when {
+
+                    selected ->
+                        GradientDrawable(
+                            GradientDrawable.Orientation.LEFT_RIGHT,
+                            intArrayOf(cyan, violet)
+                        ).apply {
+                            cornerRadius = dp(22).toFloat()
+                            if (focused) {
+                                setStroke(dp(2), Color.WHITE)
+                            }
+                        }
+
+                    focused ->
+                        GradientDrawable().apply {
+                            cornerRadius = dp(22).toFloat()
+                            setColor(Color.argb(50, 255, 255, 255))
+                            setStroke(dp(2), Color.WHITE)
+                        }
+
+                    else -> null
+                }
+        }
+    }
+
+    private fun switchSection(index: Int) {
+
+        if (index == currentSection || isFullscreen || multiActive || blocked || gated) {
+            return
+        }
+
+        currentSection = index
+
+        refreshTabs()
+
+        liveHost.visibility = if (index == 0) View.VISIBLE else View.GONE
+
+        vodHost.visibility = if (index == 0) View.GONE else View.VISIBLE
+
+        if (index == 0) {
+
+            if (playingChannel != null && !playingWeb && vodPlay == null) {
+                player.playWhenReady = true
+            }
+
+            audioPlayer?.playWhenReady = externalAudio >= 0
+
+            focusChannelsColumn()
+
+        } else {
+
+            cancelPreview()
+
+            // the live picture is paused while the library is open
+            try {
+                player.playWhenReady = false
+            } catch (_: Exception) {
+            }
+
+            audioPlayer?.playWhenReady = false
+
+            vodGenre = ""
+
+            renderLibrary()
+
+            focusLibrary()
+        }
+    }
+
+    private fun focusLibrary() {
+
+        libScroll.post {
+            libFirstFocus?.requestFocus()
+        }
+    }
+
+    // ---- images ----
+
+    private fun downloadImage(urlString: String, maxPx: Int): Bitmap? {
+
+        var connection: HttpURLConnection? = null
+
+        return try {
+
+            connection = URL(urlString).openConnection() as HttpURLConnection
+
+            connection.connectTimeout = 8000
+
+            connection.readTimeout = 12000
+
+            connection.instanceFollowRedirects = true
+
+            if (connection.responseCode !in 200..299) {
+                return null
+            }
+
+            val bytes = connection.inputStream.use { it.readBytes() }
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+            var sample = 1
+
+            while (bounds.outWidth / sample > maxPx || bounds.outHeight / sample > maxPx) {
+                sample *= 2
+            }
+
+            val options =
+                BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+
+        } catch (_: Exception) {
+
+            null
+
+        } finally {
+
+            connection?.disconnect()
+        }
+    }
+
+    private fun loadImage(view: ImageView, url: String, maxPx: Int) {
+
+        if (!url.startsWith("http", ignoreCase = true)) {
+            return
+        }
+
+        val key = "$maxPx|$url"
+
+        posterCache.get(key)?.let {
+            view.setImageBitmap(it)
+            return
+        }
+
+        view.tag = key
+
+        try {
+
+            ioExecutor.execute {
+
+                val bitmap = downloadImage(url, maxPx)
+
+                if (bitmap != null) {
+
+                    posterCache.put(key, bitmap)
+
+                    mainHandler.post {
+                        if (view.tag == key) {
+                            view.setImageBitmap(bitmap)
+                        }
+                    }
+                }
+            }
+
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun placeholderFor(title: String): GradientDrawable {
+
+        val accent = accentFor(Math.abs(title.hashCode()) % 6)
+
+        return GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(mix(accent.start, bgTop, 0.45f), mix(accent.end, bgTop, 0.35f))
+        )
+    }
+
+    private fun roundOutline(view: View, radiusDp: Int) {
+
+        view.outlineProvider =
+            object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, v.width, v.height, dp(radiusDp).toFloat())
+                }
+            }
+
+        view.clipToOutline = true
+    }
+
+    // ---- progress (resume) ----
+
+    private fun vodKey(item: VodItem, ep: Episode?): String =
+        if (ep == null) item.id else "${item.id}_s${ep.season}e${ep.number}"
+
+    private fun savedPos(key: String): Long = prefs.getLong("vp_$key", 0L)
+
+    private fun progressOf(key: String): Float {
+
+        val duration = prefs.getLong("vd_$key", 0L)
+
+        return if (duration > 0) (savedPos(key).toFloat() / duration).coerceIn(0f, 1f) else 0f
+    }
+
+    private fun isFinished(key: String): Boolean = progressOf(key) >= 0.92f
+
+    private fun nextEpisode(item: VodItem, ep: Episode): Episode? =
+        item.episodes.getOrNull(item.episodes.indexOf(ep) + 1)
+
+    // what "continue" means: the movie / episode where the viewer stopped, or the next episode
+    private fun resumeTarget(item: VodItem): Pair<Episode?, Long>? {
+
+        if (!item.series) {
+
+            val pos = savedPos(item.id)
+
+            return if (pos > 15000 && !isFinished(item.id)) Pair(null, pos) else null
+        }
+
+        val last = prefs.getString("lastEp_${item.id}", null) ?: return null
+
+        val parts = last.split("x")
+
+        val season = parts.getOrNull(0)?.toIntOrNull() ?: return null
+
+        val number = parts.getOrNull(1)?.toIntOrNull() ?: return null
+
+        val episode =
+            item.episodes.firstOrNull { it.season == season && it.number == number } ?: return null
+
+        val key = vodKey(item, episode)
+
+        if (savedPos(key) > 15000 && !isFinished(key)) {
+            return Pair(episode, savedPos(key))
+        }
+
+        val next = nextEpisode(item, episode) ?: return null
+
+        return Pair(next, 0L)
+    }
+
+    // ---- library page ----
+
+    private fun buildVodHost() {
+
+        vodHost = FrameLayout(this)
+
+        vodHost.visibility = View.GONE
+
+        normalScreen.addView(vodHost, lp(matchParent, 0, 1f))
+
+        val page = LinearLayout(this)
+
+        page.orientation = if (phoneMode) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+
+        val side = if (phoneMode) 8 else 18
+
+        page.setPadding(dp(side), dp(4), dp(side), dp(if (phoneMode) 4 else 16))
+
+        libGenres = createList()
+
+        libGenreHeader = SectionHeader("التصنيفات", "GENRES", accentFor(0))
+
+        if (phoneMode) {
+
+            val chips = HorizontalScrollView(this)
+
+            chips.isHorizontalScrollBarEnabled = false
+
+            libGenres.orientation = LinearLayout.HORIZONTAL
+
+            libGenres.setPadding(dp(4), dp(4), dp(4), dp(4))
+
+            chips.addView(libGenres)
+
+            page.addView(chips, lp(matchParent, dp(54)))
+
+        } else {
+
+            val panel = createPanel()
+
+            panel.addView(libGenreHeader, lp(matchParent, dp(64)))
+
+            val genreScroll = createScroll()
+
+            genreScroll.addView(libGenres)
+
+            panel.addView(genreScroll, lp(matchParent, 0, 1f))
+
+            page.addView(panel, panelParams(0.24f))
+        }
+
+        libScroll = createScroll()
+
+        libContent = LinearLayout(this)
+
+        libContent.orientation = LinearLayout.VERTICAL
+
+        libContent.setPadding(dp(if (phoneMode) 4 else 10), dp(6), dp(if (phoneMode) 4 else 10), dp(18))
+
+        libScroll.addView(libContent)
+
+        if (phoneMode) {
+
+            page.addView(libScroll, lp(matchParent, 0, 1f))
+
+        } else {
+
+            val panel = createPanel()
+
+            panel.addView(libScroll, lp(matchParent, 0, 1f))
+
+            page.addView(panel, panelParams(0.76f))
+        }
+
+        vodHost.addView(page, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    private fun genreRow(name: String, count: Int, selected: Boolean): View {
+
+        val row = LinearLayout(this)
+
+        row.orientation = LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER_VERTICAL
+
+        row.setPadding(dp(16), 0, dp(16), 0)
+
+        row.isClickable = true
+
+        row.isFocusable = true
+
+        row.isFocusableInTouchMode = !phoneMode
+
+        row.tag = name
+
+        row.addView(label("$count", 13f, if (selected) white else gray, true, Gravity.LEFT), lp(wrap, wrap))
+
+        row.addView(
+            label(name, if (phoneMode) 15f else 17f, white, true),
+            if (phoneMode) {
+                lp(wrap, wrap).apply { setMargins(dp(10), 0, 0, 0) }
+            } else {
+                lp(0, wrap, 1f).apply { setMargins(dp(10), 0, 0, 0) }
+            }
+        )
+
+        row.layoutParams =
+            if (phoneMode) {
+                lp(wrap, dp(40)).apply { setMargins(dp(4), 0, dp(4), 0) }
+            } else {
+                lp(matchParent, dp(54)).apply { setMargins(0, dp(4), 0, dp(4)) }
+            }
+
+        fun style(focused: Boolean) {
+
+            row.background =
+                when {
+
+                    focused ->
+                        GradientDrawable(
+                            GradientDrawable.Orientation.LEFT_RIGHT,
+                            intArrayOf(mix(cyan, bgMid, 0.55f), mix(violet, bgMid, 0.55f))
+                        ).apply {
+                            cornerRadius = dp(18).toFloat()
+                            setStroke(dp(2), Color.WHITE)
+                        }
+
+                    selected ->
+                        GradientDrawable().apply {
+                            cornerRadius = dp(18).toFloat()
+                            setColor(withAlpha(cyan, 60))
+                            setStroke(dp(1), withAlpha(cyan, 170))
+                        }
+
+                    else ->
+                        GradientDrawable().apply {
+                            cornerRadius = dp(18).toFloat()
+                            setColor(Color.argb(22, 255, 255, 255))
+                            setStroke(dp(1), Color.argb(28, 255, 255, 255))
+                        }
+                }
+        }
+
+        style(false)
+
+        row.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        row.setOnClickListener {
+
+            vodGenre = if (name == "الكل") "" else name
+
+            renderLibrary()
+
+            for (i in 0 until libGenres.childCount) {
+                val child = libGenres.getChildAt(i)
+                if (child.tag == name) {
+                    child.requestFocus()
+                }
+            }
+        }
+
+        return row
+    }
+
+    private fun sectionTitle(text: String): TextView {
+
+        val title = label(text, if (phoneMode) 17f else 20f, white, true)
+
+        title.setPadding(dp(8), dp(16), dp(8), dp(8))
+
+        return title
+    }
+
+    private fun actionButton(text: String, primary: Boolean, onClick: () -> Unit): TextView {
+
+        val button = label(text, if (phoneMode) 14f else 16f, if (primary) Color.rgb(8, 14, 30) else white, true, Gravity.CENTER)
+
+        button.setPadding(dp(22), 0, dp(22), 0)
+
+        button.isClickable = true
+
+        button.isFocusable = true
+
+        button.isFocusableInTouchMode = !phoneMode
+
+        fun style(focused: Boolean) {
+
+            button.background =
+                GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    if (primary) intArrayOf(cyan, mix(cyan, violet, 0.5f)) else intArrayOf(Color.argb(60, 255, 255, 255), Color.argb(40, 255, 255, 255))
+                ).apply {
+                    cornerRadius = dp(22).toFloat()
+                    setStroke(dp(if (focused) 3 else 1), if (focused) Color.WHITE else Color.argb(70, 255, 255, 255))
+                }
+
+            button.animate().scaleX(if (focused) 1.06f else 1f).scaleY(if (focused) 1.06f else 1f).setDuration(120).start()
+        }
+
+        style(false)
+
+        button.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        button.setOnClickListener { onClick() }
+
+        return button
+    }
+
+    private fun posterView(
+        item: VodItem,
+        wDp: Int,
+        hDp: Int,
+        badge: String,
+        progress: Float,
+        onClick: () -> Unit
+    ): FrameLayout {
+
+        val frame = FrameLayout(this)
+
+        frame.isClickable = true
+
+        frame.isFocusable = true
+
+        frame.isFocusableInTouchMode = !phoneMode
+
+        frame.background = placeholderFor(item.title)
+
+        roundOutline(frame, 14)
+
+        val image = ImageView(this)
+
+        image.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        frame.addView(image, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        loadImage(image, item.poster, 360)
+
+        val scrim = LinearLayout(this)
+
+        scrim.orientation = LinearLayout.VERTICAL
+
+        scrim.setPadding(dp(8), dp(26), dp(8), dp(if (progress > 0f) 12 else 8))
+
+        scrim.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.BOTTOM_TOP,
+                intArrayOf(Color.argb(235, 4, 6, 18), Color.argb(0, 4, 6, 18))
+            )
+
+        scrim.addView(label(item.title, if (phoneMode) 11.5f else 12.5f, white, true, Gravity.CENTER, 2), lp(matchParent, wrap))
+
+        if (badge.isNotEmpty()) {
+            scrim.addView(label(badge, 10.5f, cyan, true, Gravity.CENTER), lp(matchParent, wrap))
+        }
+
+        frame.addView(scrim, FrameLayout.LayoutParams(matchParent, wrap, Gravity.BOTTOM))
+
+        if (item.rating.isNotBlank()) {
+
+            val rating = label("★ ${item.rating}", 11f, gold, true, Gravity.CENTER)
+
+            rating.setPadding(dp(7), dp(1), dp(7), dp(1))
+
+            rating.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(9).toFloat()
+                    setColor(Color.argb(190, 4, 6, 18))
+                }
+
+            frame.addView(
+                rating,
+                FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.LEFT).apply { setMargins(dp(7), dp(7), 0, 0) }
+            )
+        }
+
+        if (item.isNew) {
+
+            val tag = label("جديد", 10.5f, Color.rgb(40, 24, 0), true, Gravity.CENTER)
+
+            tag.setPadding(dp(7), dp(1), dp(7), dp(1))
+
+            tag.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(9).toFloat()
+                    setColor(gold)
+                }
+
+            frame.addView(
+                tag,
+                FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.RIGHT).apply { setMargins(0, dp(7), dp(7), 0) }
+            )
+        }
+
+        if (progress > 0f) {
+
+            val track = LinearLayout(this)
+
+            track.orientation = LinearLayout.HORIZONTAL
+
+            track.setBackgroundColor(Color.argb(120, 255, 255, 255))
+
+            val fill = View(this)
+
+            fill.setBackgroundColor(cyan)
+
+            track.addView(fill, LinearLayout.LayoutParams(0, matchParent, progress.coerceIn(0.03f, 1f)))
+
+            track.addView(View(this), LinearLayout.LayoutParams(0, matchParent, 1f - progress.coerceIn(0.03f, 1f)))
+
+            frame.addView(track, FrameLayout.LayoutParams(matchParent, dp(4), Gravity.BOTTOM))
+        }
+
+        fun style(focused: Boolean) {
+
+            frame.foreground =
+                if (focused) {
+                    GradientDrawable().apply {
+                        cornerRadius = dp(14).toFloat()
+                        setStroke(dp(3), Color.WHITE)
+                    }
+                } else {
+                    null
+                }
+
+            frame.animate()
+                .scaleX(if (focused) 1.07f else 1f)
+                .scaleY(if (focused) 1.07f else 1f)
+                .setDuration(130)
+                .start()
+
+            frame.elevation = dp(if (focused) 14 else 2).toFloat()
+
+            if (Build.VERSION.SDK_INT >= 28) {
+                frame.outlineSpotShadowColor = if (focused) cyan else Color.BLACK
+            }
+        }
+
+        frame.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        frame.setOnClickListener { onClick() }
+
+        frame.layoutParams = lp(dp(wDp), dp(hDp)).apply { setMargins(dp(7), dp(8), dp(7), dp(8)) }
+
+        return frame
+    }
+
+    private fun heroBanner(item: VodItem, contentWidth: Int): View {
+
+        val hero = FrameLayout(this)
+
+        hero.background = placeholderFor(item.title)
+
+        roundOutline(hero, 22)
+
+        val backdrop = ImageView(this)
+
+        backdrop.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        hero.addView(backdrop, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        loadImage(backdrop, item.backdrop.ifBlank { item.poster }, 960)
+
+        val scrim = View(this)
+
+        scrim.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.argb(20, 4, 6, 18), Color.argb(238, 4, 6, 18))
+            )
+
+        hero.addView(scrim, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        val column = LinearLayout(this)
+
+        column.orientation = LinearLayout.VERTICAL
+
+        column.gravity = Gravity.CENTER_VERTICAL
+
+        column.setPadding(dp(24), dp(14), dp(24), dp(14))
+
+        val meta =
+            listOf(genresOf(item).firstOrNull() ?: "", item.year, if (item.rating.isNotBlank()) "★ ${item.rating}" else "")
+                .filter { it.isNotBlank() }
+                .joinToString("  •  ")
+
+        if (meta.isNotEmpty()) {
+            column.addView(label(meta, 13f, cyan, true), lp(matchParent, wrap))
+        }
+
+        column.addView(
+            label(item.title, if (phoneMode) 21f else 28f, white, true, Gravity.RIGHT, 2),
+            lp(matchParent, wrap).apply { topMargin = dp(4) }
+        )
+
+        if (item.overview.isNotBlank()) {
+            column.addView(
+                label(item.overview, 13f, dimWhite, false, Gravity.RIGHT, if (phoneMode) 2 else 3),
+                lp(matchParent, wrap).apply { topMargin = dp(6) }
+            )
+        }
+
+        val buttons = LinearLayout(this)
+
+        buttons.orientation = LinearLayout.HORIZONTAL
+
+        buttons.gravity = Gravity.RIGHT
+
+        val details = actionButton("التفاصيل", false) { showDetail(item) }
+
+        val play =
+            actionButton(
+                if (item.series) "▶  ابدأ المشاهدة" else "▶  تشغيل",
+                true
+            ) { playBest(item) }
+
+        libFirstFocus = play
+
+        buttons.addView(details, lp(wrap, dp(if (phoneMode) 38 else 44)).apply { setMargins(dp(8), 0, 0, 0) })
+
+        buttons.addView(play, lp(wrap, dp(if (phoneMode) 38 else 44)))
+
+        column.addView(buttons, lp(matchParent, wrap).apply { topMargin = dp(12) })
+
+        hero.addView(
+            column,
+            FrameLayout.LayoutParams((contentWidth * (if (phoneMode) 0.9f else 0.62f)).toInt(), matchParent, Gravity.RIGHT)
+        )
+
+        return hero
+    }
+
+    private fun renderLibrary() {
+
+        if (!::libContent.isInitialized) {
+            return
+        }
+
+        val series = currentSection == 2
+
+        val all = if (series) seriesList else movies
+
+        val posterW = if (phoneMode) 104 else 128
+
+        val posterH = posterW * 3 / 2
+
+        val screenW = resources.displayMetrics.widthPixels
+
+        val contentW =
+            if (phoneMode) {
+                screenW - dp(24)
+            } else {
+                ((screenW - dp(36) - dp(28)) * 0.76f).toInt() - dp(40)
+            }
+
+        // genres
+        clearList(libGenres)
+
+        val genres = all.flatMap { genresOf(it) }.distinct()
+
+        libGenres.addView(genreRow("الكل", all.size, vodGenre.isEmpty()))
+
+        genres.forEach { g ->
+            libGenres.addView(genreRow(g, all.count { g in genresOf(it) }, vodGenre == g))
+        }
+
+        libGenreHeader.setCount(genres.size + 1)
+
+        val shown = if (vodGenre.isEmpty()) all else all.filter { vodGenre in genresOf(it) }
+
+        libContent.removeAllViews()
+
+        libFirstFocus = null
+
+        if (shown.isEmpty()) {
+
+            libContent.addView(
+                label(
+                    if (all.isEmpty()) "لا توجد أعمال بعد، تضاف من لوحة التحكم" else "لا توجد أعمال بهذا التصنيف",
+                    16f,
+                    gray,
+                    true,
+                    Gravity.CENTER,
+                    3
+                ),
+                lp(matchParent, wrap).apply { setMargins(dp(12), dp(60), dp(12), 0) }
+            )
+
+            return
+        }
+
+        // featured
+        val hero = shown.firstOrNull { it.featured } ?: shown.first()
+
+        libContent.addView(
+            heroBanner(hero, contentW),
+            lp(matchParent, dp(if (phoneMode) 200 else 250)).apply { setMargins(dp(4), dp(4), dp(4), dp(6)) }
+        )
+
+        // continue watching
+        val resumable = if (vodGenre.isEmpty()) all.filter { resumeTarget(it) != null } else emptyList()
+
+        if (resumable.isNotEmpty()) {
+
+            libContent.addView(sectionTitle("أكمل المشاهدة"))
+
+            val scroller = HorizontalScrollView(this)
+
+            scroller.isHorizontalScrollBarEnabled = false
+
+            scroller.clipChildren = false
+
+            val row = LinearLayout(this)
+
+            row.orientation = LinearLayout.HORIZONTAL
+
+            row.clipChildren = false
+
+            resumable.forEach { item ->
+
+                val target = resumeTarget(item)
+
+                val episode = target?.first
+
+                val progress = progressOf(vodKey(item, episode))
+
+                row.addView(
+                    posterView(
+                        item,
+                        posterW,
+                        posterH,
+                        if (episode != null) "الموسم ${episode.season} • الحلقة ${episode.number}" else "",
+                        progress
+                    ) { playBest(item) }
+                )
+            }
+
+            scroller.addView(row)
+
+            libContent.addView(scroller, lp(matchParent, wrap))
+        }
+
+        // everything
+        libContent.addView(
+            sectionTitle(
+                when {
+                    vodGenre.isNotEmpty() -> vodGenre
+                    series -> "كل المسلسلات"
+                    else -> "كل الأفلام"
+                }
+            )
+        )
+
+        val perRow = maxOf(2, contentW / (dp(posterW) + dp(14)))
+
+        shown.chunked(perRow).forEach { chunk ->
+
+            val row = LinearLayout(this)
+
+            row.orientation = LinearLayout.HORIZONTAL
+
+            row.clipChildren = false
+
+            chunk.forEach { item ->
+                row.addView(posterView(item, posterW, posterH, "", 0f) { showDetail(item) })
+            }
+
+            libContent.addView(row, lp(matchParent, wrap))
+        }
+    }
+
+    // ---- details page ----
+
+    private fun detailOpen(): Boolean =
+        ::detailOverlay.isInitialized && detailOverlay.visibility == View.VISIBLE
+
+    private fun buildDetailOverlay() {
+
+        detailOverlay = FrameLayout(this)
+
+        detailOverlay.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(bgTop, bgMid, bgBottom)
+            )
+
+        detailOverlay.isClickable = true
+
+        detailOverlay.visibility = View.GONE
+
+        detailBackdrop = ImageView(this)
+
+        detailBackdrop.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        detailBackdrop.alpha = 0.5f
+
+        val backdropHeight = dp(if (phoneMode) 230 else 320)
+
+        detailOverlay.addView(detailBackdrop, FrameLayout.LayoutParams(matchParent, backdropHeight))
+
+        val fade = View(this)
+
+        fade.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(0, 0, 0, 0), bgMid)
+            )
+
+        detailOverlay.addView(fade, FrameLayout.LayoutParams(matchParent, backdropHeight))
+
+        detailScroll = ScrollView(this)
+
+        detailScroll.isVerticalScrollBarEnabled = false
+
+        detailCol = LinearLayout(this)
+
+        detailCol.orientation = LinearLayout.VERTICAL
+
+        detailCol.setPadding(dp(if (phoneMode) 14 else 34), dp(if (phoneMode) 56 else 40), dp(if (phoneMode) 14 else 34), dp(30))
+
+        detailScroll.addView(detailCol)
+
+        detailOverlay.addView(detailScroll, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        val close = TextView(this)
+
+        close.text = "✕"
+
+        close.textSize = 18f
+
+        close.setTextColor(white)
+
+        close.gravity = Gravity.CENTER
+
+        close.isClickable = true
+
+        close.isFocusable = true
+
+        close.isFocusableInTouchMode = !phoneMode
+
+        close.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(190, 8, 10, 28))
+                setStroke(dp(1), Color.argb(120, 255, 255, 255))
+            }
+
+        close.setOnClickListener { closeDetail() }
+
+        detailOverlay.addView(
+            close,
+            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.LEFT).apply { setMargins(dp(14), dp(14), 0, 0) }
+        )
+
+        root.addView(detailOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    private fun showDetail(item: VodItem) {
+
+        detailItem = item
+
+        val target = resumeTarget(item)
+
+        detailSeason = target?.first?.season ?: item.episodes.firstOrNull()?.season ?: 1
+
+        detailReturnFocus = currentFocus
+
+        renderDetail()
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        detailOverlay.visibility = View.VISIBLE
+
+        detailScroll.scrollTo(0, 0)
+
+        detailScroll.post { detailPrimary?.requestFocus() }
+    }
+
+    private fun closeDetail() {
+
+        if (!detailOpen()) {
+            return
+        }
+
+        detailOverlay.visibility = View.GONE
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+
+        detailReturnFocus?.requestFocus()
+
+        detailReturnFocus = null
+    }
+
+    private fun renderDetail() {
+
+        val item = detailItem ?: return
+
+        detailCol.removeAllViews()
+
+        detailPrimary = null
+
+        detailBackdrop.setImageDrawable(null)
+
+        loadImage(detailBackdrop, item.backdrop.ifBlank { item.poster }, 960)
+
+        val posterW = if (phoneMode) 110 else 160
+
+        val posterH = posterW * 3 / 2
+
+        // poster + information
+        val top = LinearLayout(this)
+
+        top.orientation = LinearLayout.HORIZONTAL
+
+        val info = LinearLayout(this)
+
+        info.orientation = LinearLayout.VERTICAL
+
+        info.setPadding(dp(8), 0, dp(16), 0)
+
+        info.addView(
+            label(item.title, if (phoneMode) 21f else 32f, white, true, Gravity.RIGHT, 3),
+            lp(matchParent, wrap)
+        )
+
+        val facts =
+            listOf(
+                genresOf(item).joinToString("، "),
+                item.year,
+                if (item.duration > 0) "${item.duration} د" else "",
+                if (item.rating.isNotBlank()) "★ ${item.rating}" else "",
+                if (item.series) "${item.episodes.map { it.season }.distinct().size} مواسم" else ""
+            ).filter { it.isNotBlank() }.joinToString("  •  ")
+
+        if (facts.isNotEmpty()) {
+            info.addView(label(facts, 14f, cyan, true), lp(matchParent, wrap).apply { topMargin = dp(6) })
+        }
+
+        if (item.overview.isNotBlank()) {
+            info.addView(
+                label(item.overview, 14f, dimWhite, false, Gravity.RIGHT, 7),
+                lp(matchParent, wrap).apply { topMargin = dp(10) }
+            )
+        }
+
+        val buttons = LinearLayout(this)
+
+        buttons.orientation = if (phoneMode) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+
+        buttons.gravity = Gravity.RIGHT
+
+        val target = resumeTarget(item)
+
+        val resumeEpisode: Episode? = target?.first
+
+        val resumePos: Long = target?.second ?: 0L
+
+        val primary: TextView? =
+            if (!item.series) {
+
+                if (item.url.isBlank()) {
+                    null
+                } else if (target != null) {
+                    actionButton("▶  أكمل من ${fmtTime(target.second)}", true) { playVod(item, null, target.second) }
+                } else {
+                    actionButton("▶  تشغيل", true) { playVod(item, null, 0L) }
+                }
+
+            } else if (resumeEpisode != null) {
+
+                actionButton(
+                    "▶  أكمل: الموسم ${resumeEpisode.season} الحلقة ${resumeEpisode.number}",
+                    true
+                ) { playVod(item, resumeEpisode, resumePos) }
+
+            } else {
+
+                val first = item.episodes.firstOrNull()
+
+                if (first != null) actionButton("▶  ابدأ المشاهدة", true) { playVod(item, first, 0L) } else null
+            }
+
+        if (!item.series && target != null) {
+            val restart = actionButton("من البداية", false) { playVod(item, null, 0L) }
+            buttons.addView(restart, lp(wrap, dp(44)).apply { setMargins(dp(8), dp(4), 0, dp(4)) })
+        }
+
+        if (primary != null) {
+            buttons.addView(primary, lp(wrap, dp(44)).apply { setMargins(0, dp(4), 0, dp(4)) })
+            detailPrimary = primary
+        }
+
+        info.addView(buttons, lp(matchParent, wrap).apply { topMargin = dp(14) })
+
+        val posterFrame = FrameLayout(this)
+
+        posterFrame.background = placeholderFor(item.title)
+
+        roundOutline(posterFrame, 16)
+
+        val posterImage = ImageView(this)
+
+        posterImage.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        posterFrame.addView(posterImage, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        loadImage(posterImage, item.poster, 480)
+
+        top.addView(info, lp(0, wrap, 1f))
+
+        top.addView(posterFrame, lp(dp(posterW), dp(posterH)))
+
+        detailCol.addView(top, lp(matchParent, wrap))
+
+        // seasons + episodes (series)
+        if (item.series && item.episodes.isNotEmpty()) {
+
+            val seasons = item.episodes.map { it.season }.distinct().sorted()
+
+            if (detailSeason !in seasons) {
+                detailSeason = seasons.first()
+            }
+
+            val chips = HorizontalScrollView(this)
+
+            chips.isHorizontalScrollBarEnabled = false
+
+            val chipRow = LinearLayout(this)
+
+            chipRow.orientation = LinearLayout.HORIZONTAL
+
+            chipRow.gravity = Gravity.RIGHT
+
+            seasons.reversed().forEach { season ->
+
+                val chip = actionButton("الموسم $season", season == detailSeason) {
+                    detailSeason = season
+                    renderDetail()
+                }
+
+                chipRow.addView(chip, lp(wrap, dp(40)).apply { setMargins(dp(5), 0, dp(5), 0) })
+            }
+
+            chips.addView(chipRow, FrameLayout.LayoutParams(wrap, wrap))
+
+            detailCol.addView(chips, lp(matchParent, wrap).apply { topMargin = dp(22) })
+
+            item.episodes.filter { it.season == detailSeason }.forEach { episode ->
+                detailCol.addView(episodeRow(item, episode))
+            }
+        }
+    }
+
+    private fun episodeRow(item: VodItem, ep: Episode): View {
+
+        val key = vodKey(item, ep)
+
+        val progress = progressOf(key)
+
+        val done = isFinished(key)
+
+        val row = LinearLayout(this)
+
+        row.orientation = LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER_VERTICAL
+
+        row.setPadding(dp(14), 0, dp(10), 0)
+
+        row.isClickable = true
+
+        row.isFocusable = true
+
+        row.isFocusableInTouchMode = !phoneMode
+
+        row.layoutParams = lp(matchParent, dp(88)).apply { topMargin = dp(8) }
+
+        // play icon (left)
+        val playCircle = FrameLayout(this)
+
+        playCircle.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(50, 255, 255, 255))
+            }
+
+        val playIcon = LineIconView()
+
+        playIcon.setIcon(if (done) "M5 13l4 4L19 7" else ICON_PLAY)
+
+        playCircle.addView(playIcon, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
+
+        row.addView(playCircle, lp(dp(40), dp(40)))
+
+        // texts
+        val texts = LinearLayout(this)
+
+        texts.orientation = LinearLayout.VERTICAL
+
+        texts.setPadding(dp(12), 0, dp(12), 0)
+
+        texts.addView(label(ep.title, 16f, white, true), lp(matchParent, wrap))
+
+        texts.addView(
+            label(
+                "الحلقة ${ep.number}" + (if (ep.duration > 0) "  •  ${ep.duration} د" else "") + (if (done) "  •  تمت المشاهدة" else ""),
+                12f,
+                gray
+            ),
+            lp(matchParent, wrap)
+        )
+
+        if (progress > 0f && !done) {
+
+            val track = LinearLayout(this)
+
+            track.orientation = LinearLayout.HORIZONTAL
+
+            track.background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(2).toFloat()
+                    setColor(Color.argb(60, 255, 255, 255))
+                }
+
+            track.addView(
+                View(this).apply { setBackgroundColor(cyan) },
+                LinearLayout.LayoutParams(0, matchParent, progress.coerceIn(0.03f, 1f))
+            )
+
+            track.addView(View(this), LinearLayout.LayoutParams(0, matchParent, 1f - progress.coerceIn(0.03f, 1f)))
+
+            texts.addView(track, lp(matchParent, dp(4)).apply { topMargin = dp(8) })
+        }
+
+        row.addView(texts, lp(0, wrap, 1f))
+
+        // thumbnail (right)
+        val thumb = FrameLayout(this)
+
+        thumb.background = placeholderFor(item.title + ep.number)
+
+        roundOutline(thumb, 12)
+
+        val thumbImage = ImageView(this)
+
+        thumbImage.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        thumb.addView(thumbImage, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        loadImage(thumbImage, ep.thumb, 300)
+
+        thumb.addView(
+            label("${ep.number}", 18f, white, true, Gravity.CENTER),
+            FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        row.addView(thumb, lp(dp(if (phoneMode) 96 else 128), dp(if (phoneMode) 54 else 72)))
+
+        fun style(focused: Boolean) {
+
+            row.background =
+                if (focused) {
+                    GradientDrawable(
+                        GradientDrawable.Orientation.LEFT_RIGHT,
+                        intArrayOf(mix(cyan, bgMid, 0.5f), mix(violet, bgMid, 0.5f))
+                    ).apply {
+                        cornerRadius = dp(18).toFloat()
+                        setStroke(dp(2), Color.WHITE)
+                    }
+                } else {
+                    GradientDrawable().apply {
+                        cornerRadius = dp(18).toFloat()
+                        setColor(Color.argb(26, 255, 255, 255))
+                        setStroke(dp(1), Color.argb(30, 255, 255, 255))
+                    }
+                }
+        }
+
+        style(false)
+
+        row.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        row.setOnClickListener {
+            playVod(item, ep, if (!done && progress > 0f) savedPos(key) else 0L)
+        }
+
+        return row
+    }
+
+    // ---- playing ----
+
+    // the saved place, or the beginning
+    private fun playBest(item: VodItem) {
+
+        val target = resumeTarget(item)
+
+        if (target != null) {
+
+            playVod(item, target.first, target.second)
+
+        } else if (!item.series) {
+
+            playVod(item, null, 0L)
+
+        } else {
+
+            val first = item.episodes.firstOrNull()
+
+            if (first != null) {
+                playVod(item, first, 0L)
+            } else {
+                Toast.makeText(this, "لا توجد حلقات بعد", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun playVod(item: VodItem, ep: Episode?, startMs: Long) {
+
+        if (blocked || gated) {
+            return
+        }
+
+        val url = ep?.url ?: item.url
+
+        if (url.isBlank()) {
+            Toast.makeText(this, "لا يوجد رابط لهذا العمل", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (vodPlay == null) {
+            liveBeforeVod = playingChannel?.takeIf { !it.isVod } ?: liveBeforeVod
+        }
+
+        val name =
+            if (ep != null) "${item.title} · الموسم ${ep.season} الحلقة ${ep.number}" else item.title
+
+        val channel =
+            Channel(
+                name = name,
+                group = "vod",
+                url = url,
+                logo = item.poster,
+                enabled = true,
+                order = 0,
+                isVod = true
+            )
+
+        val play = VodPlay(item, ep)
+
+        vodPlay = play
+
+        pendingSeek = if (startMs > 15000L) startMs else 0L
+
+        if (ep != null) {
+            prefs.edit().putString("lastEp_${item.id}", "${ep.season}x${ep.number}").apply()
+        }
+
+        closeDetail()
+
+        playChannel(channel)
+
+        playingList = listOf(channel)
+
+        enterFullscreen()
+
+        mainHandler.removeCallbacks(vodSaveRunnable)
+
+        mainHandler.postDelayed(vodSaveRunnable, 10_000L)
+    }
+
+    private val vodSaveRunnable = object : Runnable {
+
+        override fun run() {
+
+            saveVodProgress()
+
+            if (vodPlay != null) {
+                mainHandler.postDelayed(this, 10_000L)
+            }
+        }
+    }
+
+    private fun saveVodProgress() {
+
+        val play = vodPlay ?: return
+
+        if (playingWeb || player.duration <= 0 || player.currentPosition <= 0) {
+            return
+        }
+
+        prefs.edit()
+            .putLong("vp_" + play.key, player.currentPosition)
+            .putLong("vd_" + play.key, player.duration)
+            .apply()
+    }
+
+    // the video ended: next episode at once, or the end screen
+    private fun onVodEnded() {
+
+        val play = vodPlay
+
+        if (play == null) {
+            showStatus("انتهى الفيديو", "اضغط رجوع للعودة", true)
+            return
+        }
+
+        val duration = player.duration
+
+        if (duration > 0) {
+            prefs.edit()
+                .putLong("vp_" + play.key, duration)
+                .putLong("vd_" + play.key, duration)
+                .apply()
+        }
+
+        val episode = play.episode
+
+        if (episode != null) {
+
+            val next = nextEpisode(play.item, episode)
+
+            if (next != null) {
+
+                Toast.makeText(this, "الحلقة التالية: ${next.title}", Toast.LENGTH_LONG).show()
+
+                playVod(play.item, next, 0L)
+
+                return
+            }
+        }
+
+        showStatus("انتهى العرض", "اضغط رجوع للعودة", true)
+    }
+
+    // back from the fullscreen: save the place, stop, and give the screen back
+    private fun leaveVod() {
+
+        saveVodProgress()
+
+        mainHandler.removeCallbacks(vodSaveRunnable)
+
+        try {
+            player.stop()
+            player.clearMediaItems()
+        } catch (_: Exception) {
+        }
+
+        vodPlay = null
+
+        pendingSeek = 0L
+
+        playingChannel = liveBeforeVod
+
+        if (currentSection == 0) {
+
+            liveBeforeVod?.let { playChannel(it) }
+
+        } else {
+
+            renderLibrary()
+
+            focusLibrary()
+        }
+    }
+
+    // =========================
+    // Check the update file before installing it
+    // =========================
+
+    private fun signatureSet(info: android.content.pm.PackageInfo?): Set<String> {
+
+        if (info == null) {
+            return emptySet()
+        }
+
+        val signatures =
+            if (Build.VERSION.SDK_INT >= 28) {
+                info.signingInfo?.apkContentsSigners?.toList()
+            } else {
+                @Suppress("DEPRECATION")
+                info.signatures?.toList()
+            }
+
+        return (signatures ?: emptyList())
+            .map { signature ->
+                MessageDigest.getInstance("SHA-256")
+                    .digest(signature.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+            }
+            .toSet()
+    }
+
+    // returns the reason why Android would refuse this update (null = looks fine)
+    @Suppress("DEPRECATION")
+    private fun checkApk(file: File): String? {
+
+        val flags =
+            if (Build.VERSION.SDK_INT >= 28) {
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                android.content.pm.PackageManager.GET_SIGNATURES
+            }
+
+        val archive =
+            try {
+                packageManager.getPackageArchiveInfo(file.path, flags)
+            } catch (_: Exception) {
+                null
+            } ?: return "ملف التحديث تالف أو غير صالح. أعد تحميله."
+
+        if (archive.packageName != packageName) {
+            return "ملف التحديث لتطبيق مختلف (${archive.packageName})."
+        }
+
+        val newCode =
+            if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
+
+        val current = currentVersionCode()
+
+        if (newCode <= current) {
+            return "رقم إصدار التحديث ($newCode) لا يزيد عن المثبت ($current). ارفع versionCode ثم أعد بناء الملف."
+        }
+
+        val installed =
+            try {
+                packageManager.getPackageInfo(packageName, flags)
+            } catch (_: Exception) {
+                null
+            }
+
+        val newSigners = signatureSet(archive)
+
+        val oldSigners = signatureSet(installed)
+
+        if (newSigners.isNotEmpty() && oldSigners.isNotEmpty() && newSigners.intersect(oldSigners).isEmpty()) {
+            return "التحديث موقّع بمفتاح مختلف عن النسخة المثبتة، فلن يُثبَّت فوقها. احذف التطبيق ثم ثبّت التحديث يدوياً مرة واحدة، وبعدها تعمل كل التحديثات."
+        }
+
+        return null
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -12355,6 +14136,21 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
+        // movie / series details
+        if (detailOpen()) {
+
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    closeDetail()
+                }
+
+                return true
+            }
+
+            return super.dispatchKeyEvent(event)
+        }
+
         // split screen (multi view)
         if (multiActive) {
             return handleMultiKey(event)
@@ -12374,7 +14170,7 @@ class MainActivity : Activity() {
         }
 
         // number keys / previous channel
-        if (moveState == null && handleSpecialKeys(event)) {
+        if (moveState == null && (currentSection == 0 || isFullscreen) && handleSpecialKeys(event)) {
             return true
         }
 
@@ -12434,6 +14230,11 @@ class MainActivity : Activity() {
                     key == KeyEvent.KEYCODE_DPAD_DOWN
 
         if (!isDpad) {
+            return super.dispatchKeyEvent(event)
+        }
+
+        // movies / series pages and the section bar use the normal focus search
+        if (currentSection != 0 || isInSectionBar(currentFocus)) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -12609,6 +14410,16 @@ class MainActivity : Activity() {
             return
         }
 
+        if (detailOpen()) {
+            closeDetail()
+            return
+        }
+
+        if (currentSection != 0) {
+            switchSection(0)
+            return
+        }
+
         when (columnOf(currentFocus)) {
 
             2 -> {
@@ -12657,7 +14468,9 @@ class MainActivity : Activity() {
         cancelPreview()
 
         playingChannel?.let {
-            prefs.edit().putString("last_channel", channelKey(it)).apply()
+            if (!it.isVod) {
+                prefs.edit().putString("last_channel", channelKey(it)).apply()
+            }
         }
 
         moveVideoTo(fullscreenContainer)
@@ -12737,6 +14550,10 @@ class MainActivity : Activity() {
         showSystemBars()
 
         playerFrame.requestFocus()
+
+        if (vodPlay != null) {
+            leaveVod()
+        }
     }
 
     @Suppress("DEPRECATION")
