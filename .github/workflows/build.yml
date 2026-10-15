@@ -1,18 +1,69 @@
-# ===== خطوتان تُعدَّلان بملف الـ workflow (المجلد .github/workflows) =====
-# 1) غيّر أمر البناء ليأخذ رقم الإصدار من رقم تشغيل GitHub (يزيد تلقائياً كل مرة):
-#
-#   قبل:  run: gradle assembleDebug
-#   بعد:  run: gradle assembleDebug -Pvc=$((1000 + GITHUB_RUN_NUMBER))
-#
-# 2) أضف هذه الخطوة بعد خطوة البناء (بنفس المحاذاة). تفشل إذا لم يطابق توقيع الـ APK مفتاح niyati:
+name: Build Niyati TV
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        run: gradle assembleDebug -Pvc=$((1000 + GITHUB_RUN_NUMBER))
 
       - name: Verify signing
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.NIYATI_KEYSTORE_PASSWORD }}
         run: |
-          BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -n 1)
-          APK=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          KS=$(keytool -list -v -keystore app/niyati.keystore -storepass niyati123 | grep "SHA256:" | head -1 | sed 's/.*SHA256: //' | tr -d ':' | tr 'A-F' 'a-f')
-          AP=$($BT/apksigner verify --print-certs "$APK" | grep "certificate SHA-256 digest" | head -1 | sed 's/.*: //')
-          echo "keystore = $KS"
-          echo "apk      = $AP"
-          echo "versionCode = $($BT/aapt2 dump badging "$APK" | grep -o "versionCode='[0-9]*'")"
-          [ "$KS" = "$AP" ] || { echo "SIGNING MISMATCH: the APK is not signed with niyati.keystore"; exit 1; }
+          set -e
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          KS="app/niyati.keystore"
+
+          test -f "$APK" || { echo "APK not found"; exit 1; }
+          test -f "$KS" || { echo "Keystore not found"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing NIYATI_KEYSTORE_PASSWORD secret"; exit 1; }
+
+          KS_SHA=$(keytool -list -v -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" | head -1 | sed 's/.*SHA256: //' | tr -d ':' | tr 'A-F' 'a-f')
+          APK_SHA=$("$BT/apksigner" verify --print-certs "$APK" | grep "certificate SHA-256 digest" | head -1 | sed 's/.*: //' | tr -d ':' | tr 'A-F' 'a-f')
+
+          echo "Keystore SHA-256: $KS_SHA"
+          echo "APK SHA-256: $APK_SHA"
+          "$BT/aapt2" dump badging "$APK" | grep -o "versionCode='[0-9]*'"
+
+          if [ "$KS_SHA" != "$APK_SHA" ]; then
+            echo "ERROR: APK signature does not match niyati.keystore"
+            exit 1
+          fi
+
+      - name: Prepare APK
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk release/Niyati-TV-debug.apk
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" \
+            release/Niyati-TV-debug.apk \
+            --title "Niyati TV Build ${{ github.run_number }}" \
+            --notes "Niyati TV debug APK"
