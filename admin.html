@@ -62,7 +62,7 @@ table{width:100%;border-collapse:collapse}td{padding:8px 4px;border-bottom:1px s
 <script>
 // ====== 1) ضع هنا إعدادات مشروعك (Firebase > Project settings > Your apps > Web) ======
 const firebaseConfig = {
-  apiKey: "AIzaSyBn7P8rXB_cln5tCkeXhEuMQ0eZJ599pIs",
+  apiKey: "PASTE_API_KEY_HERE",
   authDomain: "niyati-tv.firebaseapp.com",
   databaseURL: "https://niyati-tv-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "niyati-tv"
@@ -88,12 +88,12 @@ auth.onAuthStateChanged(u => {
 });
 
 // ---------------- التبويبات ----------------
-const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['movies','الأفلام'],['series','المسلسلات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
 function go(t){
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
   $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
-  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
+  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
 }
 
 // ---------------- قوائم عامة (قنوات / باقات / مباريات) ----------------
@@ -114,6 +114,18 @@ const MT = {path:'matches', title:'المباريات', fields:[
   {k:'channel',l:'القناة الناقلة',t:'chan'},{k:'homeLogo',l:'شعار الأول',t:'text'},{k:'awayLogo',l:'شعار الثاني',t:'text'},
   {k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'مفعّلة',t:'bool',d:true}],
   row:v=>[v.home+' × '+v.away, (v.status==='live'?'🔴 مباشرة ':'')+(v.time||'')+' · '+(v.league||'')]};
+
+const VODF = [
+  {k:'title',l:'العنوان',t:'text',req:1},{k:'poster',l:'رابط البوستر (صورة طولية)',t:'text'},{k:'backdrop',l:'رابط الصورة العريضة',t:'text'},
+  {k:'genre',l:'التصنيف (افصل بفاصلة: أكشن، دراما)',t:'text'},{k:'year',l:'السنة',t:'text'},{k:'rating',l:'التقييم (مثل 7.8)',t:'text'},
+  {k:'overview',l:'الوصف',t:'area'}];
+const VODT = [
+  {k:'featured',l:'مميز (يظهر بالبانر الكبير)',t:'bool'},{k:'new',l:'علامة «جديد»',t:'bool'},{k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'ظاهر',t:'bool',d:true}];
+const MOVIES = {path:'movies', title:'الأفلام', fields:[...VODF,{k:'url',l:'رابط الفيلم (mp4 أو m3u8)',t:'text',req:1},{k:'duration',l:'المدة بالدقائق',t:'num'},...VODT],
+  row:v=>[v.title, (v.genre||'-')+' · '+(v.year||'')+(v.featured?' · مميز':'')]};
+const SERIES = {path:'series', title:'المسلسلات', fields:[...VODF,...VODT,
+  {k:'episodes',l:'الحلقات: سطر لكل حلقة بهذا الشكل  الموسم|الحلقة|العنوان|الرابط|المدة بالدقائق|رابط الصورة',t:'eps'}],
+  row:v=>[v.title, (v.genre||'-')+' · '+Object.keys(v.episodes||{}).length+' حلقة']};
 
 let CFG, DATA = {}, PKG = [], CHN = [];
 async function list(cfg){
@@ -136,6 +148,8 @@ function field(f, v){
   else if (f.t==='chan') inner = `<input id="${id}" list="dl_${id}" value="${esc(val)}"><datalist id="dl_${id}">${CHN.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
   else if (f.t==='sel') inner = `<select id="${id}">${f.o.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (f.t==='area') inner = `<textarea id="${id}">${esc(val)}</textarea>`;
+  else if (f.t==='eps'){ const arr=Object.values(val&&typeof val==='object'?val:{}).sort((a,b)=>((a.s||0)-(b.s||0))||((a.e||0)-(b.e||0)));
+    inner=`<textarea id="${id}" style="min-height:220px;direction:ltr;font-size:13px" placeholder="1|1|الحلقة الأولى|https://.../1.mp4|45|https://.../thumb1.jpg">${esc(arr.map(e=>[e.s,e.e,e.title||'',e.url||'',e.duration||'',e.thumb||''].join('|')).join('\n'))}</textarea>` }
   else if (f.t==='audios'){ const a=(val&&typeof val==='object')?Object.values(val):[];
     inner=[0,1,2].map(i=>`<div class="row" style="margin:5px 0"><input id="${id}n${i}" placeholder="اسم المعلق" value="${esc(a[i]?.name)}"><input id="${id}u${i}" placeholder="رابط الصوت" value="${esc(a[i]?.url)}"></div>`).join('') }
   else inner = `<input id="${id}" type="${f.t==='num'?'number':f.t==='date'?'date':'text'}" value="${esc(val)}">`;
@@ -144,6 +158,10 @@ function field(f, v){
 function read(f){
   const id = 'f_' + f.k;
   if (f.t==='bool') return $('#'+id).checked;
+  if (f.t==='eps'){ const o={}; let n=0;
+    $('#'+id).value.split('\n').forEach(line=>{ const p=line.split('|').map(x=>x.trim()); if(p.length<4||!p[3]) return;
+      const e={s:Number(p[0])||1,e:Number(p[1])||(++n),title:p[2]||('الحلقة '+(Number(p[1])||n)),url:p[3]}; if(p[4]) e.duration=Number(p[4])||null; if(p[5]) e.thumb=p[5]; o['e'+(Object.keys(o).length+1)]=e });
+    return Object.keys(o).length?o:null }
   if (f.t==='audios'){ const o={}; [0,1,2].forEach(i=>{const n=$('#'+id+'n'+i).value.trim(),u=$('#'+id+'u'+i).value.trim(); if(u) o['a'+(i+1)]={name:n||('تعليق '+(i+1)),url:u}}); return Object.keys(o).length?o:null }
   const x = $('#'+id).value.trim();
   if (x==='') return null;
