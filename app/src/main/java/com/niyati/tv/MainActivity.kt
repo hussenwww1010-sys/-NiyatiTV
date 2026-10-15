@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
@@ -491,7 +492,7 @@ class MainActivity : Activity() {
     // ---- phone / touch ----
     private var phoneMode = false
     private lateinit var touchControls: LinearLayout
-    private lateinit var touchFavIcon: TextView
+    private lateinit var touchFavIcon: LineIconView
     private lateinit var touchServerBtn: View
     private lateinit var touchAudioBtn: View
     private lateinit var hudTop: LinearLayout
@@ -504,7 +505,22 @@ class MainActivity : Activity() {
     private lateinit var hudSeek: SeekBarView
     private lateinit var hudTimeCur: TextView
     private lateinit var hudTimeTotal: TextView
-    private lateinit var hudPlayIcon: TextView
+    private lateinit var hudPlayIcon: LineIconView
+
+    // line icons (24 x 24 grid)
+    private val ICON_PREV = "M19 5L9 12l10 7zM5 5v14"
+    private val ICON_STAR = "M12 3l2.8 6 6.2.7-4.7 4.3 1.4 6.5-5.7-3.3-5.7 3.3 1.4-6.5L3 9.7 9.2 9z"
+    private val ICON_SERVER = "M4 5h16v5H4zM4 14h16v5H4zM8 7.5h.01M8 16.5h.01"
+    private val ICON_QUALITY = "M4 7h8M16 7h4M4 17h4M12 17h8M14 4v6M10 14v6"
+    private val ICON_ASPECT = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+    private val ICON_FLAG = "M5 21V4M5 4h12l-2.5 4L17 12H5"
+    private val ICON_LIST = "M4 6h16M4 12h16M4 18h10"
+    private val ICON_AUDIO = "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"
+    private val ICON_EXIT = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
+    private val ICON_PLAY = "M7 4l13 8-13 8z"
+    private val ICON_PAUSE = "M8 5v14M16 5v14"
+    private val ICON_BACK10 = "M11 17l-5-5 5-5M18 17l-5-5 5-5"
+    private val ICON_FWD10 = "M13 17l5-5-5-5M6 17l5-5-5-5"
     private val hudVodButtons = mutableListOf<View>()
     private var hudFirstButton: View? = null
     private var epgMap: Map<String, List<Program>> = emptyMap()
@@ -9438,17 +9454,15 @@ class MainActivity : Activity() {
         return button
     }
 
-    private fun roundIcon(icon: String, action: () -> Unit): TextView {
+    private fun roundIcon(iconPath: String, action: () -> Unit): View {
 
-        val button = TextView(this)
+        val button = FrameLayout(this)
 
-        button.text = icon
+        val icon = LineIconView()
 
-        button.textSize = 20f
+        icon.setIcon(iconPath)
 
-        button.setTextColor(white)
-
-        button.gravity = Gravity.CENTER
+        button.addView(icon, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER))
 
         button.isClickable = true
 
@@ -9464,6 +9478,179 @@ class MainActivity : Activity() {
         }
 
         return button
+    }
+
+    // thin line icon drawn from SVG path data (24 x 24)
+    private inner class LineIconView : View(this@MainActivity) {
+
+        private val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                color = Color.WHITE
+            }
+
+        private var path: Path? = null
+        private var source = ""
+        private val scaled = Path()
+        private val matrix = Matrix()
+        private var filled = false
+
+        fun setIcon(d: String) {
+
+            if (d == source) {
+                return
+            }
+
+            source = d
+
+            path =
+                try {
+                    androidx.core.graphics.PathParser.createPathFromPathData(d)
+                } catch (_: Exception) {
+                    null
+                }
+
+            invalidate()
+        }
+
+        fun setFilled(value: Boolean) {
+            filled = value
+            invalidate()
+        }
+
+        fun setTint(color: Int) {
+            paint.color = color
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val p = path ?: return
+
+            val scale = width / 24f
+
+            matrix.setScale(scale, scale)
+
+            p.transform(matrix, scaled)
+
+            paint.strokeWidth = 1.9f * scale
+
+            paint.style = if (filled) Paint.Style.FILL_AND_STROKE else Paint.Style.STROKE
+
+            canvas.drawPath(scaled, paint)
+        }
+    }
+
+    // floating round button: the focused one grows and shows its name
+    private fun circleButton(
+        iconPath: String,
+        text: String,
+        keepOpen: Boolean = false,
+        action: () -> Unit
+    ): LinearLayout {
+
+        val box = LinearLayout(this)
+
+        box.orientation = LinearLayout.VERTICAL
+
+        box.gravity = Gravity.CENTER_HORIZONTAL
+
+        box.clipChildren = false
+
+        box.isClickable = true
+
+        box.isFocusable = true
+
+        box.isFocusableInTouchMode = !phoneMode
+
+        val size = if (phoneMode) 48 else 62
+
+        val circle = FrameLayout(this)
+
+        val icon = LineIconView()
+
+        icon.setIcon(iconPath)
+
+        circle.addView(
+            icon,
+            FrameLayout.LayoutParams(dp(if (phoneMode) 24 else 28), dp(if (phoneMode) 24 else 28), Gravity.CENTER)
+        )
+
+        box.addView(circle, lp(dp(size), dp(size)))
+
+        val name = label(text, if (phoneMode) 10.5f else 12.5f, white, true, Gravity.CENTER)
+
+        name.setPadding(dp(12), dp(1), dp(12), dp(1))
+
+        box.addView(name, lp(wrap, wrap).apply { topMargin = dp(8) })
+
+        fun style(focused: Boolean) {
+
+            circle.background =
+                if (focused) {
+                    GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        intArrayOf(cyan, violet)
+                    ).apply {
+                        shape = GradientDrawable.OVAL
+                        setStroke(dp(2), Color.WHITE)
+                    }
+                } else {
+                    GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(Color.argb(190, 14, 16, 44))
+                        setStroke(dp(1), Color.argb(64, 255, 255, 255))
+                    }
+                }
+
+            val scale = if (focused) 1.25f else 1f
+
+            circle.animate().scaleX(scale).scaleY(scale).setStartDelay(0).setDuration(130).start()
+
+            // on a touch screen the names stay visible, on the TV only the focused one shows its name
+            if (phoneMode) {
+
+                name.background = null
+
+            } else {
+
+                name.visibility = if (focused) View.VISIBLE else View.INVISIBLE
+
+                name.background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(12).toFloat()
+                        setColor(Color.argb(220, 6, 10, 30))
+                        setStroke(dp(1), withAlpha(cyan, 150))
+                    }
+            }
+
+            if (Build.VERSION.SDK_INT >= 28) {
+                circle.elevation = dp(if (focused) 12 else 4).toFloat()
+                circle.outlineSpotShadowColor = if (focused) cyan else Color.BLACK
+                circle.outlineAmbientShadowColor = if (focused) cyan else Color.BLACK
+            }
+        }
+
+        style(false)
+
+        box.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        box.setOnClickListener {
+
+            if (keepOpen) {
+                resetHudTimer()
+            } else {
+                hideTouchControls(true)
+            }
+
+            action()
+        }
+
+        box.tag = icon
+
+        return box
     }
 
     // seek bar with the buffered part and a round handle (videos)
@@ -9574,7 +9761,7 @@ class MainActivity : Activity() {
                 intArrayOf(Color.argb(225, 4, 6, 18), Color.argb(0, 4, 6, 18))
             )
 
-        hudTop.addView(roundIcon("⤢") { exitFullscreen() }, lp(dp(46), dp(46)))
+        hudTop.addView(roundIcon(ICON_EXIT) { exitFullscreen() }, lp(dp(46), dp(46)))
 
         val clock = TextClock(this)
 
@@ -9644,45 +9831,40 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(matchParent, wrap, Gravity.TOP)
         )
 
-        // ---------- bottom card with LED border ----------
-        val card = LedFrame()
+        // ---------- bottom: floating round buttons (+ a seek bar for videos) ----------
+        val card = LinearLayout(this)
 
         touchControls = card
-
-        card.cornerDp = 28
-
-        card.setColors(cyan, violet)
 
         card.orientation = LinearLayout.VERTICAL
 
         card.gravity = Gravity.CENTER_HORIZONTAL
 
-        card.setPadding(dp(14), dp(10), dp(14), dp(8))
+        card.clipChildren = false
+
+        card.setPadding(dp(8), dp(4), dp(8), dp(2))
 
         card.visibility = View.GONE
 
-        card.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(
-                    withAlpha(mix(violet, bgTop, 0.32f), 215),
-                    withAlpha(mix(bgMid, bgTop, 0.7f), 225),
-                    withAlpha(bgBottom, 230)
-                )
-            ).apply {
-                cornerRadius = dp(28).toFloat()
-            }
-
-        // seek row (videos only)
+        // seek row (videos only) in its own glass capsule
         hudSeekRow = LinearLayout(this)
 
         hudSeekRow.orientation = LinearLayout.HORIZONTAL
 
         hudSeekRow.gravity = Gravity.CENTER_VERTICAL
 
-        hudSeekRow.minimumWidth = dp(520)
+        hudSeekRow.minimumWidth = dp(if (phoneMode) 420 else 560)
+
+        hudSeekRow.setPadding(dp(18), dp(4), dp(18), dp(4))
 
         hudSeekRow.visibility = View.GONE
+
+        hudSeekRow.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(26).toFloat()
+                setColor(Color.argb(200, 10, 12, 34))
+                setStroke(dp(1), Color.argb(70, 255, 255, 255))
+            }
 
         hudTimeCur = label("0:00", 12f, white, true, Gravity.LEFT)
 
@@ -9703,26 +9885,30 @@ class MainActivity : Activity() {
 
         hudSeekRow.addView(hudTimeTotal, lp(dp(54), wrap))
 
-        card.addView(hudSeekRow, lp(matchParent, wrap))
+        card.addView(hudSeekRow, lp(wrap, wrap).apply { bottomMargin = dp(18) })
 
-        // buttons
+        // the round buttons
         val buttons = LinearLayout(this)
 
         buttons.orientation = LinearLayout.HORIZONTAL
 
-        buttons.gravity = Gravity.CENTER
+        buttons.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
 
-        val size = lp(dp(64), wrap).apply { setMargins(dp(2), 0, dp(2), 0) }
+        buttons.clipChildren = false
+
+        val gap = if (phoneMode) 4 else 10
+
+        fun slot() = lp(wrap, wrap).apply { setMargins(dp(gap), 0, dp(gap), 0) }
 
         hudVodButtons.clear()
 
-        val back = touchButton("⏪", "10 ث", true) { seekBy(-10000L) }
+        val back = circleButton(ICON_BACK10, "10 ث", true) { seekBy(-10000L) }
 
-        val play = touchButton("⏸", "تشغيل", true) { togglePlayPause() }
+        val play = circleButton(ICON_PAUSE, "تشغيل", true) { togglePlayPause() }
 
-        hudPlayIcon = play.getChildAt(0) as TextView
+        hudPlayIcon = play.tag as LineIconView
 
-        val forward = touchButton("⏩", "10 ث", true) { seekBy(10000L) }
+        val forward = circleButton(ICON_FWD10, "10 ث", true) { seekBy(10000L) }
 
         hudVodButtons.add(back)
         hudVodButtons.add(play)
@@ -9730,45 +9916,45 @@ class MainActivity : Activity() {
 
         hudVodButtons.forEach {
             it.visibility = View.GONE
-            buttons.addView(it, size)
+            buttons.addView(it, slot())
         }
 
-        buttons.addView(touchButton("⏮", "السابقة") { goPreviousChannel() }, size)
+        buttons.addView(circleButton(ICON_PREV, "السابقة") { goPreviousChannel() }, slot())
 
-        val fav = touchButton("☆", "المفضلة") {
+        val fav = circleButton(ICON_STAR, "المفضلة") {
             playingChannel?.let { toggleFavorite(it) }
         }
 
-        touchFavIcon = fav.getChildAt(0) as TextView
+        touchFavIcon = fav.tag as LineIconView
 
-        buttons.addView(fav, size)
+        buttons.addView(fav, slot())
 
-        touchAudioBtn = touchButton("🎙", "الصوت") { openAudioStrip() }
+        touchAudioBtn = circleButton(ICON_AUDIO, "الصوت") { openAudioStrip() }
 
-        buttons.addView(touchAudioBtn, size)
+        buttons.addView(touchAudioBtn, slot())
 
-        touchServerBtn = touchButton("🖥", "السيرفر") { openServerStrip() }
+        touchServerBtn = circleButton(ICON_SERVER, "السيرفر") { openServerStrip() }
 
-        buttons.addView(touchServerBtn, size)
+        buttons.addView(touchServerBtn, slot())
 
-        buttons.addView(touchButton("🎚", "الجودة") { openQualityStrip() }, size)
+        buttons.addView(circleButton(ICON_QUALITY, "الجودة") { openQualityStrip() }, slot())
 
-        buttons.addView(touchButton("📐", "الأبعاد") { openAspectStrip() }, size)
+        buttons.addView(circleButton(ICON_ASPECT, "الأبعاد") { openAspectStrip() }, slot())
 
-        buttons.addView(touchButton("⚠", "إبلاغ") { showReportMenu() }, size)
+        buttons.addView(circleButton(ICON_FLAG, "إبلاغ") { showReportMenu() }, slot())
 
-        val channelsButton = touchButton("📋", "القنوات") { openChannelPanel() }
+        val channelsButton = circleButton(ICON_LIST, "القنوات") { openChannelPanel() }
 
         hudFirstButton = channelsButton
 
-        buttons.addView(channelsButton, size)
+        buttons.addView(channelsButton, slot())
 
         card.addView(buttons, lp(wrap, wrap))
 
         fullscreenContainer.addView(
             card,
             FrameLayout.LayoutParams(wrap, wrap, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-                bottomMargin = dp(22)
+                bottomMargin = dp(26)
             }
         )
     }
@@ -9852,8 +10038,9 @@ class MainActivity : Activity() {
                     hudTimeTotal.text = fmtTime(duration)
                 }
 
-                hudPlayIcon.text =
-                    if (player.playWhenReady && player.playbackState != Player.STATE_ENDED) "⏸" else "▶"
+                hudPlayIcon.setIcon(
+                    if (player.playWhenReady && player.playbackState != Player.STATE_ENDED) ICON_PAUSE else ICON_PLAY
+                )
             }
 
             mainHandler.postDelayed(this, 500)
@@ -9891,9 +10078,11 @@ class MainActivity : Activity() {
         hudQuality.visibility = if (qualityText.isEmpty()) View.GONE else View.VISIBLE
 
         // bottom card
-        touchFavIcon.text = if (isFavorite(channel)) "★" else "☆"
+        val favorite = isFavorite(channel)
 
-        touchFavIcon.setTextColor(if (touchFavIcon.text == "★") gold else white)
+        touchFavIcon.setFilled(favorite)
+
+        touchFavIcon.setTint(if (favorite) gold else white)
 
         hudVodButtons.forEach { it.visibility = if (vod) View.VISIBLE else View.GONE }
 
