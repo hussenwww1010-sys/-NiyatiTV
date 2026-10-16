@@ -2203,6 +2203,14 @@ class MainActivity : Activity() {
             }
         )
 
+        // ---- movies button ----
+        header.addView(
+            buildMoviesButton(),
+            lp(wrap, dp(44)).apply {
+                setMargins(dp(14), 0, 0, 0)
+            }
+        )
+
         // ---- settings button ----
         val settingsBtn = TextView(this)
 
@@ -2248,6 +2256,63 @@ class MainActivity : Activity() {
         )
 
         return header
+    }
+
+    // button that opens the separate movies screen (MoviesActivity)
+    private fun buildMoviesButton(): View {
+
+        val moviesButton = android.widget.Button(this).apply {
+
+            text = "🎬 الأفلام والمسلسلات"
+
+            textSize = 14f
+
+            isAllCaps = false
+
+            setTextColor(white)
+
+            isFocusable = true
+
+            isFocusableInTouchMode = !phoneMode
+
+            setPadding(dp(18), 0, dp(18), 0)
+
+            background =
+                GradientDrawable().apply {
+                    cornerRadius = dp(22).toFloat()
+                    setColor(Color.argb(30, 255, 255, 255))
+                    setStroke(dp(1), Color.argb(70, 255, 255, 255))
+                }
+
+            setOnFocusChangeListener { _, focused ->
+                background =
+                    GradientDrawable().apply {
+                        cornerRadius = dp(22).toFloat()
+                        setColor(if (focused) withAlpha(cyan, 110) else Color.argb(30, 255, 255, 255))
+                        setStroke(dp(if (focused) 2 else 1), if (focused) Color.WHITE else Color.argb(70, 255, 255, 255))
+                    }
+            }
+
+            setOnClickListener {
+
+                try {
+
+                    // the class is looked up by name so the app still builds before MoviesActivity is added
+                    startActivity(
+                        android.content.Intent(
+                            this@MainActivity,
+                            Class.forName("com.niyati.tv.MoviesActivity")
+                        )
+                    )
+
+                } catch (_: Exception) {
+
+                    Toast.makeText(this@MainActivity, "شاشة الأفلام غير مضافة للتطبيق بعد", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        return moviesButton
     }
 
     private fun createLivePill(): LinearLayout {
