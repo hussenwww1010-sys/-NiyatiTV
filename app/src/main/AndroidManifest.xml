@@ -1,27 +1,14 @@
-
 <?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- الإنترنت -->
-    <uses-permission
-        android:name="android.permission.INTERNET" />
-
-    <!-- مراقبة حالة الاتصال -->
-    <uses-permission
-        android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- تثبيت التحديث من داخل التطبيق -->
-    <uses-permission
-        android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
-    <!-- دعم Android TV / Google TV -->
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
 
-    <!-- دعم الهاتف والتلفزيون -->
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
@@ -36,38 +23,27 @@
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true">
 
-        <!-- الواجهة الرئيسية الحالية -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|uiMode">
-
             <intent-filter>
-                <action
-                    android:name="android.intent.action.MAIN" />
-
-                <category
-                    android:name="android.intent.category.LEANBACK_LAUNCHER" />
-
-                <category
-                    android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
-        <!-- صفحة الأفلام والمسلسلات -->
         <activity
             android:name=".MoviesActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
-        <!-- مشاركة ملف التحديث مع مثبّت النظام -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
