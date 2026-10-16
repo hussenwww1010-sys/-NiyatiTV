@@ -585,7 +585,10 @@ class MainActivity : Activity() {
     private var downloadingUpdate = false
 
     // ---- sections (live / movies / series) ----
-    private var currentSection = 0
+    private var currentSection = 0   // -1 = start page, 0 = live, 1 = movies, 2 = series
+    private var hasVod = false
+    private lateinit var homeHost: FrameLayout
+    private var homeFirst: View? = null
     private lateinit var liveHost: LinearLayout
     private lateinit var vodHost: FrameLayout
     private var sectionBarView: View? = null
@@ -849,7 +852,7 @@ class MainActivity : Activity() {
         rootRef = database.reference
 
         // keep only these nodes in the local cache (never the codes / stats / presence)
-        for (node in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
+        for (node in listOf("settings", "packages", "channels", "epg", "movies", "series")) {
             try {
                 rootRef.child(node).keepSynced(true)
             } catch (_: Exception) {
@@ -888,8 +891,6 @@ class MainActivity : Activity() {
         mainHandler.post(weatherRunnable)
 
         mainHandler.post(dateRunnable)
-
-        mainHandler.post(tickerRunnable)
 
         mainHandler.postDelayed(epgRunnable, 60_000L)
     }
@@ -1857,9 +1858,7 @@ class MainActivity : Activity() {
 
         } else {
 
-        normalScreen.addView(buildHeader(), lp(matchParent, dp(78)))
-
-        normalScreen.addView(buildSectionBar(), lp(matchParent, wrap))
+        normalScreen.addView(buildHeader(), lp(matchParent, dp(66)))
 
         val contentRow = LinearLayout(this)
 
@@ -1872,6 +1871,8 @@ class MainActivity : Activity() {
         liveHost = contentRow
 
         buildVodHost()
+
+        buildHomeHost()
 
         // ---- Packages ----
 
@@ -2085,7 +2086,7 @@ class MainActivity : Activity() {
 
         header.gravity = Gravity.CENTER_VERTICAL
 
-        header.setPadding(dp(34), dp(8), dp(34), dp(6))
+        header.setPadding(dp(34), dp(10), dp(34), dp(6))
 
         val logoBox = ShineLayout()
 
@@ -2116,14 +2117,8 @@ class MainActivity : Activity() {
 
         header.addView(brandCol, lp(wrap, wrap))
 
-        header.addView(
-            buildTicker(),
-            lp(0, wrap, 1f).apply {
-                setMargins(dp(24), 0, dp(24), 0)
-            }
-        )
-
-        header.addView(createLivePill(), lp(wrap, wrap))
+        // free space between the brand and the weather
+        header.addView(View(this), lp(0, 1, 1f))
 
         // ---- weather ----
         val weatherChip = LinearLayout(this)
@@ -3570,7 +3565,7 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        for (key in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
+        for (key in listOf("settings", "packages", "channels", "epg", "movies", "series")) {
 
             val listener =
                 object : ValueEventListener {
@@ -3615,8 +3610,6 @@ class MainActivity : Activity() {
 
         applyRemoteSettings(settingsPart)
 
-        updateMatches(parts["matches"])
-
         updateEpg(parts["epg"])
 
         updateVod(parts["movies"], parts["series"])
@@ -3658,6 +3651,10 @@ class MainActivity : Activity() {
 
         rebuildPackages()
 
+        if (currentSection == -1 && ::homeHost.isInitialized) {
+            renderHome()
+        }
+
         renderPackages()
 
         val keep =
@@ -3676,13 +3673,19 @@ class MainActivity : Activity() {
             renderChannels()
         }
 
-        if (!autoPlayDone) {
+        // start the last channel only when the app opens on the channels page
+        if (!autoPlayDone && currentSection == 0) {
             autoPlayDone = true
             playLastChannel()
         }
 
         if (currentFocus == null && !isFullscreen) {
-            focusSelectedPackage()
+
+            if (currentSection == -1) {
+                focusHome()
+            } else if (currentSection == 0) {
+                focusSelectedPackage()
+            }
         }
     }
 
@@ -9380,8 +9383,6 @@ class MainActivity : Activity() {
 
         normalScreen.addView(buildPhoneHeader(), lp(matchParent, dp(56)))
 
-        normalScreen.addView(buildSectionBar(), lp(matchParent, wrap))
-
         val live = LinearLayout(this)
 
         live.orientation = LinearLayout.VERTICAL
@@ -9392,10 +9393,8 @@ class MainActivity : Activity() {
 
         buildVodHost()
 
-        live.addView(
-            buildTicker(),
-            lp(matchParent, wrap).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) }
-        )
+        buildHomeHost()
+
 
         // ---- player (16:9, the full width) ----
         val glowFrame = GlowFrame()
@@ -12371,7 +12370,23 @@ class MainActivity : Activity() {
 
             seriesList = newSeries
 
-            if (currentSection != 0 && ::libContent.isInitialized) {
+            val any = movies.isNotEmpty() || seriesList.isNotEmpty()
+
+            if (any != hasVod) {
+
+                hasVod = any
+
+                prefs.edit().putBoolean("has_vod", any).apply()
+
+                // the library was emptied: nothing to choose, go straight to the channels
+                if (!any && currentSection != 0 && !isFullscreen) {
+                    switchSection(0)
+                }
+            }
+
+            if (currentSection == -1) {
+                renderHome()
+            } else if (currentSection != 0 && ::libContent.isInitialized) {
                 renderLibrary()
             }
         }
@@ -12516,15 +12531,17 @@ class MainActivity : Activity() {
 
         currentSection = index
 
-        refreshTabs()
+        homeHost.visibility = if (index == -1) View.VISIBLE else View.GONE
 
         liveHost.visibility = if (index == 0) View.VISIBLE else View.GONE
 
-        vodHost.visibility = if (index == 0) View.GONE else View.VISIBLE
+        vodHost.visibility = if (index == 1 || index == 2) View.VISIBLE else View.GONE
 
         if (index == 0) {
 
-            if (playingChannel != null && !playingWeb && vodPlay == null) {
+            if (playingChannel == null) {
+                playLastChannel()
+            } else if (!playingWeb && vodPlay == null) {
                 player.playWhenReady = true
             }
 
@@ -12532,17 +12549,26 @@ class MainActivity : Activity() {
 
             focusChannelsColumn()
 
+            return
+        }
+
+        cancelPreview()
+
+        // the live picture is paused while another page is open
+        try {
+            player.playWhenReady = false
+        } catch (_: Exception) {
+        }
+
+        audioPlayer?.playWhenReady = false
+
+        if (index == -1) {
+
+            renderHome()
+
+            focusHome()
+
         } else {
-
-            cancelPreview()
-
-            // the live picture is paused while the library is open
-            try {
-                player.playWhenReady = false
-            } catch (_: Exception) {
-            }
-
-            audioPlayer?.playWhenReady = false
 
             vodGenre = ""
 
@@ -13960,6 +13986,226 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Start page: live / movies / series
+    // =========================
+
+    private fun buildHomeHost() {
+
+        homeHost = FrameLayout(this)
+
+        normalScreen.addView(homeHost, lp(matchParent, 0, 1f))
+
+        // opens on the start page only if the library has content (remembered from the last time)
+        hasVod = prefs.getBoolean("has_vod", false)
+
+        currentSection = if (hasVod) -1 else 0
+
+        homeHost.visibility = if (currentSection == -1) View.VISIBLE else View.GONE
+
+        liveHost.visibility = if (currentSection == 0) View.VISIBLE else View.GONE
+
+        vodHost.visibility = View.GONE
+
+        if (currentSection == -1) {
+            renderHome()
+        }
+    }
+
+    private fun focusHome() {
+
+        if (!::homeHost.isInitialized) {
+            return
+        }
+
+        homeHost.post { homeFirst?.requestFocus() }
+    }
+
+    private fun renderHome() {
+
+        homeHost.removeAllViews()
+
+        homeFirst = null
+
+        val items = mutableListOf<Triple<Int, String, String>>()
+
+        items.add(Triple(0, "القنوات المباشرة", "${channels.count { sourcesOf(it).isNotEmpty() }} قناة"))
+
+        if (movies.isNotEmpty()) {
+            items.add(Triple(1, "الأفلام", "${movies.size} فيلم"))
+        }
+
+        if (seriesList.isNotEmpty()) {
+            items.add(Triple(2, "المسلسلات", "${seriesList.size} مسلسل"))
+        }
+
+        val column = LinearLayout(this)
+
+        column.orientation = LinearLayout.VERTICAL
+
+        column.gravity = Gravity.CENTER_HORIZONTAL
+
+        column.addView(
+            label("اختر ما تريد مشاهدته", if (phoneMode) 18f else 22f, gray, true, Gravity.CENTER),
+            lp(matchParent, wrap).apply { setMargins(0, dp(if (phoneMode) 14 else 0), 0, dp(if (phoneMode) 12 else 26)) }
+        )
+
+        val row = LinearLayout(this)
+
+        row.orientation = if (phoneMode) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+
+        row.gravity = Gravity.CENTER
+
+        row.clipChildren = false
+
+        column.clipChildren = false
+
+        items.forEach { (section, title, subtitle) ->
+            row.addView(homeCard(section, title, subtitle))
+        }
+
+        column.addView(row, lp(matchParent, wrap))
+
+        if (phoneMode) {
+
+            val scroll = ScrollView(this)
+
+            scroll.isVerticalScrollBarEnabled = false
+
+            scroll.addView(column, FrameLayout.LayoutParams(matchParent, wrap))
+
+            homeHost.addView(scroll, FrameLayout.LayoutParams(matchParent, matchParent))
+
+        } else {
+
+            homeHost.clipChildren = false
+
+            homeHost.addView(column, FrameLayout.LayoutParams(matchParent, wrap, Gravity.CENTER))
+        }
+    }
+
+    // big card: icon, name, count. The focused one grows and its LED light starts to run
+    private fun homeCard(section: Int, title: String, subtitle: String): View {
+
+        val first: Int
+        val second: Int
+        val iconPath: String
+
+        when (section) {
+
+            1 -> {
+                first = Color.rgb(255, 183, 77)
+                second = Color.rgb(244, 63, 94)
+                iconPath = "M3 5h18v14H3zM7 5v14M17 5v14M3 10h4M3 14h4M17 10h4M17 14h4"
+            }
+
+            2 -> {
+                first = Color.rgb(52, 211, 153)
+                second = Color.rgb(6, 182, 212)
+                iconPath = "M5 8h14v12H5zM8 5h8M10.5 2.5h3"
+            }
+
+            else -> {
+                first = cyan
+                second = Color.rgb(41, 121, 255)
+                iconPath = "M3 6h18v11H3zM8 21h8"
+            }
+        }
+
+        val card = LedFrame()
+
+        card.cornerDp = 32
+
+        card.drawBase = false
+
+        card.setLed(false)
+
+        card.setColors(first, second)
+
+        card.orientation = LinearLayout.VERTICAL
+
+        card.gravity = Gravity.CENTER
+
+        card.setPadding(dp(20), dp(20), dp(20), dp(20))
+
+        card.isClickable = true
+
+        card.isFocusable = true
+
+        card.isFocusableInTouchMode = !phoneMode
+
+        card.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(mix(first, bgTop, 0.34f), mix(second, bgTop, 0.2f))
+            ).apply {
+                cornerRadius = dp(32).toFloat()
+                setStroke(dp(1), Color.argb(50, 255, 255, 255))
+            }
+
+        val disc = FrameLayout(this)
+
+        disc.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(first, second)
+            ).apply {
+                shape = GradientDrawable.OVAL
+            }
+
+        val icon = LineIconView()
+
+        icon.setIcon(iconPath)
+
+        disc.addView(
+            icon,
+            FrameLayout.LayoutParams(dp(if (phoneMode) 30 else 44), dp(if (phoneMode) 30 else 44), Gravity.CENTER)
+        )
+
+        card.addView(disc, lp(dp(if (phoneMode) 60 else 92), dp(if (phoneMode) 60 else 92)))
+
+        card.addView(
+            label(title, if (phoneMode) 20f else 26f, white, true, Gravity.CENTER),
+            lp(matchParent, wrap).apply { topMargin = dp(if (phoneMode) 8 else 18) }
+        )
+
+        card.addView(label(subtitle, if (phoneMode) 13f else 15f, dimWhite, false, Gravity.CENTER), lp(matchParent, wrap))
+
+        card.layoutParams =
+            if (phoneMode) {
+                lp(matchParent, dp(150)).apply { setMargins(dp(14), dp(8), dp(14), dp(8)) }
+            } else {
+                lp(dp(250), dp(330)).apply { setMargins(dp(18), dp(10), dp(18), dp(10)) }
+            }
+
+        fun style(focused: Boolean) {
+
+            card.setLed(focused)
+
+            card.animate()
+                .scaleX(if (focused) 1.07f else 1f)
+                .scaleY(if (focused) 1.07f else 1f)
+                .setStartDelay(0)
+                .setDuration(140)
+                .start()
+
+            (card.background as? GradientDrawable)?.setStroke(
+                dp(if (focused) 3 else 1),
+                if (focused) Color.WHITE else Color.argb(50, 255, 255, 255)
+            )
+        }
+
+        card.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        card.setOnClickListener { switchSection(section) }
+
+        if (homeFirst == null) {
+            homeFirst = card
+        }
+
+        return card
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -14415,8 +14661,8 @@ class MainActivity : Activity() {
             return
         }
 
-        if (currentSection != 0) {
-            switchSection(0)
+        if (currentSection > 0) {
+            switchSection(-1)
             return
         }
 
@@ -14431,6 +14677,12 @@ class MainActivity : Activity() {
                 focusSelectedPackage()
                 return
             }
+        }
+
+        // from the live page back to the start page
+        if (hasVod && currentSection == 0) {
+            switchSection(-1)
+            return
         }
 
         val now = System.currentTimeMillis()
