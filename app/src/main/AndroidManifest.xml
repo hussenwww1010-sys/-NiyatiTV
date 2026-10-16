@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="utf-8"?>
 
 <manifest
@@ -7,7 +8,7 @@
     <uses-permission
         android:name="android.permission.INTERNET" />
 
-    <!-- مراقبة حالة الاتصال (شريط انقطاع النت + إعادة تشغيل البث تلقائياً) -->
+    <!-- مراقبة حالة الاتصال -->
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -20,7 +21,7 @@
         android:name="android.software.leanback"
         android:required="false" />
 
-    <!-- شاشة اللمس غير إجبارية (التلفزيون يعمل بالريموت، والهاتف باللمس) -->
+    <!-- دعم الهاتف والتلفزيون -->
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
@@ -35,27 +36,30 @@
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true">
 
+        <!-- الواجهة الرئيسية الحالية -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|uiMode">
 
             <intent-filter>
-
                 <action
                     android:name="android.intent.action.MAIN" />
 
-                <!-- ظهور التطبيق على Android TV -->
                 <category
                     android:name="android.intent.category.LEANBACK_LAUNCHER" />
 
-                <!-- ظهور التطبيق على الهاتف -->
                 <category
                     android:name="android.intent.category.LAUNCHER" />
-
             </intent-filter>
 
         </activity>
+
+        <!-- صفحة الأفلام والمسلسلات -->
+        <activity
+            android:name=".MoviesActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <!-- مشاركة ملف التحديث مع مثبّت النظام -->
         <provider
@@ -67,7 +71,6 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
-
         </provider>
 
     </application>
