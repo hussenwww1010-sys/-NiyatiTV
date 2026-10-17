@@ -852,7 +852,7 @@ class MainActivity : Activity() {
         rootRef = database.reference
 
         // keep only these nodes in the local cache (never the codes / stats / presence)
-        for (node in listOf("settings", "packages", "channels", "epg", "movies", "series")) {
+        for (node in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
             try {
                 rootRef.child(node).keepSynced(true)
             } catch (_: Exception) {
@@ -891,6 +891,8 @@ class MainActivity : Activity() {
         mainHandler.post(weatherRunnable)
 
         mainHandler.post(dateRunnable)
+
+        mainHandler.post(tickerRunnable)
 
         mainHandler.postDelayed(epgRunnable, 60_000L)
     }
@@ -1858,7 +1860,7 @@ class MainActivity : Activity() {
 
         } else {
 
-        normalScreen.addView(buildHeader(), lp(matchParent, dp(66)))
+        normalScreen.addView(buildHeader(), lp(matchParent, dp(78)))
 
         val contentRow = LinearLayout(this)
 
@@ -2086,7 +2088,7 @@ class MainActivity : Activity() {
 
         header.gravity = Gravity.CENTER_VERTICAL
 
-        header.setPadding(dp(34), dp(10), dp(34), dp(6))
+        header.setPadding(dp(34), dp(8), dp(34), dp(6))
 
         val logoBox = ShineLayout()
 
@@ -2117,8 +2119,12 @@ class MainActivity : Activity() {
 
         header.addView(brandCol, lp(wrap, wrap))
 
-        // free space between the brand and the weather
-        header.addView(View(this), lp(0, 1, 1f))
+        header.addView(
+            buildTicker(),
+            lp(0, wrap, 1f).apply {
+                setMargins(dp(24), 0, dp(24), 0)
+            }
+        )
 
         // ---- weather ----
         val weatherChip = LinearLayout(this)
@@ -2203,14 +2209,6 @@ class MainActivity : Activity() {
             }
         )
 
-        // ---- movies button ----
-        header.addView(
-            buildMoviesButton(),
-            lp(wrap, dp(44)).apply {
-                setMargins(dp(14), 0, 0, 0)
-            }
-        )
-
         // ---- settings button ----
         val settingsBtn = TextView(this)
 
@@ -2256,63 +2254,6 @@ class MainActivity : Activity() {
         )
 
         return header
-    }
-
-    // button that opens the separate movies screen (MoviesActivity)
-    private fun buildMoviesButton(): View {
-
-        val moviesButton = android.widget.Button(this).apply {
-
-            text = "🎬 الأفلام والمسلسلات"
-
-            textSize = 14f
-
-            isAllCaps = false
-
-            setTextColor(white)
-
-            isFocusable = true
-
-            isFocusableInTouchMode = !phoneMode
-
-            setPadding(dp(18), 0, dp(18), 0)
-
-            background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(22).toFloat()
-                    setColor(Color.argb(30, 255, 255, 255))
-                    setStroke(dp(1), Color.argb(70, 255, 255, 255))
-                }
-
-            setOnFocusChangeListener { _, focused ->
-                background =
-                    GradientDrawable().apply {
-                        cornerRadius = dp(22).toFloat()
-                        setColor(if (focused) withAlpha(cyan, 110) else Color.argb(30, 255, 255, 255))
-                        setStroke(dp(if (focused) 2 else 1), if (focused) Color.WHITE else Color.argb(70, 255, 255, 255))
-                    }
-            }
-
-            setOnClickListener {
-
-                try {
-
-                    // the class is looked up by name so the app still builds before MoviesActivity is added
-                    startActivity(
-                        android.content.Intent(
-                            this@MainActivity,
-                            Class.forName("com.niyati.tv.MoviesActivity")
-                        )
-                    )
-
-                } catch (_: Exception) {
-
-                    Toast.makeText(this@MainActivity, "شاشة الأفلام غير مضافة للتطبيق بعد", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-
-        return moviesButton
     }
 
     private fun createLivePill(): LinearLayout {
@@ -3630,7 +3571,7 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        for (key in listOf("settings", "packages", "channels", "epg", "movies", "series")) {
+        for (key in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
 
             val listener =
                 object : ValueEventListener {
@@ -3674,6 +3615,8 @@ class MainActivity : Activity() {
         readWeatherSettings(settingsPart)
 
         applyRemoteSettings(settingsPart)
+
+        updateMatches(parts["matches"])
 
         updateEpg(parts["epg"])
 
@@ -9459,6 +9402,11 @@ class MainActivity : Activity() {
         buildVodHost()
 
         buildHomeHost()
+
+        live.addView(
+            buildTicker(),
+            lp(matchParent, wrap).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) }
+        )
 
 
         // ---- player (16:9, the full width) ----
