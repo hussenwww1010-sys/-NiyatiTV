@@ -552,6 +552,7 @@ class MainActivity : Activity() {
     private val ICON_ASPECT = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
     private val ICON_FLAG = "M5 21V4M5 4h12l-2.5 4L17 12H5"
     private val ICON_LIST = "M4 6h16M4 12h16M4 18h10"
+    private val ICON_SETTINGS = "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"
     private val ICON_AUDIO = "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"
     private val ICON_EXIT = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
     private val ICON_PLAY = "M7 4l13 8-13 8z"
@@ -10064,6 +10065,15 @@ class MainActivity : Activity() {
 
         buttons.addView(circleButton(ICON_FLAG, "إبلاغ") { showReportMenu() }, slot())
 
+        // the settings are reachable from the player too (some remotes have no Menu button)
+        buttons.addView(
+            circleButton(ICON_SETTINGS, "الإعدادات") {
+                exitFullscreen()
+                mainHandler.post { showSettingsMenu() }
+            },
+            slot()
+        )
+
         val channelsButton = circleButton(ICON_LIST, "القنوات") { openChannelPanel() }
 
         hudFirstButton = channelsButton
@@ -14644,14 +14654,15 @@ class MainActivity : Activity() {
             event.keyCode == KeyEvent.KEYCODE_ENTER
         ) {
 
-            // OK = open the glass channel list
+            // OK = the player buttons (quality, server, favorite, settings, channels ...)
+            // so a remote without Menu and colour buttons can reach everything
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
 
                 if (!playingWeb && playingChannel?.let { isVodChannel(it) } == true) {
                     togglePlayPause()
                     showTouchControls()
                 } else {
-                    openChannelPanel()
+                    showTouchControls()
                 }
             }
 
