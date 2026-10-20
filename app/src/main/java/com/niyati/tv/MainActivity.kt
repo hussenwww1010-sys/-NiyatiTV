@@ -88,6 +88,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -929,10 +930,55 @@ class MainActivity : Activity() {
     private var liveWindowRetries = 0
     private var playbackStarted = false
 
+    // same retries as before, but the reason of every failed download is shown while the spinner turns
+    private val diagPolicy =
+        object : DefaultLoadErrorHandlingPolicy(8) {
+
+            override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
+
+                val error = loadErrorInfo.exception
+
+                val reason =
+                    when (error) {
+
+                        is HttpDataSource.InvalidResponseCodeException ->
+                            "رفض السيرفر الطلب (HTTP ${error.responseCode})"
+
+                        is HttpDataSource.HttpDataSourceException ->
+                            "تعذر الاتصال بالسيرفر (${error.cause?.javaClass?.simpleName ?: "شبكة"})"
+
+                        else ->
+                            "خطأ: ${error.javaClass.simpleName}"
+                    }
+
+                val attempt = loadErrorInfo.errorCount
+
+                // the server refuses this client: no waiting, the next User-Agent is tried at once
+                if (
+                    error is HttpDataSource.InvalidResponseCodeException &&
+                    error.responseCode in listOf(401, 403, 406, 451)
+                ) {
+                    return C.TIME_UNSET
+                }
+
+                mainHandler.post {
+
+                    if (statusTitle.text.toString().startsWith("جاري تحميل البث")) {
+
+                        statusSub.text = "محاولة $attempt: $reason"
+
+                        statusSub.visibility = View.VISIBLE
+                    }
+                }
+
+                return super.getRetryDelayMsFor(loadErrorInfo)
+            }
+        }
+
     private var defaultUserAgent =
-        "Mozilla/5.0 (Linux; Android 13; TV) " +
+        "Mozilla/5.0 (Linux; Android 14; SHIELD Android TV) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/120.0.0.0 Safari/537.36"
+                "Chrome/131.0.0.0 Safari/537.36"
 
     // errors meaning the guessed format is wrong (we try another format)
     private val formatErrors = setOf(
@@ -985,7 +1031,7 @@ class MainActivity : Activity() {
 
         val mediaSourceFactory =
             DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
-                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(8))
+                .setLoadErrorHandlingPolicy(diagPolicy)
 
         // fall back to another decoder if the primary one fails
         val renderersFactory =
@@ -1639,7 +1685,7 @@ class MainActivity : Activity() {
         // 3a) the server refuses this "client": try another User-Agent (as the other players do)
         val refused = findHttpException(error)
 
-        if (refused != null && refused.responseCode in listOf(401, 403) && !finalPlaybackError) {
+        if (refused != null && refused.responseCode in listOf(401, 403, 406, 451) && !finalPlaybackError) {
 
             if (uaIndex + 1 < uaOptions(channel).size) {
 
@@ -12093,7 +12139,18 @@ class MainActivity : Activity() {
     // =========================
 
     private val altUserAgents =
-        listOf("VLC/3.0.18 LibVLC/3.0.18", "Lavf/60.3.100", "IPTVSmartersPro/1.1.1")
+        listOf(
+            // media players (most IPTV servers accept these)
+            "VLC/3.0.21 LibVLC/3.0.21",
+            "Lavf/60.16.100",
+            "IPTVSmartersPro/1.1.1",
+            "Kodi/21.0 (Linux; Android 14) Android/14",
+            // app / system clients
+            "okhttp/4.12.0",
+            "Dalvik/2.1.0 (Linux; U; Android 14; TV Build/UP1A.231005.007)",
+            // desktop browser (some CDNs and news streams only accept this)
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        )
 
     // the channel's own User-Agent (or the default), then common player names
     private fun uaOptions(channel: Channel): List<String> =
