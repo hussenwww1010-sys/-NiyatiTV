@@ -88,7 +88,7 @@ auth.onAuthStateChanged(u => {
 });
 
 // ---------------- التبويبات ----------------
-const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['movies','الأفلام'],['series','المسلسلات'],['import','استيراد مفتوح'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
 function go(t){
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
