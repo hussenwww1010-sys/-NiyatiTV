@@ -62,7 +62,7 @@ table{width:100%;border-collapse:collapse}td{padding:8px 4px;border-bottom:1px s
 <script>
 // ====== 1) ضع هنا إعدادات مشروعك (Firebase > Project settings > Your apps > Web) ======
 const firebaseConfig = {
-  apiKey: "AIzaSyBn7P8rXB_cln5tCkeXhEuMQ0eZJ599pIs",
+  apiKey: "PASTE_API_KEY_HERE",
   authDomain: "niyati-tv.firebaseapp.com",
   databaseURL: "https://niyati-tv-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "niyati-tv"
@@ -88,12 +88,12 @@ auth.onAuthStateChanged(u => {
 });
 
 // ---------------- التبويبات ----------------
-const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['movies','الأفلام'],['series','المسلسلات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['movies','الأفلام'],['series','المسلسلات'],['import','استيراد مفتوح'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
 function go(t){
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
   $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
-  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
+  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), import:viewImport, codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
 }
 
 // ---------------- قوائم عامة (قنوات / باقات / مباريات) ----------------
@@ -239,7 +239,7 @@ const SET = [
  {k:'announcementEnabled',l:'إظهار إعلان',t:'bool'},{k:'announcementTitle',l:'عنوان الإعلان',t:'text'},{k:'announcementMessage',l:'نص الإعلان (أو رسالة الصيانة)',t:'area'},
  {k:'latestVersion',l:'آخر رقم إصدار (versionCode)',t:'num'},{k:'updateUrl',l:'رابط ملف التحديث (APK مباشر)',t:'text'},{k:'updateNotes',l:'ملاحظات التحديث',t:'area'},
  {k:'forceUpdate',l:'تحديث إجباري',t:'bool'},{k:'minVersion',l:'أقل إصدار مسموح',t:'num'},{k:'updateSha256',l:'SHA-256 للملف (اختياري)',t:'text'},
- {k:'requireCode',l:'اشتراط كود التفعيل',t:'bool'},{k:'userAgent',l:'User-Agent الافتراضي',t:'text'},
+ {k:'requireCode',l:'اشتراط كود التفعيل',t:'bool'},{k:'userAgent',l:'User-Agent الافتراضي',t:'text'},{k:'telegramUrl',l:'رابط قناة تلكرام (مثل https://t.me/NAITI_Tv)',t:'text'},
  {k:'weather_city',l:'مدينة الطقس',t:'text'},{k:'weather_lat',l:'خط العرض',t:'num'},{k:'weather_lon',l:'خط الطول',t:'num'},
  {k:'adminDevices',l:'معرّفات أجهزة المدير (سطر لكل جهاز)',t:'area'}];
 async function viewSettings(){
@@ -283,6 +283,79 @@ function viewEpg(){
 }
 function xt(s){const m=(s||'').match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-])?(\d{2})?(\d{2})?/);if(!m)return NaN;let t=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);if(m[7])t-=((+m[8]*60)+(+m[9]||0))*60000*(m[7]==='-'?-1:1);return t}
 const nz = s => String(s||'').toLowerCase().replace(/[\s\-_.]/g,'');
+// ---------------- استيراد أعمال مرخّصة من أرشيف الإنترنت ----------------
+let IAR = {};
+function licLabel(u){
+  u=(u||'').toLowerCase();
+  if(u.includes('publicdomain/zero')) return 'CC0';
+  if(u.includes('publicdomain')) return 'ملك عام';
+  const m=u.match(/licenses\/([a-z\-]+)\/([\d.]+)/);
+  return m?('CC '+m[1].toUpperCase()+' '+m[2]):'مفتوح';
+}
+function viewImport(){
+  $('#view').innerHTML = `<div class="card"><b>استيراد أفلام مرخّصة من أرشيف الإنترنت (archive.org)</b>
+  <p class="mu" style="line-height:1.7">تظهر فقط الأعمال التي يصرّح صاحبها برخصة مفتوحة (Creative Commons أو ملك عام). الأرشيف يسمح لأي شخص بالرفع، فتحقق بنفسك من الرخصة قبل الإضافة، وراقب علامة «غير تجاري». تُضاف الرخصة والمصدر تلقائياً إلى وصف العمل.</p>
+  <label>كلمات البحث (اختياري)</label><input id="ia_q" placeholder="مثلاً: عربي، كوميديا، وثائقي" onkeydown="if(event.key==='Enter')iaSearch()">
+  <div class="row"><div><label>اللغة</label><select id="ia_lang"><option value="">كل اللغات</option><option value="ar">العربية</option></select></div>
+  <div><label>الرخصة</label><select id="ia_lic"><option value="all">مفتوحة (CC + ملك عام)</option><option value="pd">ملك عام فقط</option><option value="cc">Creative Commons فقط</option></select></div></div>
+  <button class="btn" style="margin-top:14px;width:100%" onclick="iaSearch()">بحث</button></div><div id="ia_res"></div>`;
+}
+async function iaSearch(){
+  const t=($('#ia_q').value||'').replace(/[^\p{L}\p{N} ]/gu,' ').trim(), lang=$('#ia_lang').value, lic=$('#ia_lic').value;
+  const L={all:'(licenseurl:(*creativecommons.org*) OR licenseurl:(*publicdomain*))',pd:'licenseurl:(*publicdomain*)',cc:'licenseurl:(*creativecommons.org*)'}[lic];
+  let q='mediatype:movies AND '+L;
+  if(lang==='ar') q+=' AND language:(Arabic OR ara OR ar)';
+  if(t) q+=' AND (title:('+t+') OR subject:('+t+') OR description:('+t+'))';
+  const fl=['identifier','title','year','licenseurl','creator','downloads'].map(x=>'&fl%5B%5D='+x).join('');
+  const url='https://archive.org/advancedsearch.php?q='+encodeURIComponent(q)+fl+'&sort%5B%5D=downloads%20desc&rows=30&output=json';
+  $('#ia_res').innerHTML='<p class="mu">جاري البحث…</p>';
+  try{
+    const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status);
+    const docs=((await r.json()).response||{}).docs||[]; IAR={};
+    if(!docs.length){ $('#ia_res').innerHTML='<p class="mu">لا نتائج. جرّب كلمات أقل أو غيّر اللغة.</p>'; return }
+    $('#ia_res').innerHTML=docs.map(d=>{ IAR[d.identifier]=d; const lb=licLabel(d.licenseurl), nc=/-nc/i.test(d.licenseurl||'');
+      return `<div class="card"><div class="row" style="align-items:center;gap:12px"><img src="https://archive.org/services/img/${esc(d.identifier)}" style="width:64px;height:90px;object-fit:cover;border-radius:10px;background:#222" loading="lazy">
+      <div style="flex:1"><b>${esc(Array.isArray(d.title)?d.title[0]:d.title)}</b><div class="mu">${esc(d.year||'')} · ${esc(lb)}${nc?' · ⚠ غير تجاري':''}</div>
+      <a class="mu" href="https://archive.org/details/${esc(d.identifier)}" target="_blank" rel="noopener">صفحة العمل</a></div>
+      <button class="btn s" onclick="iaAdd('${esc(d.identifier)}')">إضافة</button></div></div>` }).join('');
+  }catch(e){ $('#ia_res').innerHTML='<p class="mu">تعذّر الاتصال بأرشيف الإنترنت: '+esc(e.message)+'</p>' }
+}
+async function iaAdd(id){
+  toast('جاري قراءة تفاصيل العمل…');
+  try{
+    const r=await fetch('https://archive.org/metadata/'+encodeURIComponent(id)); if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json(), m=d.metadata||{}, doc=IAR[id]||{};
+    const files=(d.files||[]).filter(f=>/\.(mp4|m4v|webm|mkv)$/i.test(f.name||''));
+    if(!files.length) return toast('لا يوجد ملف فيديو قابل للتشغيل في هذا العمل');
+    const pick=files.find(f=>f.format==='h.264')||files.find(f=>f.format==='MPEG4')||files[0];
+    const one=x=>Array.isArray(x)?x[0]:x, strip=x=>String(Array.isArray(x)?x.join(' '):(x||'')).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    const lb=licLabel(doc.licenseurl||m.licenseurl);
+    const subj=[].concat(m.subject||[]).join(',').split(/[,;]/).map(x=>x.trim()).filter(Boolean).slice(0,2).join('، ');
+    const mins=Math.round(parseFloat(pick.length||0)/60)||'';
+    const over=strip(m.description).slice(0,420)+'\n\nالمصدر: https://archive.org/details/'+id+(m.creator?' · المنشئ: '+strip(m.creator):'')+' · الرخصة: '+lb;
+    IAR[id]={...doc,_files:files,_over:over};
+    $('#mbox').innerHTML=`<h3>إضافة فيلم من أرشيف الإنترنت</h3>
+    <label>العنوان</label><input id="ia_t" value="${esc(strip(one(m.title)))}">
+    <label>التصنيف</label><input id="ia_g" value="${esc(subj)}">
+    <label>الملف (الأصغر أسرع بالتحميل)</label><select id="ia_f">${files.map(f=>`<option value="${esc(f.name)}" ${f===pick?'selected':''}>${esc(f.name)} · ${esc(f.format||'')} · ${(f.size/1048576).toFixed(0)} MB</option>`).join('')}</select>
+    <label>السنة</label><input id="ia_y" value="${esc(String(m.year||(m.date||'').slice(0,4)||''))}">
+    <label>المدة بالدقائق</label><input id="ia_d" type="number" value="${mins}">
+    <label>الوصف (يتضمن المصدر والرخصة)</label><textarea id="ia_o">${esc(over)}</textarea>
+    <div class="row" style="margin-top:18px"><button class="btn" onclick="iaSave('${esc(id)}')">إضافة للأفلام</button><button class="btn g" onclick="closeM()">إلغاء</button></div>`;
+    $('#modal').style.display='flex';
+  }catch(e){ toast('فشل: '+e.message) }
+}
+async function iaSave(id){
+  const name=$('#ia_f').value, title=$('#ia_t').value.trim(); if(!title) return toast('العنوان مطلوب');
+  const out={title, genre:$('#ia_g').value.trim(), year:$('#ia_y').value.trim(), overview:$('#ia_o').value, enabled:true,
+    poster:'https://archive.org/services/img/'+encodeURIComponent(id),
+    url:'https://archive.org/download/'+encodeURIComponent(id)+'/'+name.split('/').map(encodeURIComponent).join('/')};
+  const dur=Number($('#ia_d').value); if(dur) out.duration=dur;
+  Object.keys(out).forEach(k=>{ if(out[k]==='') delete out[k] });
+  try{ const k=db.ref('movies').push().key; await db.ref('movies/'+k).update(out); closeM(); toast('تمت الإضافة للأفلام'); }
+  catch(e){ toast('فشل: '+e.message) }
+}
+
 async function importEpg(){
   const log = m => $('#e_log').textContent += m + '\n'; $('#e_log').textContent = '';
   let text = '';
