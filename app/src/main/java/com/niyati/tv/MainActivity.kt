@@ -865,7 +865,7 @@ class MainActivity : Activity() {
         rootRef = database.reference
 
         // keep only these nodes in the local cache (never the codes / stats / presence)
-        for (node in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
+        for (node in listOf("settings", "packages", "channels", "matches", "epg")) {
             try {
                 rootRef.child(node).keepSynced(true)
             } catch (_: Exception) {
@@ -3677,7 +3677,7 @@ class MainActivity : Activity() {
 
         mainHandler.postDelayed(loadTimeout, 12000)
 
-        for (key in listOf("settings", "packages", "channels", "matches", "epg", "movies", "series")) {
+        for (key in listOf("settings", "packages", "channels", "matches", "epg")) {
 
             val listener =
                 object : ValueEventListener {
@@ -3726,7 +3726,6 @@ class MainActivity : Activity() {
 
         updateEpg(parts["epg"])
 
-        updateVod(parts["movies"], parts["series"])
 
         if (!parts.containsKey("channels") && !parts.containsKey("packages")) {
             return
@@ -14232,9 +14231,9 @@ class MainActivity : Activity() {
         normalScreen.addView(homeHost, lp(matchParent, 0, 1f))
 
         // opens on the start page only if the library has content (remembered from the last time)
-        hasVod = prefs.getBoolean("has_vod", false)
+        hasVod = false
 
-        currentSection = if (hasVod) -1 else 0
+        currentSection = -1
 
         homeHost.visibility = if (currentSection == -1) View.VISIBLE else View.GONE
 
@@ -14266,12 +14265,8 @@ class MainActivity : Activity() {
 
         items.add(Triple(0, "القنوات المباشرة", "${channels.count { sourcesOf(it).isNotEmpty() }} قناة"))
 
-        if (movies.isNotEmpty()) {
-            items.add(Triple(1, "الأفلام", "${movies.size} فيلم"))
-        }
-
-        if (seriesList.isNotEmpty()) {
-            items.add(Triple(2, "المسلسلات", "${seriesList.size} مسلسل"))
+        if (telegramUrl.isNotBlank()) {
+            items.add(Triple(3, "قناتنا على تلكرام", telegramUrl.removePrefix("https://")))
         }
 
         val column = LinearLayout(this)
@@ -14280,9 +14275,17 @@ class MainActivity : Activity() {
 
         column.gravity = Gravity.CENTER_HORIZONTAL
 
+        column.clipChildren = false
+
+        // welcome
         column.addView(
-            label("اختر ما تريد مشاهدته", if (phoneMode) 18f else 22f, gray, true, Gravity.CENTER),
-            lp(matchParent, wrap).apply { setMargins(0, dp(if (phoneMode) 14 else 0), 0, dp(if (phoneMode) 12 else 26)) }
+            label("أهلاً بك في نياتي", if (phoneMode) 26f else 40f, white, true, Gravity.CENTER),
+            lp(matchParent, wrap).apply { setMargins(0, dp(if (phoneMode) 18 else 0), 0, 0) }
+        )
+
+        column.addView(
+            label("اختر ما تريد", if (phoneMode) 15f else 21f, gray, false, Gravity.CENTER),
+            lp(matchParent, wrap).apply { setMargins(0, dp(4), 0, dp(if (phoneMode) 14 else 32)) }
         )
 
         val row = LinearLayout(this)
@@ -14293,20 +14296,11 @@ class MainActivity : Activity() {
 
         row.clipChildren = false
 
-        column.clipChildren = false
-
         items.forEach { (section, title, subtitle) ->
             row.addView(homeCard(section, title, subtitle))
         }
 
         column.addView(row, lp(matchParent, wrap))
-
-        if (telegramUrl.isNotBlank()) {
-            column.addView(
-                telegramButton(),
-                lp(wrap, dp(if (phoneMode) 48 else 54)).apply { topMargin = dp(if (phoneMode) 10 else 28) }
-            )
-        }
 
         if (phoneMode) {
 
@@ -14345,6 +14339,12 @@ class MainActivity : Activity() {
                 first = Color.rgb(52, 211, 153)
                 second = Color.rgb(6, 182, 212)
                 iconPath = "M5 8h14v12H5zM8 5h8M10.5 2.5h3"
+            }
+
+            3 -> {
+                first = Color.rgb(55, 174, 226)
+                second = Color.rgb(30, 150, 200)
+                iconPath = ICON_TELEGRAM
             }
 
             else -> {
@@ -14399,6 +14399,8 @@ class MainActivity : Activity() {
 
         icon.setIcon(iconPath)
 
+        icon.setFilled(section == 3)
+
         disc.addView(
             icon,
             FrameLayout.LayoutParams(dp(if (phoneMode) 30 else 44), dp(if (phoneMode) 30 else 44), Gravity.CENTER)
@@ -14439,7 +14441,9 @@ class MainActivity : Activity() {
 
         card.setOnFocusChangeListener { _, focused -> style(focused) }
 
-        card.setOnClickListener { switchSection(section) }
+        card.setOnClickListener {
+            if (section == 3) openTelegram() else switchSection(section)
+        }
 
         if (homeFirst == null) {
             homeFirst = card
@@ -15186,7 +15190,7 @@ class MainActivity : Activity() {
         }
 
         // from the live page back to the start page
-        if (hasVod && currentSection == 0) {
+        if (currentSection == 0) {
             switchSection(-1)
             return
         }
