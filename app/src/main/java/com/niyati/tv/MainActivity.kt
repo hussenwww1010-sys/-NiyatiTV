@@ -592,6 +592,14 @@ class MainActivity : Activity() {
     // ---- sections (live / movies / series) ----
     private var currentSection = 0   // -1 = start page, 0 = live, 1 = movies, 2 = series
     private var hasVod = false
+
+    // Telegram channel (can be changed from the control panel: settings/telegramUrl)
+    private var telegramUrl = "https://t.me/NAITI_Tv"
+    private lateinit var telegramOverlay: FrameLayout
+    private lateinit var telegramQrView: ImageView
+    private lateinit var telegramLink: TextView
+    private lateinit var telegramClose: View
+    private var telegramReturnFocus: View? = null
     private lateinit var homeHost: FrameLayout
     private var homeFirst: View? = null
     private lateinit var liveHost: LinearLayout
@@ -2074,6 +2082,8 @@ class MainActivity : Activity() {
         buildDetailOverlay()
 
         buildMenuOverlay()
+
+        buildTelegramOverlay()
 
         buildNoticeOverlay()
 
@@ -5979,6 +5989,8 @@ class MainActivity : Activity() {
             }
         }
 
+        row("✈️", "قناتنا على تلكرام", telegramUrl.removePrefix("https://"), null, false) { openTelegram() }
+
         row("🆔", "معرّف الجهاز", deviceId(), null, false) {
             Toast.makeText(this, "معرّف الجهاز: ${deviceId()}", Toast.LENGTH_LONG).show()
         }
@@ -6299,6 +6311,12 @@ class MainActivity : Activity() {
         requireCode = st.readBool("requireCode", false)
 
         st.readString("userAgent")?.let { defaultUserAgent = it }
+
+        st.readString("telegramUrl")?.let { telegramUrl = it.trim() }
+
+        if (::homeHost.isInitialized && currentSection == -1) {
+            renderHome()
+        }
 
         adminDevices =
             st.child("adminDevices").children
@@ -9429,7 +9447,7 @@ class MainActivity : Activity() {
 
         chip.addView(weatherTemp, lp(wrap, wrap).apply { setMargins(dp(4), 0, 0, 0) })
 
-        header.addView(chip, lp(wrap, wrap).apply { setMargins(dp(6), 0, 0, 0) })
+        // (the weather is not shown on the phone)
 
         // clock + date
         val timeCol = LinearLayout(this)
@@ -9456,9 +9474,21 @@ class MainActivity : Activity() {
 
         timeCol.addView(clock, lp(wrap, wrap))
 
-        timeCol.addView(dateView, lp(wrap, wrap))
+        // (the date is not shown on the phone)
 
         header.addView(timeCol, lp(wrap, wrap).apply { setMargins(dp(8), 0, 0, 0) })
+
+        // Telegram channel
+        if (telegramUrl.isNotBlank()) {
+
+            val telegramBtn = telegramBadge(38)
+
+            telegramBtn.isClickable = true
+
+            telegramBtn.setOnClickListener { openTelegram() }
+
+            header.addView(telegramBtn, lp(dp(38), dp(38)).apply { setMargins(dp(8), 0, 0, 0) })
+        }
 
         // settings
         val settingsBtn = TextView(this)
@@ -14271,6 +14301,13 @@ class MainActivity : Activity() {
 
         column.addView(row, lp(matchParent, wrap))
 
+        if (telegramUrl.isNotBlank()) {
+            column.addView(
+                telegramButton(),
+                lp(wrap, dp(if (phoneMode) 48 else 54)).apply { topMargin = dp(if (phoneMode) 10 else 28) }
+            )
+        }
+
         if (phoneMode) {
 
             val scroll = ScrollView(this)
@@ -14412,6 +14449,248 @@ class MainActivity : Activity() {
     }
 
     // =========================
+    // Telegram channel
+    // =========================
+
+    // the paper plane logo, drawn as a shape (24 x 24)
+    private val ICON_TELEGRAM = "M21.6 3.4L2.8 10.8L8 13.2L9.8 19.6L12.8 16.2L17.8 20Z"
+
+    // round Telegram badge: blue disc with the white paper plane
+    private fun telegramBadge(sizeDp: Int): FrameLayout {
+
+        val badge = FrameLayout(this)
+
+        badge.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(55, 174, 226), Color.rgb(30, 150, 200))
+            ).apply {
+                shape = GradientDrawable.OVAL
+            }
+
+        val plane = LineIconView()
+
+        plane.setIcon(ICON_TELEGRAM)
+
+        plane.setFilled(true)
+
+        val inner = (sizeDp * 0.56f).toInt()
+
+        badge.addView(plane, FrameLayout.LayoutParams(dp(inner), dp(inner), Gravity.CENTER))
+
+        return badge
+    }
+
+    private fun telegramButton(): View {
+
+        val pill = LinearLayout(this)
+
+        pill.orientation = LinearLayout.HORIZONTAL
+
+        pill.gravity = Gravity.CENTER_VERTICAL
+
+        pill.setPadding(dp(8), 0, dp(24), 0)
+
+        pill.isClickable = true
+
+        pill.isFocusable = true
+
+        pill.isFocusableInTouchMode = !phoneMode
+
+        val size = if (phoneMode) 34 else 40
+
+        pill.addView(telegramBadge(size), lp(dp(size), dp(size)))
+
+        pill.addView(
+            label("قناتنا على تلكرام", if (phoneMode) 15f else 18f, white, true),
+            lp(wrap, wrap).apply { setMargins(dp(12), 0, 0, 0) }
+        )
+
+        fun style(focused: Boolean) {
+
+            pill.background =
+                GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(Color.argb(if (focused) 130 else 70, 42, 171, 238), Color.argb(if (focused) 90 else 40, 30, 150, 200))
+                ).apply {
+                    cornerRadius = dp(30).toFloat()
+                    setStroke(dp(if (focused) 3 else 1), if (focused) Color.WHITE else Color.argb(120, 42, 171, 238))
+                }
+
+            pill.animate()
+                .scaleX(if (focused) 1.06f else 1f)
+                .scaleY(if (focused) 1.06f else 1f)
+                .setDuration(130)
+                .start()
+        }
+
+        style(false)
+
+        pill.setOnFocusChangeListener { _, focused -> style(focused) }
+
+        pill.setOnClickListener { openTelegram() }
+
+        return pill
+    }
+
+    // phone: opens Telegram (or the browser). TV: shows a QR code to scan with the phone
+    private fun openTelegram() {
+
+        if (telegramUrl.isBlank()) {
+            return
+        }
+
+        if (phoneMode) {
+
+            try {
+
+                startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(telegramUrl)
+                    )
+                )
+
+                return
+
+            } catch (_: Exception) {
+            }
+        }
+
+        showTelegramCard()
+    }
+
+    private fun makeQr(text: String, size: Int): Bitmap? =
+        try {
+
+            val matrix =
+                com.google.zxing.qrcode.QRCodeWriter().encode(
+                    text,
+                    com.google.zxing.BarcodeFormat.QR_CODE,
+                    size,
+                    size,
+                    mapOf(com.google.zxing.EncodeHintType.MARGIN to 1)
+                )
+
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+
+            for (x in 0 until size) {
+                for (y in 0 until size) {
+                    bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+                }
+            }
+
+            bitmap
+
+        } catch (_: Exception) {
+
+            null
+        }
+
+    private fun buildTelegramOverlay() {
+
+        telegramOverlay = FrameLayout(this)
+
+        telegramOverlay.setBackgroundColor(Color.argb(228, 3, 5, 16))
+
+        telegramOverlay.isClickable = true
+
+        telegramOverlay.visibility = View.GONE
+
+        val card = LinearLayout(this)
+
+        card.orientation = LinearLayout.VERTICAL
+
+        card.gravity = Gravity.CENTER_HORIZONTAL
+
+        card.setPadding(dp(26), dp(24), dp(26), dp(22))
+
+        card.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(mix(Color.rgb(42, 171, 238), bgTop, 0.82f), bgTop)
+            ).apply {
+                cornerRadius = dp(30).toFloat()
+                setStroke(dp(1), Color.argb(70, 42, 171, 238))
+            }
+
+        card.addView(telegramBadge(64), lp(dp(64), dp(64)))
+
+        card.addView(
+            label("قناتنا على تلكرام", 24f, white, true, Gravity.CENTER),
+            lp(matchParent, wrap).apply { topMargin = dp(12) }
+        )
+
+        card.addView(
+            label("امسح الرمز بكاميرا هاتفك لفتح القناة", 14f, gray, false, Gravity.CENTER),
+            lp(matchParent, wrap)
+        )
+
+        telegramQrView = ImageView(this)
+
+        telegramQrView.scaleType = ImageView.ScaleType.FIT_CENTER
+
+        telegramQrView.setBackgroundColor(Color.WHITE)
+
+        roundOutline(telegramQrView, 14)
+
+        card.addView(telegramQrView, lp(dp(210), dp(210)).apply { topMargin = dp(16) })
+
+        telegramLink = label("", 18f, cyan, true, Gravity.CENTER)
+
+        card.addView(telegramLink, lp(matchParent, wrap).apply { topMargin = dp(12) })
+
+        telegramClose = actionButton("إغلاق", false) { closeTelegram() }
+
+        card.addView(telegramClose, lp(dp(150), dp(46)).apply { topMargin = dp(16) })
+
+        telegramOverlay.addView(card, FrameLayout.LayoutParams(dp(360), wrap, Gravity.CENTER))
+
+        root.addView(telegramOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
+    }
+
+    private fun telegramOpen(): Boolean =
+        ::telegramOverlay.isInitialized && telegramOverlay.visibility == View.VISIBLE
+
+    private fun showTelegramCard() {
+
+        if (telegramOpen()) {
+            return
+        }
+
+        telegramReturnFocus = currentFocus
+
+        if (menuOpen()) {
+            closeMenu()
+        }
+
+        telegramQrView.setImageBitmap(makeQr(telegramUrl, 420))
+
+        telegramLink.text = telegramUrl.removePrefix("https://")
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+        telegramOverlay.visibility = View.VISIBLE
+
+        telegramClose.requestFocus()
+    }
+
+    private fun closeTelegram() {
+
+        if (!telegramOpen()) {
+            return
+        }
+
+        telegramOverlay.visibility = View.GONE
+
+        normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+
+        telegramReturnFocus?.requestFocus()
+
+        telegramReturnFocus = null
+    }
+
+    // =========================
     // Focus helpers
     // =========================
 
@@ -14505,6 +14784,21 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+
+        // the Telegram card (QR) is on top of everything
+        if (telegramOpen()) {
+
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    closeTelegram()
+                }
+
+                return true
+            }
+
+            return super.dispatchKeyEvent(event)
+        }
 
         // remember the last D-pad press (used for the navigation sound)
         if (
@@ -14857,6 +15151,11 @@ class MainActivity : Activity() {
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
+
+        if (telegramOpen()) {
+            closeTelegram()
+            return
+        }
 
         if (isFullscreen) {
             exitFullscreen()
