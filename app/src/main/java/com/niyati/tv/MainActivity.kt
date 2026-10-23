@@ -168,6 +168,9 @@ class MainActivity : Activity() {
     private lateinit var statusBang: TextView
     private lateinit var statusTitle: TextView
     private lateinit var statusSub: TextView
+    private lateinit var statusLogo: LogoBadge
+    private lateinit var statusBar: ShimmerBar
+    private var statusLoading = false
 
     private lateinit var nowTitle: TextView
     private lateinit var nowSub: TextView
@@ -963,7 +966,7 @@ class MainActivity : Activity() {
 
                 mainHandler.post {
 
-                    if (statusTitle.text.toString().startsWith("جاري تحميل البث")) {
+                    if (statusLoading) {
 
                         statusSub.text = "محاولة $attempt: $reason"
 
@@ -2465,6 +2468,14 @@ class MainActivity : Activity() {
         // keep the icon tag for showStatus (the colored disc)
         statusIcon.tag = disc
 
+        // while loading the channel logo is shown inside the ring
+        statusLogo = LogoBadge(60, accentFor(0))
+        statusLogo.visibility = View.GONE
+        statusIcon.addView(
+            statusLogo,
+            FrameLayout.LayoutParams(dp(60), dp(60), Gravity.CENTER)
+        )
+
         statusOverlay.addView(statusIcon, lp(dp(84), dp(84)))
 
         statusTitle = label("", 17f, white, true, Gravity.CENTER, 2)
@@ -2482,6 +2493,16 @@ class MainActivity : Activity() {
             statusSub,
             lp(matchParent, wrap).apply {
                 topMargin = dp(4)
+            }
+        )
+
+        // thin light that runs while the stream loads
+        statusBar = ShimmerBar()
+        statusBar.visibility = View.GONE
+        statusOverlay.addView(
+            statusBar,
+            lp(dp(130), dp(3)).apply {
+                topMargin = dp(16)
             }
         )
 
@@ -2505,11 +2526,24 @@ class MainActivity : Activity() {
 
         val idle = title == Txt.IDLE_TITLE
 
-        statusTitle.text = title
+        val loading = !error && !idle
 
-        statusSub.text = sub
+        statusLoading = title.startsWith("جاري تحميل البث")
 
-        statusSub.visibility = if (sub.isBlank()) View.GONE else View.VISIBLE
+        // loading a stream: the channel name is the title and a short line sits under it
+        val streamLoading = statusLoading || title.startsWith("جاري تشغيل القناة")
+
+        if (streamLoading && sub.isNotBlank()) {
+            statusTitle.text = sub
+            statusSub.text = "جاري التحميل…"
+        } else {
+            statusTitle.text = title
+            statusSub.text = sub
+        }
+
+        statusTitle.textSize = if (loading) 21f else 17f
+
+        statusSub.visibility = if (statusSub.text.isBlank()) View.GONE else View.VISIBLE
 
         val colors =
             if (error) {
@@ -2525,6 +2559,21 @@ class MainActivity : Activity() {
             ).apply {
                 shape = GradientDrawable.OVAL
             }
+
+        // the logo of the channel inside the ring (the play disc stays for idle and errors)
+        val channel = playingChannel
+
+        val showLogo = loading && channel != null
+
+        if (channel != null && showLogo) {
+            statusLogo.bind(channel.name, channel.logo)
+        }
+
+        statusLogo.visibility = if (showLogo) View.VISIBLE else View.GONE
+
+        (statusIcon.tag as? View)?.visibility = if (showLogo) View.INVISIBLE else View.VISIBLE
+
+        statusBar.visibility = if (loading) View.VISIBLE else View.GONE
 
         statusRing.setMode(if (error) 1 else if (idle) 2 else 0)
 
@@ -4401,7 +4450,12 @@ class MainActivity : Activity() {
         return null
     }
 
-    private fun showZapBanner(channel: Channel) {
+    // the three cards (previous / current / next) at the bottom of the player are no longer shown
+    private fun showZapBanner(@Suppress("UNUSED_PARAMETER") channel: Channel) {
+    }
+
+    @Suppress("unused")
+    private fun showZapBannerCards(channel: Channel) {
 
         val list =
             if (playingList.contains(channel)) playingList else listOf(channel)
@@ -11899,6 +11953,78 @@ class MainActivity : Activity() {
         }
 
     // mode: 0 = loading (turning), 1 = error (red), 2 = idle (quiet ring)
+    // thin bar with a light that runs across it (shown while the stream loads)
+    private inner class ShimmerBar : View(this@MainActivity) {
+
+        private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(45, 255, 255, 255) }
+        private val light = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val rect = RectF()
+        private var progress = 0f
+        private var anim: ValueAnimator? = null
+
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+            super.onVisibilityChanged(changedView, visibility)
+            if (visibility == VISIBLE && isAttachedToWindow) start() else stop()
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            if (visibility == VISIBLE) start()
+        }
+
+        override fun onDetachedFromWindow() {
+            stop()
+            super.onDetachedFromWindow()
+        }
+
+        private fun start() {
+
+            if (anim?.isRunning == true) {
+                return
+            }
+
+            anim =
+                ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 1300
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    addUpdateListener {
+                        progress = it.animatedValue as Float
+                        invalidate()
+                    }
+                    start()
+                }
+        }
+
+        private fun stop() {
+            anim?.cancel()
+            anim = null
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val radius = height / 2f
+
+            rect.set(0f, 0f, width.toFloat(), height.toFloat())
+
+            canvas.drawRoundRect(rect, radius, radius, track)
+
+            val segment = width * 0.4f
+
+            val x = -segment + (width + segment) * progress
+
+            light.shader =
+                LinearGradient(
+                    x, 0f, x + segment, 0f,
+                    intArrayOf(Color.TRANSPARENT, cyan, violet, Color.TRANSPARENT),
+                    floatArrayOf(0f, 0.3f, 0.7f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+
+            canvas.drawRoundRect(rect, radius, radius, light)
+        }
+    }
+
     private inner class SpinnerRing : View(this@MainActivity) {
 
         private val paint =
