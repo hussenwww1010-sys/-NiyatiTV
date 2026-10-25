@@ -556,6 +556,7 @@ class MainActivity : Activity() {
     private val ICON_ASPECT = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
     private val ICON_FLAG = "M5 21V4M5 4h12l-2.5 4L17 12H5"
     private val ICON_LIST = "M4 6h16M4 12h16M4 18h10"
+    private val ICON_LIVE = "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16M20 4a11 11 0 0 1 0 16"
     private val ICON_SETTINGS = "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"
     private val ICON_AUDIO = "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"
     private val ICON_EXIT = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
@@ -564,6 +565,7 @@ class MainActivity : Activity() {
     private val ICON_BACK10 = "M11 17l-5-5 5-5M18 17l-5-5 5-5"
     private val ICON_FWD10 = "M13 17l5-5-5-5M6 17l5-5-5-5"
     private val hudVodButtons = mutableListOf<View>()
+    private val hudLiveButtons = mutableListOf<View>()
     private var hudFirstButton: View? = null
     private var epgMap: Map<String, List<Program>> = emptyMap()
     private val timeFormat by lazy { SimpleDateFormat("HH:mm", Locale.US) }
@@ -1556,6 +1558,33 @@ class MainActivity : Activity() {
     private fun createMediaItem(url: String, kind: StreamKind): MediaItem {
 
         val builder = MediaItem.Builder().setUri(Uri.parse(url))
+
+        // closer to the live edge: the player plays a little faster until it catches up
+        val liveSpeed = prefs.getInt("live_speed", 0)
+
+        if (liveSpeed > 0) {
+
+            val live = MediaItem.LiveConfiguration.Builder()
+
+            if (liveSpeed == 1) {
+
+                live.setTargetOffsetMs(8000)
+                    .setMinOffsetMs(4000)
+                    .setMaxOffsetMs(12000)
+                    .setMinPlaybackSpeed(0.98f)
+                    .setMaxPlaybackSpeed(1.05f)
+
+            } else {
+
+                live.setTargetOffsetMs(5000)
+                    .setMinOffsetMs(2500)
+                    .setMaxOffsetMs(8000)
+                    .setMinPlaybackSpeed(0.97f)
+                    .setMaxPlaybackSpeed(1.10f)
+            }
+
+            builder.setLiveConfiguration(live.build())
+        }
 
         kind.mime?.let {
             builder.setMimeType(it)
@@ -5966,6 +5995,8 @@ class MainActivity : Activity() {
 
         row("📶", "استقرار البث", bufferModeName(), null, false) { cycleBufferMode() }
 
+        row("⚡", "تسريع البث (أقرب للمباشر)", liveSpeedName(), null, false) { cycleLiveSpeed() }
+
         row("🖥", "التبديل التلقائي للسيرفر", "", { toggleAutoFallback(); autoFallback }, autoFallback, null)
 
         row("👁", "المعاينة التلقائية", "", { togglePreview(); previewEnabled }, previewEnabled, null)
@@ -10170,6 +10201,15 @@ class MainActivity : Activity() {
             buttons.addView(it, slot())
         }
 
+        // back to the live edge (live channels only)
+        hudLiveButtons.clear()
+
+        val liveButton = circleButton(ICON_LIVE, "المباشر") { goLive() }
+
+        hudLiveButtons.add(liveButton)
+
+        buttons.addView(liveButton, slot())
+
         buttons.addView(circleButton(ICON_PREV, "السابقة") { goPreviousChannel() }, slot())
 
         val fav = circleButton(ICON_STAR, "المفضلة") {
@@ -10249,6 +10289,11 @@ class MainActivity : Activity() {
 
     private fun seekBy(deltaMs: Long) {
 
+        if (!player.isCurrentMediaItemSeekable) {
+            Toast.makeText(this, "هذا البث لا يدعم التقديم والتأخير", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val duration = player.duration
 
         val target = player.currentPosition + deltaMs
@@ -10261,7 +10306,7 @@ class MainActivity : Activity() {
 
         val channel = playingChannel ?: return
 
-        if (playingWeb || !isVodChannel(channel) || panelOpen() || menuOpen()) {
+        if (playingWeb || panelOpen() || menuOpen()) {
             return
         }
 
@@ -10344,7 +10389,9 @@ class MainActivity : Activity() {
 
         touchFavIcon.setTint(if (favorite) gold else white)
 
-        hudVodButtons.forEach { it.visibility = if (vod) View.VISIBLE else View.GONE }
+        hudVodButtons.forEach { it.visibility = if (!playingWeb) View.VISIBLE else View.GONE }
+
+        hudLiveButtons.forEach { it.visibility = if (!vod && !playingWeb) View.VISIBLE else View.GONE }
 
         hudSeekRow.visibility = if (vod) View.VISIBLE else View.GONE
 
@@ -11894,6 +11941,44 @@ class MainActivity : Activity() {
             2 -> "مستقر"
             else -> "متوازن"
         }
+
+    private fun liveSpeedName(): String =
+        when (prefs.getInt("live_speed", 0)) {
+            1 -> "متوسط"
+            2 -> "أقصى"
+            else -> "إيقاف"
+        }
+
+    // off -> medium -> maximum: the current channel is loaded again with the new setting
+    private fun cycleLiveSpeed() {
+
+        val next = (prefs.getInt("live_speed", 0) + 1) % 3
+
+        prefs.edit().putInt("live_speed", next).apply()
+
+        Toast.makeText(this, "تسريع البث: " + liveSpeedName(), Toast.LENGTH_SHORT).show()
+
+        if (playingChannel != null && !playingWeb) {
+            retryPlayback()
+        }
+    }
+
+    // jump to the live edge now
+    private fun goLive() {
+
+        try {
+
+            player.seekToDefaultPosition()
+
+            if (player.playbackState == Player.STATE_IDLE) {
+                player.prepare()
+            }
+
+            player.playWhenReady = true
+
+        } catch (_: Exception) {
+        }
+    }
 
     // fast -> balanced -> stable (the player is rebuilt, the app restarts the screen)
     private fun cycleBufferMode() {
@@ -15042,6 +15127,30 @@ class MainActivity : Activity() {
     }
 
     private fun handleFullscreenKey(event: KeyEvent): Boolean {
+
+        // media keys of the remote: forward / back 10 seconds, play / pause
+        if (!playingWeb && event.action == KeyEvent.ACTION_DOWN) {
+
+            when (event.keyCode) {
+
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+                KeyEvent.KEYCODE_MEDIA_STEP_FORWARD -> {
+                    seekBy(10000L)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_MEDIA_REWIND,
+                KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD -> {
+                    seekBy(-10000L)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                    togglePlayPause()
+                    return true
+                }
+            }
+        }
 
         if (!playingWeb && playerView.isControllerFullyVisible) {
             return super.dispatchKeyEvent(event)
