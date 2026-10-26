@@ -2687,6 +2687,38 @@ class MainActivity : Activity() {
         statusOverlay.visibility = View.GONE
     }
 
+    // small app name in the top-left corner of the player (every channel)
+    private val brandMark: TextView by lazy {
+
+        TextView(this).apply {
+
+            val name = android.text.SpannableString("NIYATI TV")
+
+            name.setSpan(
+                android.text.style.ForegroundColorSpan(cyan),
+                7,
+                9,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            text = name
+
+            setTextColor(Color.WHITE)
+
+            typeface = Typeface.DEFAULT_BOLD
+
+            letterSpacing = 0.12f
+
+            alpha = 0.85f
+
+            setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.BLACK)
+
+            isClickable = false
+
+            isFocusable = false
+        }
+    }
+
     private fun moveVideoTo(container: FrameLayout) {
 
         (playerView.parent as? ViewGroup)?.removeView(playerView)
@@ -2694,6 +2726,8 @@ class MainActivity : Activity() {
         (webView.parent as? ViewGroup)?.removeView(webView)
 
         (statusOverlay.parent as? ViewGroup)?.removeView(statusOverlay)
+
+        (brandMark.parent as? ViewGroup)?.removeView(brandMark)
 
         // order: ExoPlayer video, then WebView, then the status overlay on top
         container.addView(
@@ -2712,6 +2746,17 @@ class MainActivity : Activity() {
             statusOverlay,
             2,
             FrameLayout.LayoutParams(matchParent, matchParent)
+        )
+
+        // the app name: small in the corner video, a bit larger on the full screen
+        brandMark.textSize = if (container === playerFrame) 8.5f else 12f
+
+        container.addView(
+            brandMark,
+            3,
+            FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.LEFT).apply {
+                setMargins(dp(if (container === playerFrame) 8 else 16), dp(if (container === playerFrame) 6 else 12), 0, 0)
+            }
         )
     }
 
