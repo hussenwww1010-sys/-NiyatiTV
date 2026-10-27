@@ -88,12 +88,12 @@ auth.onAuthStateChanged(u => {
 });
 
 // ---------------- التبويبات ----------------
-const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['news','الأخبار'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
 function go(t){
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
   $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
-  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), import:viewImport, codes:viewCodes, settings:viewSettings, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
+  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), import:viewImport, codes:viewCodes, settings:viewSettings, news:viewNews, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
 }
 
 // ---------------- قوائم عامة (قنوات / باقات / مباريات) ----------------
@@ -248,6 +248,18 @@ async function viewSettings(){
   const av = Object.keys(v.adminDevices||{}).join('\n');
   $('#view').innerHTML = `<div class="card">${SET.map(f=>field(f, f.k==='adminDevices'?av:v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveSet()">حفظ الإعدادات</button></div>`;
 }
+const NEWSF = [{k:'newsEnabled',l:'إظهار شريط الأخبار بالتطبيق',t:'bool'},{k:'newsText',l:'الأخبار (اكتب كل خبر بسطر مستقل)',t:'area'},{k:'newsSpeed',l:'سرعة الحركة (1 بطيء · 2 متوسط · 3 سريع)',t:'num'},{k:'newsReverse',l:'عكس اتجاه الحركة',t:'bool'}];
+async function viewNews(){
+  const v = (await db.ref('settings').once('value')).val() || {};
+  CFG = {fields:NEWSF};
+  $('#view').innerHTML = `<div class="card"><p class="mu" style="line-height:1.8">الشريط يظهر أسفل صفحات التطبيق (الترحيب والقنوات) ويختفي عند تكبير المشغل. كل سطر خبر. إذا تركت الخانة فاضية أو أوقفت الإظهار، يختفي الشريط.</p>${NEWSF.map(f=>field(f, v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveNews()">حفظ الأخبار</button></div>`;
+}
+async function saveNews(){
+  const o = {}; NEWSF.forEach(f=>{ o[f.k]=read(f) });
+  if(!o.newsSpeed) o.newsSpeed=2;
+  await db.ref('settings').update(o); toast('تم حفظ الأخبار');
+}
+
 async function saveSet(){
   const o = {};
   SET.forEach(f=>{ let x = read(f); if (f.k==='adminDevices'){ const ids=(x||'').split(/\s+/).filter(Boolean); x = ids.length?Object.fromEntries(ids.map(i=>[i,true])):null } o[f.k]=x });
