@@ -600,6 +600,10 @@ class MainActivity : Activity() {
     private lateinit var telegramLink: TextView
     private lateinit var telegramClose: View
     private var telegramReturnFocus: View? = null
+
+    // news strip at the bottom of the app pages (hidden on the full screen player)
+    private lateinit var newsBar: LinearLayout
+    private lateinit var newsTicker: NewsTicker
     private lateinit var homeHost: FrameLayout
     private var homeFirst: View? = null
     private lateinit var liveHost: LinearLayout
@@ -1960,6 +1964,8 @@ class MainActivity : Activity() {
         buildVodHost()
 
         buildHomeHost()
+
+        buildNewsBar()
 
         // ---- Packages ----
 
@@ -6385,6 +6391,21 @@ class MainActivity : Activity() {
 
         st.readString("userAgent")?.let { defaultUserAgent = it }
 
+        // news strip (written from the control panel)
+        if (::newsBar.isInitialized) {
+
+            val lines =
+                (st.readString("newsText") ?: "")
+                    .split("\n")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+            newsTicker.setContent(lines, st.readInt("newsSpeed", 2), st.readBool("newsReverse", false))
+
+            newsBar.visibility =
+                if (st.readBool("newsEnabled", false) && lines.isNotEmpty()) View.VISIBLE else View.GONE
+        }
+
         st.readString("telegramUrl")?.let { telegramUrl = it.trim() }
 
         if (::homeHost.isInitialized && currentSection == -1) {
@@ -9606,6 +9627,8 @@ class MainActivity : Activity() {
         buildVodHost()
 
         buildHomeHost()
+
+        buildNewsBar()
 
         live.addView(
             buildTicker(),
@@ -14788,6 +14811,195 @@ class MainActivity : Activity() {
         telegramReturnFocus?.requestFocus()
 
         telegramReturnFocus = null
+    }
+
+    // =========================
+    // News strip
+    // =========================
+
+    private fun buildNewsBar() {
+
+        val bar = LinearLayout(this)
+
+        bar.orientation = LinearLayout.HORIZONTAL
+
+        bar.gravity = Gravity.CENTER_VERTICAL
+
+        bar.visibility = View.GONE
+
+        bar.background =
+            GradientDrawable().apply {
+                cornerRadius = dp(if (phoneMode) 20 else 26).toFloat()
+                setColor(Color.argb(228, 7, 9, 28))
+                setStroke(dp(1), Color.argb(60, 255, 255, 255))
+            }
+
+        roundOutline(bar, if (phoneMode) 20 else 26)
+
+        newsTicker = NewsTicker()
+
+        bar.addView(newsTicker, lp(0, matchParent, 1f))
+
+        // red tag on the right
+        val tag = LinearLayout(this)
+
+        tag.orientation = LinearLayout.HORIZONTAL
+
+        tag.gravity = Gravity.CENTER
+
+        tag.setPadding(dp(if (phoneMode) 14 else 24), 0, dp(if (phoneMode) 14 else 26), 0)
+
+        tag.background =
+            GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.rgb(190, 18, 60), Color.rgb(239, 68, 68))
+            )
+
+        val dot = View(this)
+
+        dot.background =
+            GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+            }
+
+        tag.addView(dot, lp(dp(9), dp(9)))
+
+        tag.addView(
+            label("الأخبار", if (phoneMode) 13f else 17f, white, true),
+            lp(wrap, wrap).apply { setMargins(dp(8), 0, 0, 0) }
+        )
+
+        bar.addView(tag, lp(wrap, matchParent))
+
+        newsBar = bar
+
+        normalScreen.addView(
+            bar,
+            lp(matchParent, dp(if (phoneMode) 40 else 50)).apply {
+                setMargins(dp(if (phoneMode) 8 else 34), 0, dp(if (phoneMode) 8 else 34), dp(if (phoneMode) 8 else 12))
+            }
+        )
+    }
+
+    // scrolling news text: the first news leads, the others follow
+    private inner class NewsTicker : View(this@MainActivity) {
+
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mark = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val fade = Paint()
+        private val shape = Path()
+
+        private var items: List<String> = emptyList()
+        private var widths = FloatArray(0)
+        private var cycle = 0f
+        private var speedLevel = 2
+        private var reverse = false
+        private var offset = 0f
+        private var last = 0L
+
+        private val gap = dp(if (phoneMode) 46 else 66).toFloat()
+
+        init {
+            paint.color = Color.WHITE
+            paint.typeface = Typeface.DEFAULT_BOLD
+            paint.textSize = dp(if (phoneMode) 14 else 19).toFloat()
+            mark.color = cyan
+        }
+
+        fun setContent(list: List<String>, speed: Int, reverseDir: Boolean) {
+
+            if (list == items && speed == speedLevel && reverseDir == reverse) {
+                return
+            }
+
+            items = list
+            speedLevel = speed
+            reverse = reverseDir
+            widths = FloatArray(list.size) { paint.measureText(list[it]) }
+            cycle = widths.sum() + gap * list.size
+            offset = 0f
+            last = 0L
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            if (items.isEmpty() || cycle <= 0f || width == 0) {
+                return
+            }
+
+            val now = SystemClock.uptimeMillis()
+
+            val dt = if (last == 0L) 0f else (now - last).coerceAtMost(100L) / 1000f
+
+            last = now
+
+            val perSecond = dp(if (speedLevel <= 1) 60 else if (speedLevel >= 3) 130 else 90).toFloat()
+
+            offset += perSecond * dt
+
+            if (offset >= cycle) {
+                offset -= cycle
+            }
+
+            val w = width.toFloat()
+
+            val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2f
+
+            val blocks = (w / cycle).toInt() + 2
+
+            var start = 0f
+
+            for (i in items.indices) {
+
+                val itemWidth = widths[i]
+
+                for (b in -1..blocks) {
+
+                    val left =
+                        if (!reverse) {
+                            // moves to the right, the first news is the front one
+                            offset - start - itemWidth + b * cycle
+                        } else {
+                            // moves to the left
+                            w - offset + start - b * cycle
+                        }
+
+                    if (left + itemWidth < -gap || left > w + gap) {
+                        continue
+                    }
+
+                    canvas.drawText(items[i], left, baseline, paint)
+
+                    val centerX = if (!reverse) left - gap / 2f else left + itemWidth + gap / 2f
+
+                    val d = dp(4).toFloat()
+
+                    val cy = height / 2f
+
+                    shape.reset()
+                    shape.moveTo(centerX, cy - d)
+                    shape.lineTo(centerX + d, cy)
+                    shape.lineTo(centerX, cy + d)
+                    shape.lineTo(centerX - d, cy)
+                    shape.close()
+
+                    canvas.drawPath(shape, mark)
+                }
+
+                start += itemWidth + gap
+            }
+
+            // soft edges
+            val edge = dp(34).toFloat()
+
+            fade.shader = LinearGradient(0f, 0f, edge, 0f, Color.argb(235, 7, 9, 28), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+
+            canvas.drawRect(0f, 0f, edge, height.toFloat(), fade)
+
+            postInvalidateOnAnimation()
+        }
     }
 
     // =========================
