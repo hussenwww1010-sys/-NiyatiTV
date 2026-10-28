@@ -90,6 +90,7 @@ auth.onAuthStateChanged(u => {
 // ---------------- التبويبات ----------------
 const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['news','الأخبار'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
 function go(t){
+  stopStats();
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
   $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
@@ -276,13 +277,46 @@ async function viewReports(){
 async function rmReport(k){ await db.ref('reports/'+k).remove(); viewReports(); }
 
 // ---------------- الإحصائيات ----------------
+let statsOff = [];
+function stopStats(){ statsOff.forEach(f=>{ try{ f() }catch(e){} }); statsOff = []; }
+function dayKey(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function statRows(list, empty){
+  return list.map((c,i)=>`<tr><td>${i+1}</td><td>${esc(c.name)}</td><td>${c.views!=null?c.views+' مشاهدة':''}</td><td class="mu">${c.n!=null?c.n+' مشاهد':Math.round((c.seconds||0)/60)+' د'}</td></tr>`).join('') || `<tr><td class="mu">${empty}</td></tr>`;
+}
 async function viewStats(){
-  const today = new Date().toISOString().slice(0,10);
-  const [pr, us, ch] = await Promise.all([db.ref('presence').once('value'), db.ref('stats/daily/'+today+'/users').once('value'), db.ref('stats/channels').once('value')]);
-  const top = Object.values(ch.val()||{}).sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,15);
-  $('#view').innerHTML = `<div class="stat"><div class="card">المتصلون الآن<b>${pr.numChildren()}</b></div><div class="card">مستخدمو اليوم<b>${us.numChildren()}</b></div></div>
-  <div class="card"><b>أكثر القنوات مشاهدة</b><table>${top.map((c,i)=>`<tr><td>${i+1}</td><td>${esc(c.name)}</td><td>${c.views||0} مشاهدة</td><td class="mu">${Math.round((c.seconds||0)/60)} د</td></tr>`).join('')||'<tr><td class="mu">لا توجد بيانات بعد</td></tr>'}</table></div>
-  <button class="btn g" onclick="viewStats()">تحديث</button>`;
+  stopStats();
+  const today = dayKey();
+  $('#view').innerHTML = `<div class="stat"><div class="card">المتصلون الآن<b id="s_on">…</b></div><div class="card">مستخدمو اليوم<b id="s_us">…</b></div><div class="card">مشاهدات اليوم<b id="s_vw">…</b></div></div>
+  <div class="card"><b>يشاهدون الآن</b> <span class="mu" id="s_idle"></span><table id="s_now"></table></div>
+  <div class="card"><b>الأكثر مشاهدة اليوم</b> <span class="mu">(${today})</span><table id="s_today"></table></div>
+  <div class="card"><b>الأكثر مشاهدة (الإجمالي)</b><table id="s_all"></table></div>
+  <p class="mu" id="s_upd" style="text-align:center"></p>`;
+  const stamp = () => { $('#s_upd').textContent = 'آخر تحديث ' + new Date().toLocaleTimeString('ar-IQ') + ' · يتحدث تلقائياً'; };
+  const watch = (ref, cb) => { const h = ref.on('value', s => { cb(s); stamp(); }); statsOff.push(() => ref.off('value', h)); };
+
+  // who is watching right now (every device is listed while the app is connected)
+  watch(db.ref('presence'), s => {
+    const v = s.val() || {}, g = {}; let idle = 0;
+    Object.values(v).forEach(d => { const ch = d && d.ch; if (ch) g[ch] = (g[ch]||0) + 1; else idle++; });
+    const list = Object.entries(g).map(([name,n]) => ({name, n})).sort((a,b) => b.n - a.n);
+    $('#s_on').textContent = s.numChildren();
+    $('#s_idle').textContent = idle ? '· ' + idle + ' بدون قناة (في القوائم)' : '';
+    $('#s_now').innerHTML = statRows(list, 'لا أحد يشاهد الآن');
+  });
+  watch(db.ref('stats/daily/' + today + '/users'), s => { $('#s_us').textContent = s.numChildren(); });
+  watch(db.ref('stats/daily/' + today + '/views'), s => { $('#s_vw').textContent = s.val() || 0; });
+  // today only: starts again every day
+  watch(db.ref('stats/dailyChannels/' + today), s => {
+    const list = Object.values(s.val() || {}).sort((a,b) => ((b.seconds||0) - (a.seconds||0))).slice(0, 15);
+    $('#s_today').innerHTML = statRows(list, 'لا توجد مشاهدات اليوم بعد (تظهر بعد تحديث التطبيق)');
+  });
+  watch(db.ref('stats/channels'), s => {
+    const list = Object.values(s.val() || {}).sort((a,b) => (b.views||0) - (a.views||0)).slice(0, 15);
+    $('#s_all').innerHTML = statRows(list, 'لا توجد بيانات بعد');
+  });
+  // a new day while the page is open: start again
+  const iv = setInterval(() => { if (dayKey() !== today) viewStats(); }, 60000);
+  statsOff.push(() => clearInterval(iv));
 }
 
 // ---------------- دليل البرامج (XMLTV) ----------------
