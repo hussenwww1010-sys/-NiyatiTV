@@ -11869,6 +11869,10 @@ class MainActivity : Activity() {
     // online viewers: /presence/<device> exists while the app is connected
     private fun startPresence() {
 
+        mainHandler.removeCallbacks(watchFlushRunnable)
+
+        mainHandler.postDelayed(watchFlushRunnable, 5 * 60 * 1000L)
+
         try {
 
             database.getReference(".info/serverTimeOffset").addValueEventListener(
@@ -11920,6 +11924,19 @@ class MainActivity : Activity() {
         }
     }
 
+    private var watchViewCounted = false
+
+    private val watchFlushRunnable = object : Runnable {
+
+        override fun run() {
+
+            // long watching is saved every 5 minutes (the time only, the view is counted once)
+            flushWatch(true)
+
+            mainHandler.postDelayed(this, 5 * 60 * 1000L)
+        }
+    }
+
     private fun beginWatch(channel: Channel) {
 
         flushWatch()
@@ -11927,40 +11944,62 @@ class MainActivity : Activity() {
         watchChannel = channel
 
         watchStart = SystemClock.elapsedRealtime()
+
+        watchViewCounted = false
     }
 
     // a watch of 30 seconds or more counts as one view
-    private fun flushWatch() {
+    private fun flushWatch(keepWatching: Boolean = false) {
 
         val channel = watchChannel ?: return
-
-        watchChannel = null
 
         val seconds = (SystemClock.elapsedRealtime() - watchStart) / 1000
 
         if (seconds < 30 || !online) {
+
+            if (!keepWatching) {
+                watchChannel = null
+            }
+
             return
+        }
+
+        val countView = !watchViewCounted
+
+        if (keepWatching) {
+            watchStart = SystemClock.elapsedRealtime()
+            watchViewCounted = true
+        } else {
+            watchChannel = null
+            watchViewCounted = false
         }
 
         try {
 
-            rootRef.child("stats").child("channels").child(statKey(channel)).updateChildren(
+            val data =
                 mapOf<String, Any>(
                     "name" to channel.name,
-                    "views" to ServerValue.increment(1),
+                    "views" to ServerValue.increment(if (countView) 1 else 0),
                     "seconds" to ServerValue.increment(seconds)
                 )
-            )
 
-            val day = rootRef.child("stats").child("daily").child(todayKey())
+            // all time
+            rootRef.child("stats").child("channels").child(statKey(channel)).updateChildren(data)
 
-            day.child("views").setValue(ServerValue.increment(1))
+            // today only
+            rootRef.child("stats").child("dailyChannels").child(todayKey()).child(statKey(channel))
+                .updateChildren(data)
 
-            if (prefs.getString("stats_day", "") != todayKey()) {
+            if (countView) {
 
-                day.child("users").child(deviceId()).setValue(true)
+                val day = rootRef.child("stats").child("daily").child(todayKey())
 
-                prefs.edit().putString("stats_day", todayKey()).apply()
+                day.child("views").setValue(ServerValue.increment(1))
+
+                if (prefs.getString("stats_day", "") != todayKey()) {
+                    day.child("users").child(deviceId()).setValue(true)
+                    prefs.edit().putString("stats_day", todayKey()).apply()
+                }
             }
 
         } catch (_: Exception) {
