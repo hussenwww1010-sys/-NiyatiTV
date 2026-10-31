@@ -222,40 +222,6 @@ class MainActivity : Activity() {
         val title: String
     )
 
-    // movies and series (library)
-    data class Episode(
-        val season: Int,
-        val number: Int,
-        val title: String,
-        val url: String,
-        val duration: Int,
-        val thumb: String,
-        val overview: String
-    )
-
-    data class VodItem(
-        val id: String,
-        val series: Boolean,
-        val title: String,
-        val poster: String,
-        val backdrop: String,
-        val url: String,
-        val genre: String,
-        val year: String,
-        val rating: String,
-        val duration: Int,
-        val overview: String,
-        val isNew: Boolean,
-        val featured: Boolean,
-        val order: Int,
-        val episodes: List<Episode>
-    )
-
-    private class VodPlay(val item: VodItem, val episode: Episode?) {
-        val key: String
-            get() = if (episode == null) item.id else "${item.id}_s${episode.season}e${episode.number}"
-    }
-
     // an extra audio channel (second commentator) added to a channel from the dashboard
     data class AudioItem(
         val name: String,
@@ -325,10 +291,6 @@ class MainActivity : Activity() {
     private val prefs by lazy {
         getSharedPreferences("niyati_prefs", MODE_PRIVATE)
     }
-
-    private class MoveState(val isPackage: Boolean, val id: String)
-
-    private var moveState: MoveState? = null
 
     // ---- long-press menu ----
     private lateinit var menuOverlay: FrameLayout
@@ -541,16 +503,8 @@ class MainActivity : Activity() {
         palette = t.palette
     }
 
-    // ---- settings ----
-    private var previewEnabled = true
-    private var dynBgEnabled = true
-
     // ---- dynamic background / preview ----
     private lateinit var ambient: AmbientBackground
-    private val tintCache = HashMap<String, Int>()
-    private var tintToken = 0
-    private var previewTarget: Channel? = null
-
     // ---- fallback links ----
     private var sourceIndex = 0
     private var playToken = 0
@@ -643,7 +597,6 @@ class MainActivity : Activity() {
 
     // ---- sections (live / movies / series) ----
     private var currentSection = 0   // -1 = start page, 0 = live, 1 = movies, 2 = series
-    private var hasVod = false
 
     // Telegram channel (can be changed from the control panel: settings/telegramUrl)
     private var telegramUrl = "https://t.me/NAITI_Tv"
@@ -659,32 +612,6 @@ class MainActivity : Activity() {
     private lateinit var homeHost: FrameLayout
     private var homeFirst: View? = null
     private lateinit var liveHost: LinearLayout
-    private lateinit var vodHost: FrameLayout
-    private var sectionBarView: View? = null
-    private val sectionTabViews = mutableListOf<LinearLayout>()
-    private var movies: List<VodItem> = emptyList()
-    private var seriesList: List<VodItem> = emptyList()
-    private var vodGenre = ""
-    private lateinit var libGenres: LinearLayout
-    private lateinit var libGenreHeader: SectionHeader
-    private lateinit var libScroll: ScrollView
-    private lateinit var libContent: LinearLayout
-    private var libFirstFocus: View? = null
-    private lateinit var detailOverlay: FrameLayout
-    private lateinit var detailBackdrop: ImageView
-    private lateinit var detailCol: LinearLayout
-    private lateinit var detailScroll: ScrollView
-    private var detailItem: VodItem? = null
-    private var detailSeason = 1
-    private var detailPrimary: View? = null
-    private var detailReturnFocus: View? = null
-    private var vodPlay: VodPlay? = null
-    private var pendingSeek = 0L
-    private var liveBeforeVod: Channel? = null
-    private val posterCache =
-        object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
-            override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
-        }
     private var lightMode = false
     private val dayFormat by lazy { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     private val dateTextFormat by lazy {
@@ -701,25 +628,10 @@ class MainActivity : Activity() {
     private lateinit var noticeProgressFill: View
     private lateinit var noticeProgressRest: View
 
-    // ---- activation codes ----
-    private var requireCode = false
-    private var gated = false
     private var serverOffset = 0L
-    private var activeCode = ""
-    private var codeExpiresAt = 0L
-    private var gateMessage = "أدخل كود التفعيل للمتابعة"
     private var expiryWarned = false
-    private var codeRef: DatabaseReference? = null
-    private var codeListener: ValueEventListener? = null
-    private lateinit var codeOverlay: FrameLayout
-    private lateinit var codeMessage: TextView
-    private lateinit var codeInput: EditText
-    private lateinit var codeStatus: TextView
-    private lateinit var codeCancelBtn: TextView
-
     // ---- statistics ----
     private var deviceIdCache = ""
-    private var adminDevices: Set<String> = emptySet()
     private var watchChannel: Channel? = null
     private var watchStart = 0L
     private lateinit var tickerLine1: TextView
@@ -743,26 +655,10 @@ class MainActivity : Activity() {
     private lateinit var qualityStrip: LinearLayout
     private lateinit var qualityStripChips: LinearLayout
 
-    // ---- multi view ----
-    private class Tile(
-        val channel: Channel,
-        val player: ExoPlayer,
-        val http: DefaultHttpDataSource.Factory,
-        val frame: FrameLayout,
-        val nameLabel: TextView,
-        val status: TextView
     ) {
         var sourceIdx = 0
         var started = false
     }
-
-    private val tiles = mutableListOf<Tile>()
-    private val multiList = mutableListOf<Channel>()
-    private var multiActive = false
-    private var multiSel = 0
-    private lateinit var multiContainer: FrameLayout
-    private lateinit var multiGrid: LinearLayout
-    private lateinit var multiHint: TextView
 
     // =========================
     // Helpers
@@ -866,10 +762,6 @@ class MainActivity : Activity() {
 
         applyTheme(themeIndex)
 
-        previewEnabled = prefs.getBoolean("preview", true)
-
-        dynBgEnabled = prefs.getBoolean("dyn_bg", true)
-
         uiSound = prefs.getBoolean("ui_sound", true)
 
         autoFallback = prefs.getBoolean("auto_fallback", false)
@@ -880,7 +772,9 @@ class MainActivity : Activity() {
             if (prefs.contains("light_mode")) {
                 prefs.getBoolean("light_mode", false)
             } else {
-                (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice
+                (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).let {
+                    it.isLowRamDevice || it.memoryClass <= 192
+                }
             }
 
         val skipSplash = prefs.getBoolean("skip_splash_once", false)
@@ -947,13 +841,6 @@ class MainActivity : Activity() {
 
         startPresence()
 
-        activeCode = prefs.getString("code", "") ?: ""
-
-        codeExpiresAt = prefs.getLong("code_exp", 0L)
-
-        if (activeCode.isNotEmpty()) {
-            attachCodeListener(activeCode)
-        }
 
         cleanOldUpdates()
 
@@ -1167,12 +1054,6 @@ class MainActivity : Activity() {
 
                             mainHandler.removeCallbacks(stallRunnable)
 
-                            // resume a movie / episode where it stopped
-                            if (pendingSeek > 0L) {
-                                player.seekTo(pendingSeek)
-                                pendingSeek = 0L
-                            }
-
                             hideStatus()
 
                             playingChannel?.let {
@@ -1194,7 +1075,7 @@ class MainActivity : Activity() {
                                 val vod = playingChannel?.let { isVodChannel(it) } == true
 
                                 if (vod) {
-                                    onVodEnded()
+                                    showStatus("انتهى الفيديو", "اضغط على القناة لإعادة التشغيل", true)
                                 } else {
                                     reconnectLiveStream()
                                 }
@@ -2013,8 +1894,6 @@ class MainActivity : Activity() {
 
         liveHost = contentRow
 
-        buildVodHost()
-
         buildHomeHost()
 
         buildNewsBar()
@@ -2158,13 +2037,10 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(matchParent, matchParent)
         )
 
-        buildMultiView()
 
         buildNumberOverlay()
 
         buildOfflineBanner()
-
-        buildDetailOverlay()
 
         buildMenuOverlay()
 
@@ -2174,7 +2050,6 @@ class MainActivity : Activity() {
 
         buildBlockOverlay()
 
-        buildCodeOverlay()
 
         buildSplash()
 
@@ -3751,10 +3626,6 @@ class MainActivity : Activity() {
 
         card.onFocused = {
             lastFocusedChannel = channel
-
-            requestTint(channel.logo, accent.start)
-
-            schedulePreview(channel)
         }
 
         card.setOnLongClickListener {
@@ -4086,20 +3957,7 @@ class MainActivity : Activity() {
             card.chosen = item.id == selectedPackage
 
             card.onFocused = {
-                if (moveState == null) {
-                    scheduleSelect(item.id)
-
-                    cancelPreview()
-
-                    requestTint(item.logo, accentOfPackage(item).start)
-                }
-            }
-
-            if (item.id != FAV_ID) {
-                card.setOnLongClickListener {
-                    showPackageMenu(item)
-                    true
-                }
+                scheduleSelect(item.id)
             }
 
             card.setOnClickListener {
@@ -4134,8 +3992,6 @@ class MainActivity : Activity() {
                 ?.card
                 ?.requestFocus()
         }
-
-        refreshMovingVisual()
     }
 
     private val selectRunnable = Runnable {
@@ -4255,8 +4111,8 @@ class MainActivity : Activity() {
 
             channelRows.add(row)
 
-            // the cards slide in one after another
-            if (!keepScroll && i < 10) {
+            // the cards slide in one after another (not in light mode)
+            if (!lightMode && !keepScroll && i < 10) {
 
                 val targetAlpha = row.card.alpha
 
@@ -4280,8 +4136,6 @@ class MainActivity : Activity() {
                 ?.card
                 ?.requestFocus()
         }
-
-        refreshMovingVisual()
     }
 
     // =========================
@@ -4296,7 +4150,7 @@ class MainActivity : Activity() {
 
     private fun playChannel(channel: Channel, preview: Boolean = false) {
 
-        if (blocked || gated) {
+        if (blocked) {
             return
         }
 
@@ -4338,10 +4192,6 @@ class MainActivity : Activity() {
         updatePlayingMarks()
 
         updateNowPlaying(channel)
-
-        if (!preview) {
-            requestTint(channel.logo, cyan)
-        }
 
         requestPlayerGlow(channel.logo)
 
@@ -5011,140 +4861,6 @@ class MainActivity : Activity() {
     // Reorder mode
     // =========================
 
-    private fun startMove(isPackage: Boolean, id: String) {
-
-        moveState = MoveState(isPackage, id)
-
-        refreshMovingVisual()
-
-        Toast.makeText(
-            this,
-            "وضع النقل: أعلى / أسفل للتحريك  •  OK للتثبيت",
-            Toast.LENGTH_LONG
-        ).show()
-    }
-
-    private fun endMove() {
-
-        moveState = null
-
-        refreshMovingVisual()
-
-        Toast.makeText(this, "تم حفظ الترتيب", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun refreshMovingVisual() {
-
-        val s = moveState
-
-        packageRows.forEach {
-            it.card.moving = s != null && s.isPackage && s.id == it.item.id
-        }
-
-        channelRows.forEach {
-            it.card.moving = s != null && !s.isPackage && s.id == channelKey(it.channel)
-        }
-    }
-
-    private fun handleMoveKey(event: KeyEvent): Boolean {
-
-        when (event.keyCode) {
-
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    moveStep(-1)
-                }
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    moveStep(1)
-                }
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER,
-            KeyEvent.KEYCODE_BACK -> {
-                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                    endMove()
-                }
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_DPAD_RIGHT -> return true
-        }
-
-        return super.dispatchKeyEvent(event)
-    }
-
-    private fun moveStep(delta: Int) {
-
-        val s = moveState ?: return
-
-        if (s.isPackage) {
-
-            val list = packages.filter { it.id != FAV_ID }.toMutableList()
-
-            val i = list.indexOfFirst { it.id == s.id }
-
-            val j = i + delta
-
-            if (i < 0 || j < 0 || j >= list.size) {
-                return
-            }
-
-            val tmp = list[i]
-            list[i] = list[j]
-            list[j] = tmp
-
-            prefs.edit()
-                .putString("order_pkgs", list.joinToString("\n") { it.id })
-                .apply()
-
-            rebuildPackages()
-
-            renderPackages()
-
-            packageRows.firstOrNull { it.item.id == s.id }?.card?.requestFocus()
-
-        } else {
-
-            val list = visibleChannels.toMutableList()
-
-            val i = list.indexOfFirst { channelKey(it) == s.id }
-
-            val j = i + delta
-
-            if (i < 0 || j < 0 || j >= list.size) {
-                return
-            }
-
-            val tmp = list[i]
-            list[i] = list[j]
-            list[j] = tmp
-
-            saveChannelOrder(selectedPackage, list)
-
-            renderChannels(true)
-
-            val pc = playingChannel
-
-            if (pc != null && visibleChannels.contains(pc)) {
-                playingList = visibleChannels
-            }
-
-            channelRows
-                .firstOrNull { channelKey(it.channel) == s.id }
-                ?.card
-                ?.requestFocus()
-        }
-
-        refreshMovingVisual()
-    }
-
     // =========================
     // Long-press menu
     // =========================
@@ -5301,7 +5017,7 @@ class MainActivity : Activity() {
 
     private fun showChannelMenu(channel: Channel) {
 
-        if (isFullscreen || moveState != null) {
+        if (isFullscreen) {
             return
         }
 
@@ -5314,38 +5030,11 @@ class MainActivity : Activity() {
                     { toggleFavorite(channel) }
         )
 
-        if (!phoneMode) {
-            items.add("↕  نقل القناة" to { startMove(false, channelKey(channel)) })
-        }
 
-        if (multiList.contains(channel)) {
-            items.add("➖  إزالة من المشاهدة المتعددة" to { removeFromMulti(channel) })
-        } else {
-            items.add("➕  إضافة للمشاهدة المتعددة (${multiList.size}/4)" to { addToMulti(channel) })
-        }
-
-        if (multiList.size >= 2) {
-            items.add("🔲  بدء المشاهدة المتعددة (${multiList.size})" to { enterMultiView() })
-        }
 
         items.add("إلغاء" to {})
 
         showMenu(channel.name, items)
-    }
-
-    private fun showPackageMenu(item: PackageItem) {
-
-        if (isFullscreen || moveState != null || phoneMode) {
-            return
-        }
-
-        showMenu(
-            item.name,
-            listOf(
-                "↕  نقل الباقة" to { startMove(true, item.id) },
-                "إلغاء" to {}
-            )
-        )
     }
 
     // =========================
@@ -5883,172 +5572,9 @@ class MainActivity : Activity() {
     // Dynamic background (color of the focused logo)
     // =========================
 
-    private fun dominantColor(bitmap: Bitmap): Int {
-
-        val small = Bitmap.createScaledBitmap(bitmap, 24, 24, true)
-
-        val hsv = FloatArray(3)
-
-        val weight = FloatArray(12)
-        val rs = FloatArray(12)
-        val gs = FloatArray(12)
-        val bs = FloatArray(12)
-
-        for (y in 0 until 24) {
-
-            for (x in 0 until 24) {
-
-                val p = small.getPixel(x, y)
-
-                if (Color.alpha(p) < 140) {
-                    continue
-                }
-
-                Color.colorToHSV(p, hsv)
-
-                // ignore white / gray / black pixels
-                if (hsv[1] < 0.28f || hsv[2] < 0.25f) {
-                    continue
-                }
-
-                val w = hsv[1] * hsv[2]
-
-                val bucket = (hsv[0] / 30f).toInt().coerceIn(0, 11)
-
-                weight[bucket] += w
-                rs[bucket] += Color.red(p) * w
-                gs[bucket] += Color.green(p) * w
-                bs[bucket] += Color.blue(p) * w
-            }
-        }
-
-        var best = -1
-
-        var bestWeight = 0f
-
-        for (i in 0 until 12) {
-            if (weight[i] > bestWeight) {
-                bestWeight = weight[i]
-                best = i
-            }
-        }
-
-        if (best < 0 || bestWeight < 1.5f) {
-            return 0
-        }
-
-        return Color.rgb(
-            (rs[best] / weight[best]).toInt(),
-            (gs[best] / weight[best]).toInt(),
-            (bs[best] / weight[best]).toInt()
-        )
-    }
-
-    private fun requestTint(logo: String, fallback: Int) {
-
-        if (!::ambient.isInitialized || !dynBgEnabled || isFullscreen) {
-            return
-        }
-
-        tintToken++
-
-        doTint(logo, fallback, tintToken, true)
-    }
-
-    private fun doTint(logo: String, fallback: Int, token: Int, retry: Boolean) {
-
-        if (token != tintToken) {
-            return
-        }
-
-        if (logo.isNotBlank()) {
-
-            val cached = tintCache[logo]
-
-            if (cached != null) {
-                ambient.setTint(if (cached == 0) fallback else cached)
-                return
-            }
-
-            val bitmap = imageCache.get(logo)
-
-            if (bitmap != null) {
-
-                val color = dominantColor(bitmap)
-
-                tintCache[logo] = color
-
-                ambient.setTint(if (color == 0) fallback else color)
-
-                return
-            }
-
-            // the logo is still downloading: try once more shortly
-            if (retry) {
-
-                mainHandler.postDelayed(
-                    { doTint(logo, fallback, token, false) },
-                    700
-                )
-
-                return
-            }
-        }
-
-        ambient.setTint(fallback)
-    }
-
     // =========================
     // Auto preview (2 seconds on a channel)
     // =========================
-
-    private val previewRunnable = Runnable {
-
-        val channel = previewTarget ?: return@Runnable
-
-        previewTarget = null
-
-        if (isFullscreen || menuOpen() || moveState != null || splashVisible) {
-            return@Runnable
-        }
-
-        // still resting on the same channel in the channels column
-        if (lastFocusedChannel == channel && columnOf(currentFocus) == 1) {
-            playChannel(channel, true)
-        }
-    }
-
-    private fun cancelPreview() {
-
-        mainHandler.removeCallbacks(previewRunnable)
-
-        previewTarget = null
-    }
-
-    private fun schedulePreview(channel: Channel) {
-
-        cancelPreview()
-
-        if (
-            !previewEnabled ||
-            isFullscreen ||
-            moveState != null ||
-            menuOpen() ||
-            channel.url.isBlank() ||
-            channel == playingChannel
-        ) {
-            return
-        }
-
-        // do not auto-start heavy web players (YouTube / Facebook)
-        if (isWebSource(parseSource(channel.url).url)) {
-            return
-        }
-
-        previewTarget = channel
-
-        mainHandler.postDelayed(previewRunnable, 2000)
-    }
 
     // =========================
     // Settings menu
@@ -6056,7 +5582,7 @@ class MainActivity : Activity() {
 
     private fun showSettingsMenu() {
 
-        if (isFullscreen || moveState != null || menuOpen()) {
+        if (isFullscreen || menuOpen()) {
             return
         }
 
@@ -6090,8 +5616,6 @@ class MainActivity : Activity() {
 
         row("🎨", "الثيم", themes[themeIndex].name, null, false) { showThemeMenu() }
 
-        row("✨", "الخلفية المتحركة", "", { toggleDynamicBackground(); dynBgEnabled }, dynBgEnabled, null)
-
         section("التشغيل")
 
         row("📶", "استقرار البث", bufferModeName(), null, false) { cycleBufferMode() }
@@ -6100,9 +5624,7 @@ class MainActivity : Activity() {
 
         row("🖥", "التبديل التلقائي للسيرفر", "", { toggleAutoFallback(); autoFallback }, autoFallback, null)
 
-        row("👁", "المعاينة التلقائية", "", { togglePreview(); previewEnabled }, previewEnabled, null)
 
-        row("🔲", "المشاهدة المتعددة", "${multiList.size}/4", null, false) { showMultiMenu() }
 
         row("📐", "أبعاد الشاشة", aspectName(), null, false) { showAspectMenu() }
 
@@ -6114,11 +5636,6 @@ class MainActivity : Activity() {
 
         section("الحساب والجهاز")
 
-        if (requireCode || activeCode.isNotEmpty()) {
-            row("🔑", "الاشتراك", subscriptionText(), null, false) {
-                showCodeOverlay("أدخل الكود الجديد", false)
-            }
-        }
 
         row("✈️", "قناتنا على تلكرام", telegramUrl.removePrefix("https://"), null, false) { openTelegram() }
 
@@ -6140,10 +5657,6 @@ class MainActivity : Activity() {
 
         if (!isTvDevice()) {
             row("📺", "مشاركة الشاشة", "", null, false) { openScreenShare() }
-        }
-
-        if (adminDevices.contains(deviceId())) {
-            row("📊", "الإحصائيات", "", null, false) { showStatsScreen() }
         }
 
         val close = menuItem("إغلاق", accentFor(2))
@@ -6353,48 +5866,6 @@ class MainActivity : Activity() {
         recreate()
     }
 
-    private fun toggleDynamicBackground() {
-
-        dynBgEnabled = !dynBgEnabled
-
-        prefs.edit().putBoolean("dyn_bg", dynBgEnabled).apply()
-
-        if (dynBgEnabled) {
-
-            val target = lastFocusedChannel ?: playingChannel
-
-            if (target != null) {
-                requestTint(target.logo, cyan)
-            }
-
-        } else {
-            ambient.setTint(null)
-        }
-
-        Toast.makeText(
-            this,
-            if (dynBgEnabled) "الخلفية المتحركة: مفعّلة" else "الخلفية المتحركة: متوقفة",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun togglePreview() {
-
-        previewEnabled = !previewEnabled
-
-        prefs.edit().putBoolean("preview", previewEnabled).apply()
-
-        if (!previewEnabled) {
-            cancelPreview()
-        }
-
-        Toast.makeText(
-            this,
-            if (previewEnabled) "المعاينة التلقائية: مفعّلة" else "المعاينة التلقائية: متوقفة",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
     // =========================
     // Remote control (Firebase settings)
     // =========================
@@ -6439,7 +5910,6 @@ class MainActivity : Activity() {
             st.readBool("forceUpdate", false) ||
                     currentVersionCode() < st.readInt("minVersion", 0)
 
-        requireCode = st.readBool("requireCode", false)
 
         st.readString("userAgent")?.let { defaultUserAgent = it }
 
@@ -6464,12 +5934,6 @@ class MainActivity : Activity() {
             renderHome()
         }
 
-        adminDevices =
-            st.child("adminDevices").children
-                .filter { it.value == true }
-                .mapNotNull { it.key }
-                .toSet()
-
         // 1) app disabled or under maintenance
         if (!appEnabled || maintenance) {
 
@@ -6485,11 +5949,6 @@ class MainActivity : Activity() {
         hideBlock()
 
         // activation code required: nothing else until the code is valid
-        updateGate()
-
-        if (gated) {
-            return
-        }
 
         // a forced update comes before everything else
         if (force && latest > currentVersionCode() && updateUrl.isNotBlank()) {
@@ -6823,9 +6282,6 @@ class MainActivity : Activity() {
 
             stopExternalAudio()
 
-            if (multiActive) {
-                exitMultiView(false)
-            }
 
             // stop everything that is playing
             try {
@@ -7683,34 +7139,6 @@ class MainActivity : Activity() {
             return
         }
 
-        if (logo.isNotBlank()) {
-
-            val cached = tintCache[logo]
-
-            if (cached != null) {
-                playerGlow.setGlow(if (cached == 0) cyan else cached)
-                return
-            }
-
-            val bitmap = imageCache.get(logo)
-
-            if (bitmap != null) {
-
-                val color = dominantColor(bitmap)
-
-                tintCache[logo] = color
-
-                playerGlow.setGlow(if (color == 0) cyan else color)
-
-                return
-            }
-
-            if (retry) {
-                mainHandler.postDelayed({ doGlow(logo, token, false) }, 800)
-                return
-            }
-        }
-
         playerGlow.setGlow(cyan)
     }
 
@@ -7757,17 +7185,6 @@ class MainActivity : Activity() {
         }
 
     private fun nowSubText(channel: Channel): String {
-
-        if (channel.isVod) {
-
-            val episode = vodPlay?.episode
-
-            return if (episode != null) {
-                "الموسم ${episode.season} • الحلقة ${episode.number}"
-            } else {
-                "فيلم"
-            }
-        }
 
         val base = realPackageName(channel)
 
@@ -8314,21 +7731,10 @@ class MainActivity : Activity() {
 
     private fun retryAfterReconnect() {
 
-        if (blocked || gated) {
+        if (blocked) {
             return
         }
 
-        if (multiActive) {
-
-            tiles.forEach {
-                if (it.player.playbackState != Player.STATE_READY) {
-                    it.sourceIdx = 0
-                    startTile(it)
-                }
-            }
-
-            return
-        }
 
         val channel = playingChannel ?: return
 
@@ -8594,683 +8000,6 @@ class MainActivity : Activity() {
     // =========================
     // Multi view (split screen)
     // =========================
-
-    private fun tileSources(channel: Channel): List<String> =
-        sourcesOf(channel).filter { !isWebSource(parseSource(it).url) }
-
-    private fun addToMulti(channel: Channel) {
-
-        if (multiList.size >= 4) {
-            Toast.makeText(this, "الحد الأقصى 4 قنوات", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (tileSources(channel).isEmpty()) {
-            Toast.makeText(
-                this,
-                "هذه القناة لا تدعم المشاهدة المتعددة",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
-
-        multiList.add(channel)
-
-        Toast.makeText(
-            this,
-            if (multiList.size >= 2) {
-                "تمت الإضافة (${multiList.size}/4)  •  اضغط مطولاً لبدء المشاهدة"
-            } else {
-                "تمت الإضافة (${multiList.size}/4)  •  أضف قناة أخرى"
-            },
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun removeFromMulti(channel: Channel) {
-
-        multiList.remove(channel)
-
-        Toast.makeText(
-            this,
-            "تمت الإزالة (${multiList.size}/4)",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun showMultiMenu() {
-
-        val items = mutableListOf<Pair<String, () -> Unit>>()
-
-        if (multiList.size >= 2) {
-            items.add("▶  بدء المشاهدة المتعددة (${multiList.size} قنوات)" to { enterMultiView() })
-        }
-
-        if (multiList.isNotEmpty()) {
-            items.add(
-                "🗑  مسح القائمة" to {
-                    multiList.clear()
-                    Toast.makeText(this, "تم مسح القائمة", Toast.LENGTH_SHORT).show()
-                }
-            )
-        }
-
-        items.add("إلغاء" to {})
-
-        showMenu(
-            if (multiList.isEmpty()) {
-                "اضغط مطولاً على أي قناة ثم اختر إضافة للمشاهدة المتعددة"
-            } else {
-                multiList.joinToString("  •  ") { it.name }
-            },
-            items
-        )
-    }
-
-    private fun buildMultiView() {
-
-        multiContainer = FrameLayout(this)
-
-        multiContainer.setBackgroundColor(Color.BLACK)
-
-        multiContainer.visibility = View.GONE
-
-        multiGrid = LinearLayout(this)
-
-        multiContainer.addView(multiGrid, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        multiHint = label(
-            if (phoneMode) {
-                "اضغط على مربع لتبديل الصوت   •   ضغط مطول لتكبيره"
-            } else {
-                "◄ ► ▲ ▼  تبديل الصوت   •   OK  تكبير القناة   •   رجوع  خروج"
-            },
-            13f,
-            white,
-            true,
-            Gravity.CENTER
-        )
-
-        multiHint.setPadding(dp(20), dp(8), dp(20), dp(8))
-
-        multiHint.visibility = View.GONE
-
-        multiHint.background =
-            GradientDrawable().apply {
-                cornerRadius = dp(20).toFloat()
-                setColor(Color.argb(190, 8, 10, 28))
-                setStroke(dp(1), withAlpha(cyan, 140))
-            }
-
-        multiContainer.addView(
-            multiHint,
-            FrameLayout.LayoutParams(wrap, wrap, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-                bottomMargin = dp(26)
-            }
-        )
-
-        val closeButton = TextView(this)
-
-        closeButton.text = "✕"
-
-        closeButton.textSize = 18f
-
-        closeButton.setTextColor(white)
-
-        closeButton.gravity = Gravity.CENTER
-
-        closeButton.background =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(190, 8, 10, 28))
-                setStroke(dp(1), Color.argb(120, 255, 255, 255))
-            }
-
-        closeButton.setOnClickListener {
-            exitMultiView()
-        }
-
-        multiContainer.addView(
-            closeButton,
-            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.RIGHT).apply {
-                setMargins(0, dp(14), dp(14), 0)
-            }
-        )
-
-        root.addView(multiContainer, FrameLayout.LayoutParams(matchParent, matchParent))
-    }
-
-    private val hideMultiHintRunnable = Runnable {
-        multiHint.animate().alpha(0f).setDuration(250).withEndAction {
-            multiHint.visibility = View.GONE
-        }.start()
-    }
-
-    private fun showMultiHint() {
-
-        multiHint.animate().cancel()
-
-        multiHint.alpha = 1f
-
-        multiHint.visibility = View.VISIBLE
-
-        mainHandler.removeCallbacks(hideMultiHintRunnable)
-
-        mainHandler.postDelayed(hideMultiHintRunnable, 6000)
-    }
-
-    private fun createTile(channel: Channel): Tile {
-
-        val http =
-            DefaultHttpDataSource.Factory()
-                .setUserAgent(defaultUserAgent)
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(15000)
-                .setReadTimeoutMs(20000)
-
-        val extractors =
-            DefaultExtractorsFactory()
-                .setTsExtractorFlags(
-                    DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                            DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-                )
-
-        val tilePlayer =
-            ExoPlayer.Builder(
-                this,
-                DefaultRenderersFactory(this).setEnableDecoderFallback(true)
-            )
-                .setMediaSourceFactory(
-                    DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http), extractors)
-                )
-                .setLoadControl(
-                    DefaultLoadControl.Builder()
-                        .setBufferDurationsMs(3000, 20000, 700, 2000)
-                        .build()
-                )
-                .build()
-
-        val frame = FrameLayout(this)
-
-        frame.setPadding(dp(4), dp(4), dp(4), dp(4))
-
-        val video = PlayerView(this)
-
-        video.useController = false
-
-        video.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-
-        video.setBackgroundColor(Color.BLACK)
-
-        video.isFocusable = false
-
-        video.player = tilePlayer
-
-        frame.addView(video, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        val status = label("جاري التحميل…", 14f, white, true, Gravity.CENTER)
-
-        frame.addView(status, FrameLayout.LayoutParams(wrap, wrap, Gravity.CENTER))
-
-        val name = label(channel.name, 12f, white, true, Gravity.LEFT)
-
-        name.setPadding(dp(10), dp(3), dp(10), dp(3))
-
-        frame.addView(
-            name,
-            FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.LEFT).apply {
-                setMargins(dp(10), dp(10), 0, 0)
-            }
-        )
-
-        val tile = Tile(channel, tilePlayer, http, frame, name, status)
-
-        // touch: tap = take the sound, long press = fullscreen
-        frame.setOnClickListener {
-
-            val i = tiles.indexOfFirst { it === tile }
-
-            if (i >= 0) {
-                multiSel = i
-                refreshTileSelection()
-            }
-        }
-
-        frame.setOnLongClickListener {
-
-            val i = tiles.indexOfFirst { it === tile }
-
-            if (i >= 0) {
-                multiSel = i
-                maximizeSelectedTile()
-            }
-
-            true
-        }
-
-        tilePlayer.addListener(
-            object : Player.Listener {
-
-                override fun onPlaybackStateChanged(playbackState: Int) {
-
-                    if (playbackState == Player.STATE_READY) {
-
-                        tile.started = true
-
-                        tile.status.visibility = View.GONE
-
-                    } else if (playbackState == Player.STATE_BUFFERING && !tile.started) {
-
-                        tile.status.text = "جاري التحميل…"
-
-                        tile.status.visibility = View.VISIBLE
-                    }
-                }
-
-                override fun onPlayerError(error: PlaybackException) {
-                    tileFailed(tile)
-                }
-            }
-        )
-
-        return tile
-    }
-
-    private fun startTile(tile: Tile) {
-
-        val raw = tileSources(tile.channel).getOrNull(tile.sourceIdx) ?: return
-
-        val source = parseSource(raw)
-
-        applyRequestHeaders(tile.channel, source, tile.http, 0)
-
-        tile.status.text = "جاري التحميل…"
-
-        tile.status.visibility = View.VISIBLE
-
-        try {
-
-            tile.player.setMediaItem(createMediaItem(source.url, detectKind(source.url)))
-
-            tile.player.prepare()
-
-            tile.player.playWhenReady = true
-
-        } catch (_: Exception) {
-            tileFailed(tile)
-        }
-    }
-
-    // dead link: try the next backup link, otherwise show the error on the tile
-    private fun tileFailed(tile: Tile) {
-
-        if (tile.sourceIdx + 1 < tileSources(tile.channel).size && online) {
-
-            tile.sourceIdx++
-
-            startTile(tile)
-
-            return
-        }
-
-        tile.status.text = "تعذر تشغيل القناة"
-
-        tile.status.visibility = View.VISIBLE
-    }
-
-    private fun enterMultiView() {
-
-        if (multiList.size < 2) {
-            Toast.makeText(this, "أضف قناتين على الأقل", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (blocked || gated || multiActive) {
-            return
-        }
-
-        cancelPreview()
-
-        closeChannelPanel(true)
-
-        closeQualityStrip(true)
-
-        // free the decoder of the normal player
-        try {
-            player.stop()
-            player.clearMediaItems()
-        } catch (_: Exception) {
-        }
-
-        mainHandler.removeCallbacks(retryRunnable)
-
-        stopWeb()
-
-        playToken++
-
-        multiActive = true
-
-        setPhoneOrientation(true)
-
-        stopExternalAudio()
-
-        tiles.clear()
-
-        multiGrid.removeAllViews()
-
-        multiList.take(4).forEach { tiles.add(createTile(it)) }
-
-        fun cell(tile: Tile, vertical: Boolean): LinearLayout.LayoutParams =
-            if (vertical) lp(matchParent, 0, 1f) else lp(0, matchParent, 1f)
-
-        when (tiles.size) {
-
-            2 -> {
-
-                multiGrid.orientation = LinearLayout.HORIZONTAL
-
-                tiles.forEach { multiGrid.addView(it.frame, cell(it, false)) }
-            }
-
-            3 -> {
-
-                multiGrid.orientation = LinearLayout.HORIZONTAL
-
-                multiGrid.addView(tiles[0].frame, lp(0, matchParent, 2f))
-
-                val column = LinearLayout(this)
-
-                column.orientation = LinearLayout.VERTICAL
-
-                column.addView(tiles[1].frame, lp(matchParent, 0, 1f))
-
-                column.addView(tiles[2].frame, lp(matchParent, 0, 1f))
-
-                multiGrid.addView(column, lp(0, matchParent, 1f))
-            }
-
-            else -> {
-
-                multiGrid.orientation = LinearLayout.VERTICAL
-
-                val top = LinearLayout(this)
-
-                top.orientation = LinearLayout.HORIZONTAL
-
-                top.addView(tiles[0].frame, lp(0, matchParent, 1f))
-
-                top.addView(tiles[1].frame, lp(0, matchParent, 1f))
-
-                val bottom = LinearLayout(this)
-
-                bottom.orientation = LinearLayout.HORIZONTAL
-
-                bottom.addView(tiles[2].frame, lp(0, matchParent, 1f))
-
-                bottom.addView(tiles[3].frame, lp(0, matchParent, 1f))
-
-                multiGrid.addView(top, lp(matchParent, 0, 1f))
-
-                multiGrid.addView(bottom, lp(matchParent, 0, 1f))
-            }
-        }
-
-        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-
-        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-
-        multiContainer.visibility = View.VISIBLE
-
-        multiSel = 0
-
-        refreshTileSelection()
-
-        tiles.forEach { startTile(it) }
-
-        hideSystemBars()
-
-        showMultiHint()
-    }
-
-    private fun exitMultiView(restoreMain: Boolean = true) {
-
-        if (!multiActive) {
-            return
-        }
-
-        multiActive = false
-
-        setPhoneOrientation(false)
-
-        mainHandler.removeCallbacks(hideMultiHintRunnable)
-
-        tiles.forEach {
-            try {
-                it.player.release()
-            } catch (_: Exception) {
-            }
-        }
-
-        tiles.clear()
-
-        multiGrid.removeAllViews()
-
-        multiContainer.visibility = View.GONE
-
-        normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
-
-        fullscreenContainer.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
-
-        showSystemBars()
-
-        if (restoreMain && !blocked) {
-            playingChannel?.let { playChannel(it) }
-        }
-
-        focusChannelsColumn()
-    }
-
-    // sound only from the selected tile, every tile keeps playing
-    private fun refreshTileSelection() {
-
-        tiles.forEachIndexed { i, tile ->
-
-            val selected = i == multiSel
-
-            tile.frame.background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(Color.BLACK)
-                    setStroke(
-                        if (selected) dp(4) else dp(1),
-                        if (selected) cyan else Color.argb(60, 255, 255, 255)
-                    )
-                }
-
-            tile.nameLabel.text = (if (selected) "🔊 " else "🔇 ") + tile.channel.name
-
-            tile.nameLabel.background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(12).toFloat()
-                    setColor(if (selected) withAlpha(cyan, 210) else Color.argb(170, 8, 10, 28))
-                }
-
-            tile.nameLabel.setTextColor(if (selected) Color.BLACK else white)
-
-            tile.player.volume = if (selected) 1f else 0f
-
-            // the muted tiles use a lower quality to spare the device
-            try {
-
-                val params = tile.player.trackSelectionParameters.buildUpon()
-
-                if (selected) {
-                    params.setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
-                } else if (tiles.size >= 3) {
-                    params.setMaxVideoSize(854, 480)
-                } else {
-                    params.setMaxVideoSize(1280, 720)
-                }
-
-                tile.player.trackSelectionParameters = params.build()
-
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    private fun tileCenter(tile: Tile): Pair<Float, Float> {
-
-        val location = IntArray(2)
-
-        tile.frame.getLocationOnScreen(location)
-
-        return Pair(
-            location[0] + tile.frame.width / 2f,
-            location[1] + tile.frame.height / 2f
-        )
-    }
-
-    private fun moveMultiSelection(dx: Int, dy: Int) {
-
-        if (tiles.size < 2) {
-            return
-        }
-
-        val from = tileCenter(tiles[multiSel])
-
-        var best = -1
-
-        var bestScore = Float.MAX_VALUE
-
-        tiles.forEachIndexed { i, tile ->
-
-            if (i == multiSel) {
-                return@forEachIndexed
-            }
-
-            val c = tileCenter(tile)
-
-            val ddx = c.first - from.first
-
-            val ddy = c.second - from.second
-
-            val inDirection =
-                when {
-                    dx > 0 -> ddx > 10
-                    dx < 0 -> ddx < -10
-                    dy > 0 -> ddy > 10
-                    else -> ddy < -10
-                }
-
-            if (!inDirection) {
-                return@forEachIndexed
-            }
-
-            val score =
-                if (dx != 0) abs(ddx) + 2 * abs(ddy) else abs(ddy) + 2 * abs(ddx)
-
-            if (score < bestScore) {
-                bestScore = score
-                best = i
-            }
-        }
-
-        // nothing in that direction: cycle through the tiles
-        multiSel =
-            if (best >= 0) {
-                best
-            } else {
-                val step = if (dx > 0 || dy > 0) 1 else -1
-                (multiSel + step + tiles.size) % tiles.size
-            }
-
-        refreshTileSelection()
-    }
-
-    private fun handleMultiKey(event: KeyEvent): Boolean {
-
-        val code = event.keyCode
-
-        val isDown = event.action == KeyEvent.ACTION_DOWN
-
-        when (code) {
-
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (isDown) moveMultiSelection(-1, 0)
-                if (isDown) showMultiHint()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (isDown) moveMultiSelection(1, 0)
-                if (isDown) showMultiHint()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (isDown) moveMultiSelection(0, -1)
-                if (isDown) showMultiHint()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (isDown) moveMultiSelection(0, 1)
-                if (isDown) showMultiHint()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER -> {
-                if (isDown && event.repeatCount == 0) {
-                    maximizeSelectedTile()
-                }
-                return true
-            }
-
-            KeyEvent.KEYCODE_BACK -> {
-                if (isDown && event.repeatCount == 0) {
-                    exitMultiView()
-                }
-                return true
-            }
-
-            // 1..4 = jump straight to a tile
-            in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_4 -> {
-
-                if (isDown && event.repeatCount == 0) {
-
-                    val index = code - KeyEvent.KEYCODE_1
-
-                    if (index < tiles.size) {
-                        multiSel = index
-                        refreshTileSelection()
-                    }
-                }
-
-                return true
-            }
-        }
-
-        return super.dispatchKeyEvent(event)
-    }
-
-    // OK: leave the split screen and play the selected channel fullscreen
-    private fun maximizeSelectedTile() {
-
-        val channel = tiles.getOrNull(multiSel)?.channel ?: return
-
-        val others = ArrayList(multiList)
-
-        exitMultiView(false)
-
-        playChannel(channel)
-
-        // up / down now zaps between the channels of the split screen
-        playingList = others
-
-        enterFullscreen()
-    }
 
     // =========================
     // Screen sharing (phone -> TV)
@@ -9675,8 +8404,6 @@ class MainActivity : Activity() {
         liveHost = live
 
         normalScreen.addView(live, lp(matchParent, 0, 1f))
-
-        buildVodHost()
 
         buildHomeHost()
 
@@ -10602,7 +9329,7 @@ class MainActivity : Activity() {
 
     private fun handleScreenTap(x: Float, y: Float) {
 
-        if (menuOpen() || noticeOpen() || multiActive) {
+        if (menuOpen() || noticeOpen()) {
             return
         }
 
@@ -10634,7 +9361,7 @@ class MainActivity : Activity() {
     // swipe up = next channel, swipe down = previous channel
     private fun handleFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float) {
 
-        if (e1 == null || menuOpen() || noticeOpen() || multiActive || panelOpen() ||
+        if (e1 == null || menuOpen() || noticeOpen() || panelOpen() ||
             qualityStripOpen() || touchControlsVisible()
         ) {
             return
@@ -11032,7 +9759,7 @@ class MainActivity : Activity() {
     // selects its package, plays the channel and scrolls the list to it
     private fun openMatchChannel(m: MatchItem) {
 
-        if (blocked || gated || multiActive || isFullscreen) {
+        if (blocked || isFullscreen) {
             return
         }
 
@@ -11414,447 +10141,12 @@ class MainActivity : Activity() {
         return id
     }
 
-    private fun codeValid(): Boolean =
-        activeCode.isNotEmpty() && (codeExpiresAt == 0L || serverNow() < codeExpiresAt)
-
-    private fun subscriptionText(): String {
-
-        if (activeCode.isEmpty()) {
-            return "غير مفعّل"
-        }
-
-        if (codeExpiresAt == 0L) {
-            return "غير محدود"
-        }
-
-        val days = (codeExpiresAt - serverNow() + dayMillis - 1) / dayMillis
-
-        return if (days <= 0) "منتهي" else "متبقي $days يوم"
-    }
-
-    private fun updateGate() {
-
-        if (!requireCode || codeValid()) {
-
-            if (gated) {
-                hideCodeOverlay(true)
-            }
-
-            return
-        }
-
-        if (!gated) {
-            showCodeOverlay(gateMessage, true)
-        }
-    }
-
-    private fun codeGateOpen(): Boolean =
-        ::codeOverlay.isInitialized && codeOverlay.visibility == View.VISIBLE
-
-    private fun buildCodeOverlay() {
-
-        codeOverlay = FrameLayout(this)
-
-        codeOverlay.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(bgTop, bgMid, bgBottom)
-            )
-
-        codeOverlay.isClickable = true
-
-        codeOverlay.visibility = View.GONE
-
-        val col = LedFrame()
-
-        col.cornerDp = 28
-
-        col.setColors(cyan, violet)
-
-        col.orientation = LinearLayout.VERTICAL
-
-        col.gravity = Gravity.CENTER_HORIZONTAL
-
-        col.setPadding(dp(26), dp(24), dp(26), dp(22))
-
-        col.background = fancyCardBackground(28)
-
-        val icon = TextView(this)
-
-        icon.text = "🔑"
-
-        icon.textSize = 46f
-
-        icon.gravity = Gravity.CENTER
-
-        col.addView(icon, lp(wrap, wrap))
-
-        col.addView(
-            label("تفعيل الاشتراك", 24f, white, true, Gravity.CENTER),
-            lp(matchParent, wrap).apply { topMargin = dp(8) }
-        )
-
-        codeMessage = label("", 15f, gray, false, Gravity.CENTER, 3)
-
-        col.addView(codeMessage, lp(matchParent, wrap).apply { topMargin = dp(6) })
-
-        codeInput = EditText(this)
-
-        codeInput.setSingleLine(true)
-
-        codeInput.inputType =
-            InputType.TYPE_CLASS_TEXT or
-                    InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or
-                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-
-        codeInput.imeOptions = EditorInfo.IME_ACTION_DONE
-
-        codeInput.hint = "XXXX-XXXX"
-
-        codeInput.setHintTextColor(gray)
-
-        codeInput.setTextColor(white)
-
-        codeInput.textSize = 22f
-
-        codeInput.gravity = Gravity.CENTER
-
-        codeInput.typeface = Typeface.DEFAULT_BOLD
-
-        codeInput.letterSpacing = 0.12f
-
-        codeInput.layoutDirection = View.LAYOUT_DIRECTION_LTR
-
-        codeInput.textDirection = View.TEXT_DIRECTION_LTR
-
-        codeInput.background =
-            GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(Color.argb(40, 255, 255, 255))
-                setStroke(dp(1), Color.argb(130, 255, 255, 255))
-            }
-
-        codeInput.setOnEditorActionListener { _, actionId, _ ->
-
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                activateCode(codeInput.text.toString())
-                true
-            } else {
-                false
-            }
-        }
-
-        col.addView(
-            codeInput,
-            lp(matchParent, dp(58)).apply { topMargin = dp(16) }
-        )
-
-        codeStatus = label("", 14f, Color.rgb(255, 120, 130), true, Gravity.CENTER, 2)
-
-        col.addView(codeStatus, lp(matchParent, wrap).apply { topMargin = dp(10) })
-
-        val row = LinearLayout(this)
-
-        row.orientation = LinearLayout.HORIZONTAL
-
-        row.gravity = Gravity.CENTER
-
-        val activate = menuItem("تفعيل", accentFor(0))
-
-        activate.setOnClickListener { activateCode(codeInput.text.toString()) }
-
-        codeCancelBtn = menuItem("خروج", accentFor(2))
-
-        row.addView(activate, lp(0, dp(50), 1f).apply { setMargins(dp(6), 0, dp(6), 0) })
-
-        row.addView(codeCancelBtn, lp(0, dp(50), 1f).apply { setMargins(dp(6), 0, dp(6), 0) })
-
-        col.addView(row, lp(matchParent, wrap).apply { topMargin = dp(14) })
-
-        codeOverlay.addView(col, FrameLayout.LayoutParams(boxWidth(520), wrap, Gravity.CENTER))
-
-        root.addView(codeOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
-    }
-
-    // required = true: the app is locked until a valid code is entered
-    private fun showCodeOverlay(message: String, required: Boolean) {
-
-        if (required) {
-
-            gated = true
-
-            // stop everything that is playing
-            try {
-                player.stop()
-                player.clearMediaItems()
-            } catch (_: Exception) {
-            }
-
-            mainHandler.removeCallbacks(retryRunnable)
-
-            stopWeb()
-
-            stopExternalAudio()
-
-            flushWatch()
-
-            if (multiActive) {
-                exitMultiView(false)
-            }
-
-            if (isFullscreen) {
-                exitFullscreen()
-            }
-        }
-
-        if (noticeOpen()) {
-            hideNotice()
-        }
-
-        if (menuOpen()) {
-            closeMenu()
-        }
-
-        codeMessage.text = message
-
-        codeStatus.text = ""
-
-        codeInput.setText("")
-
-        codeCancelBtn.text = if (required) "خروج" else "إلغاء"
-
-        codeCancelBtn.setOnClickListener {
-            if (required) finish() else hideCodeOverlay(false)
-        }
-
-        codeOverlay.visibility = View.VISIBLE
-
-        codeInput.requestFocus()
-
-        codeInput.postDelayed({ showKeyboard() }, 300)
-    }
-
-    private fun hideCodeOverlay(resume: Boolean) {
-
-        gated = false
-
-        hideKeyboard()
-
-        codeOverlay.visibility = View.GONE
-
-        if (resume) {
-            playingChannel?.let { playChannel(it) }
-        }
-    }
-
-    private fun showKeyboard() {
-
-        try {
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                .showSoftInput(codeInput, InputMethodManager.SHOW_IMPLICIT)
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun hideKeyboard() {
-
-        try {
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                .hideSoftInputFromWindow(codeInput.windowToken, 0)
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun activateCode(input: String) {
-
-        val code = input.trim().uppercase(Locale.US).filter { it.isLetterOrDigit() || it == '-' || it == '_' }
-
-        if (code.length < 4) {
-            codeStatus.setTextColor(Color.rgb(255, 120, 130))
-            codeStatus.text = "اكتب كوداً صحيحاً"
-            return
-        }
-
-        codeStatus.setTextColor(gray)
-
-        codeStatus.text = "جاري التحقق…"
-
-        hideKeyboard()
-
-        rootRef.child("codes").child(code).addListenerForSingleValueEvent(
-            object : ValueEventListener {
-
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    evaluateCode(code, snapshot, true)
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    codeStatus.setTextColor(Color.rgb(255, 120, 130))
-                    codeStatus.text = "تعذر الاتصال، تحقق من الإنترنت"
-                }
-            }
-        )
-    }
-
     private fun parseDateEnd(text: String): Long? =
         try {
             SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(text)?.time?.plus(dayMillis - 1)
         } catch (_: Exception) {
             null
         }
-
-    // codes/<CODE>: enabled, days or expires (yyyy-MM-dd) or expiresAt, maxDevices, devices/*
-    private fun evaluateCode(code: String, snap: DataSnapshot, interactive: Boolean) {
-
-        fun fail(message: String) {
-
-            if (interactive) {
-
-                codeStatus.setTextColor(Color.rgb(255, 120, 130))
-
-                codeStatus.text = message
-
-            } else {
-
-                revokeCode(message)
-            }
-        }
-
-        if (!snap.exists()) {
-            fail("الكود غير صحيح")
-            return
-        }
-
-        if (!snap.readBool("enabled", true)) {
-            fail("هذا الكود موقوف")
-            return
-        }
-
-        val now = serverNow()
-
-        var expires: Long? = (snap.child("expiresAt").value as? Number)?.toLong()
-
-        if (expires == null) {
-            expires = snap.readString("expires")?.let { parseDateEnd(it) }
-        }
-
-        val days = snap.readInt("days", 0)
-
-        // the days start counting at the first use
-        if (expires == null && days > 0) {
-
-            val newExpire = now + days * dayMillis
-
-            expires = newExpire
-
-            snap.ref.updateChildren(
-                mapOf<String, Any>("activatedAt" to now, "expiresAt" to newExpire)
-            )
-        }
-
-        if (expires != null && now > expires) {
-            fail("انتهى اشتراك هذا الكود")
-            return
-        }
-
-        val id = deviceId()
-
-        val devices = snap.child("devices")
-
-        if (!devices.hasChild(id) && devices.childrenCount >= snap.readInt("maxDevices", 1)) {
-            fail("هذا الكود مستخدم على جهاز آخر")
-            return
-        }
-
-        val seen = (devices.child(id).value as? Number)?.toLong() ?: 0L
-
-        if (seen == 0L || now - seen > 3_600_000L) {
-            snap.ref.child("devices").child(id).setValue(now)
-        }
-
-        // accepted
-        activeCode = code
-
-        codeExpiresAt = expires ?: 0L
-
-        prefs.edit().putString("code", code).putLong("code_exp", codeExpiresAt).apply()
-
-        if (interactive) {
-
-            codeStatus.setTextColor(Color.rgb(80, 220, 150))
-
-            codeStatus.text = "✔ تم التفعيل"
-
-            attachCodeListener(code)
-
-            Toast.makeText(this, "تم تفعيل الاشتراك: ${subscriptionText()}", Toast.LENGTH_LONG).show()
-
-            mainHandler.postDelayed({
-                if (codeValid()) {
-                    hideCodeOverlay(true)
-                }
-            }, 600)
-        }
-
-        if (!expiryWarned && expires != null && expires - now < 3 * dayMillis) {
-
-            expiryWarned = true
-
-            Toast.makeText(this, "ينتهي اشتراكك قريباً: ${subscriptionText()}", Toast.LENGTH_LONG).show()
-        }
-
-        if (!interactive) {
-            updateGate()
-        }
-    }
-
-    private fun revokeCode(message: String) {
-
-        detachCodeListener()
-
-        activeCode = ""
-
-        codeExpiresAt = 0L
-
-        prefs.edit().remove("code").remove("code_exp").apply()
-
-        gateMessage = message
-
-        updateGate()
-    }
-
-    private fun attachCodeListener(code: String) {
-
-        detachCodeListener()
-
-        val ref = rootRef.child("codes").child(code)
-
-        val listener =
-            object : ValueEventListener {
-
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    evaluateCode(code, snapshot, false)
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                }
-            }
-
-        codeRef = ref
-
-        codeListener = listener
-
-        ref.addValueEventListener(listener)
-    }
-
-    private fun detachCodeListener() {
-
-        codeListener?.let { codeRef?.removeEventListener(it) }
-
-        codeListener = null
-
-        codeRef = null
-    }
 
     // =========================
     // Statistics
@@ -12022,57 +10314,6 @@ class MainActivity : Activity() {
         )
     }
 
-    // only for the devices listed in settings/adminDevices
-    private fun showStatsScreen() {
-
-        Toast.makeText(this, "جاري تحميل الإحصائيات…", Toast.LENGTH_SHORT).show()
-
-        readOnce(rootRef.child("presence")) { presence ->
-
-            readOnce(rootRef.child("stats").child("channels")) { channelStats ->
-
-                readOnce(rootRef.child("stats").child("daily").child(todayKey()).child("users")) { users ->
-
-                    val lines = mutableListOf<String>()
-
-                    lines.add("🟢 المتصلون الآن: ${presence?.childrenCount ?: 0}")
-
-                    lines.add("👥 مستخدمو اليوم: ${users?.childrenCount ?: 0}")
-
-                    val top =
-                        (channelStats?.children ?: emptyList())
-                            .map {
-                                Triple(
-                                    it.readString("name") ?: (it.key ?: "-"),
-                                    it.readInt("views", 0),
-                                    it.readInt("seconds", 0)
-                                )
-                            }
-                            .sortedByDescending { it.second }
-                            .take(6)
-
-                    lines.add("أكثر القنوات مشاهدة:")
-
-                    if (top.isEmpty()) {
-                        lines.add("لا توجد بيانات بعد")
-                    }
-
-                    top.forEachIndexed { i, t ->
-                        lines.add("${i + 1}. ${t.first} — ${t.second} مشاهدة · ${t.third / 60} د")
-                    }
-
-                    showNotice(
-                        "stats",
-                        "📊",
-                        "الإحصائيات",
-                        lines.joinToString("\n"),
-                        listOf("حسناً" to {})
-                    ) {}
-                }
-            }
-        }
-    }
-
     // =========================
     // Stream stability
     // =========================
@@ -12167,7 +10408,6 @@ class MainActivity : Activity() {
             channel != null &&
             !finalPlaybackError &&
             !playingWeb &&
-            !multiActive &&
             player.playbackState == Player.STATE_BUFFERING
         ) {
             reconnectLiveStream()
@@ -12741,236 +10981,11 @@ class MainActivity : Activity() {
     // Sections: live / movies / series
     // =========================
 
-    private fun genresOf(item: VodItem): List<String> =
-        item.genre.split(",", "،").map { it.trim() }.filter { it.isNotEmpty() }
-
-    private fun parseVod(node: DataSnapshot?, series: Boolean): List<VodItem> {
-
-        val result = mutableListOf<VodItem>()
-
-        for (c in node?.children ?: emptyList()) {
-
-            val id = c.key ?: continue
-
-            if (!c.readBool("enabled", true)) {
-                continue
-            }
-
-            val title = c.readString("title") ?: continue
-
-            val episodes = mutableListOf<Episode>()
-
-            for (e in c.child("episodes").children) {
-
-                val url = e.readString("url") ?: continue
-
-                val number = e.readInt("e", episodes.size + 1)
-
-                episodes.add(
-                    Episode(
-                        season = e.readInt("s", 1),
-                        number = number,
-                        title = e.readString("title") ?: "الحلقة $number",
-                        url = url,
-                        duration = e.readInt("duration", 0),
-                        thumb = e.readString("thumb") ?: "",
-                        overview = e.readString("overview") ?: ""
-                    )
-                )
-            }
-
-            result.add(
-                VodItem(
-                    id = id,
-                    series = series,
-                    title = title,
-                    poster = c.readString("poster") ?: "",
-                    backdrop = c.readString("backdrop") ?: "",
-                    url = c.readString("url") ?: "",
-                    genre = c.readString("genre") ?: "",
-                    year = c.readString("year") ?: "",
-                    rating = c.readString("rating") ?: "",
-                    duration = c.readInt("duration", 0),
-                    overview = c.readString("overview") ?: "",
-                    isNew = c.readBool("new", false),
-                    featured = c.readBool("featured", false),
-                    order = c.readInt("order", 999),
-                    episodes = episodes.sortedWith(compareBy({ it.season }, { it.number }))
-                )
-            )
-        }
-
-        return result.sortedBy { it.order }
-    }
-
-    private fun updateVod(moviesNode: DataSnapshot?, seriesNode: DataSnapshot?) {
-
-        val newMovies = parseVod(moviesNode, false)
-
-        val newSeries = parseVod(seriesNode, true)
-
-        if (newMovies != movies || newSeries != seriesList) {
-
-            movies = newMovies
-
-            seriesList = newSeries
-
-            val any = movies.isNotEmpty() || seriesList.isNotEmpty()
-
-            if (any != hasVod) {
-
-                hasVod = any
-
-                prefs.edit().putBoolean("has_vod", any).apply()
-
-                // the library was emptied: nothing to choose, go straight to the channels
-                if (!any && currentSection != 0 && !isFullscreen) {
-                    switchSection(0)
-                }
-            }
-
-            if (currentSection == -1) {
-                renderHome()
-            } else if (currentSection != 0 && ::libContent.isInitialized) {
-                renderLibrary()
-            }
-        }
-    }
-
     // ---- section bar ----
-
-    private fun isInSectionBar(view: View?): Boolean {
-
-        val bar = sectionBarView ?: return false
-
-        var v: View? = view
-
-        while (v != null) {
-            if (v === bar) {
-                return true
-            }
-            v = v.parent as? View
-        }
-
-        return false
-    }
-
-    private fun buildSectionBar(): View {
-
-        val holder = LinearLayout(this)
-
-        holder.orientation = LinearLayout.HORIZONTAL
-
-        holder.gravity = Gravity.CENTER
-
-        holder.setPadding(dp(18), dp(2), dp(18), dp(8))
-
-        val pill = LinearLayout(this)
-
-        pill.orientation = LinearLayout.HORIZONTAL
-
-        pill.setPadding(dp(5), dp(4), dp(5), dp(4))
-
-        pill.background =
-            GradientDrawable().apply {
-                cornerRadius = dp(28).toFloat()
-                setColor(Color.argb(26, 255, 255, 255))
-                setStroke(dp(1), Color.argb(40, 255, 255, 255))
-            }
-
-        sectionTabViews.clear()
-
-        val defs =
-            listOf(
-                Triple("مباشر", "M3 6h18v11H3zM8 21h8", 0),
-                Triple("أفلام", "M3 5h18v14H3zM7 5v14M17 5v14M3 10h4M3 14h4M17 10h4M17 14h4", 1),
-                Triple("مسلسلات", "M5 8h14v12H5zM8 5h8M10.5 2.5h3", 2)
-            )
-
-        defs.forEach { (name, path, index) ->
-
-            val tab = LinearLayout(this)
-
-            tab.orientation = LinearLayout.HORIZONTAL
-
-            tab.gravity = Gravity.CENTER
-
-            tab.setPadding(dp(22), 0, dp(22), 0)
-
-            tab.isClickable = true
-
-            tab.isFocusable = true
-
-            tab.isFocusableInTouchMode = !phoneMode
-
-            val icon = LineIconView()
-
-            icon.setIcon(path)
-
-            tab.addView(icon, lp(dp(20), dp(20)))
-
-            tab.addView(
-                label(name, 16f, white, true, Gravity.CENTER),
-                lp(wrap, wrap).apply { setMargins(dp(8), 0, 0, 0) }
-            )
-
-            tab.tag = index
-
-            tab.setOnClickListener { switchSection(index) }
-
-            tab.setOnFocusChangeListener { _, _ -> refreshTabs() }
-
-            pill.addView(tab, lp(wrap, dp(44)))
-
-            sectionTabViews.add(tab)
-        }
-
-        holder.addView(pill, lp(wrap, wrap))
-
-        sectionBarView = holder
-
-        refreshTabs()
-
-        return holder
-    }
-
-    private fun refreshTabs() {
-
-        sectionTabViews.forEach { tab ->
-
-            val selected = (tab.tag as Int) == currentSection
-
-            val focused = tab.hasFocus()
-
-            tab.background =
-                when {
-
-                    selected ->
-                        GradientDrawable(
-                            GradientDrawable.Orientation.LEFT_RIGHT,
-                            intArrayOf(cyan, violet)
-                        ).apply {
-                            cornerRadius = dp(22).toFloat()
-                            if (focused) {
-                                setStroke(dp(2), Color.WHITE)
-                            }
-                        }
-
-                    focused ->
-                        GradientDrawable().apply {
-                            cornerRadius = dp(22).toFloat()
-                            setColor(Color.argb(50, 255, 255, 255))
-                            setStroke(dp(2), Color.WHITE)
-                        }
-
-                    else -> null
-                }
-        }
-    }
 
     private fun switchSection(index: Int) {
 
-        if (index == currentSection || isFullscreen || multiActive || blocked || gated) {
+        if (index == currentSection || isFullscreen || blocked) {
             return
         }
 
@@ -12980,13 +10995,11 @@ class MainActivity : Activity() {
 
         liveHost.visibility = if (index == 0) View.VISIBLE else View.GONE
 
-        vodHost.visibility = if (index == 1 || index == 2) View.VISIBLE else View.GONE
-
         if (index == 0) {
 
             if (playingChannel == null) {
                 playLastChannel()
-            } else if (!playingWeb && vodPlay == null) {
+            } else if (!playingWeb) {
                 player.playWhenReady = true
             }
 
@@ -12997,9 +11010,8 @@ class MainActivity : Activity() {
             return
         }
 
-        cancelPreview()
 
-        // the live picture is paused while another page is open
+        // the live picture is paused while the start page is open
         try {
             player.playWhenReady = false
         } catch (_: Exception) {
@@ -13007,125 +11019,12 @@ class MainActivity : Activity() {
 
         audioPlayer?.playWhenReady = false
 
-        if (index == -1) {
+        renderHome()
 
-            renderHome()
-
-            focusHome()
-
-        } else {
-
-            vodGenre = ""
-
-            renderLibrary()
-
-            focusLibrary()
-        }
-    }
-
-    private fun focusLibrary() {
-
-        libScroll.post {
-            libFirstFocus?.requestFocus()
-        }
+        focusHome()
     }
 
     // ---- images ----
-
-    private fun downloadImage(urlString: String, maxPx: Int): Bitmap? {
-
-        var connection: HttpURLConnection? = null
-
-        return try {
-
-            connection = URL(urlString).openConnection() as HttpURLConnection
-
-            connection.connectTimeout = 8000
-
-            connection.readTimeout = 12000
-
-            connection.instanceFollowRedirects = true
-
-            if (connection.responseCode !in 200..299) {
-                return null
-            }
-
-            val bytes = connection.inputStream.use { it.readBytes() }
-
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-
-            var sample = 1
-
-            while (bounds.outWidth / sample > maxPx || bounds.outHeight / sample > maxPx) {
-                sample *= 2
-            }
-
-            val options =
-                BitmapFactory.Options().apply {
-                    inSampleSize = sample
-                    inPreferredConfig = Bitmap.Config.RGB_565
-                }
-
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-
-        } catch (_: Exception) {
-
-            null
-
-        } finally {
-
-            connection?.disconnect()
-        }
-    }
-
-    private fun loadImage(view: ImageView, url: String, maxPx: Int) {
-
-        if (!url.startsWith("http", ignoreCase = true)) {
-            return
-        }
-
-        val key = "$maxPx|$url"
-
-        posterCache.get(key)?.let {
-            view.setImageBitmap(it)
-            return
-        }
-
-        view.tag = key
-
-        try {
-
-            ioExecutor.execute {
-
-                val bitmap = downloadImage(url, maxPx)
-
-                if (bitmap != null) {
-
-                    posterCache.put(key, bitmap)
-
-                    mainHandler.post {
-                        if (view.tag == key) {
-                            view.setImageBitmap(bitmap)
-                        }
-                    }
-                }
-            }
-
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun placeholderFor(title: String): GradientDrawable {
-
-        val accent = accentFor(Math.abs(title.hashCode()) % 6)
-
-        return GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(mix(accent.start, bgTop, 0.45f), mix(accent.end, bgTop, 0.35f))
-        )
-    }
 
     private fun roundOutline(view: View, radiusDp: Int) {
 
@@ -13141,227 +11040,7 @@ class MainActivity : Activity() {
 
     // ---- progress (resume) ----
 
-    private fun vodKey(item: VodItem, ep: Episode?): String =
-        if (ep == null) item.id else "${item.id}_s${ep.season}e${ep.number}"
-
-    private fun savedPos(key: String): Long = prefs.getLong("vp_$key", 0L)
-
-    private fun progressOf(key: String): Float {
-
-        val duration = prefs.getLong("vd_$key", 0L)
-
-        return if (duration > 0) (savedPos(key).toFloat() / duration).coerceIn(0f, 1f) else 0f
-    }
-
-    private fun isFinished(key: String): Boolean = progressOf(key) >= 0.92f
-
-    private fun nextEpisode(item: VodItem, ep: Episode): Episode? =
-        item.episodes.getOrNull(item.episodes.indexOf(ep) + 1)
-
-    // what "continue" means: the movie / episode where the viewer stopped, or the next episode
-    private fun resumeTarget(item: VodItem): Pair<Episode?, Long>? {
-
-        if (!item.series) {
-
-            val pos = savedPos(item.id)
-
-            return if (pos > 15000 && !isFinished(item.id)) Pair(null, pos) else null
-        }
-
-        val last = prefs.getString("lastEp_${item.id}", null) ?: return null
-
-        val parts = last.split("x")
-
-        val season = parts.getOrNull(0)?.toIntOrNull() ?: return null
-
-        val number = parts.getOrNull(1)?.toIntOrNull() ?: return null
-
-        val episode =
-            item.episodes.firstOrNull { it.season == season && it.number == number } ?: return null
-
-        val key = vodKey(item, episode)
-
-        if (savedPos(key) > 15000 && !isFinished(key)) {
-            return Pair(episode, savedPos(key))
-        }
-
-        val next = nextEpisode(item, episode) ?: return null
-
-        return Pair(next, 0L)
-    }
-
     // ---- library page ----
-
-    private fun buildVodHost() {
-
-        vodHost = FrameLayout(this)
-
-        vodHost.visibility = View.GONE
-
-        normalScreen.addView(vodHost, lp(matchParent, 0, 1f))
-
-        val page = LinearLayout(this)
-
-        page.orientation = if (phoneMode) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-
-        val side = if (phoneMode) 8 else 18
-
-        page.setPadding(dp(side), dp(4), dp(side), dp(if (phoneMode) 4 else 16))
-
-        libGenres = createList()
-
-        libGenreHeader = SectionHeader("التصنيفات", "GENRES", accentFor(0))
-
-        if (phoneMode) {
-
-            val chips = HorizontalScrollView(this)
-
-            chips.isHorizontalScrollBarEnabled = false
-
-            libGenres.orientation = LinearLayout.HORIZONTAL
-
-            libGenres.setPadding(dp(4), dp(4), dp(4), dp(4))
-
-            chips.addView(libGenres)
-
-            page.addView(chips, lp(matchParent, dp(54)))
-
-        } else {
-
-            val panel = createPanel()
-
-            panel.addView(libGenreHeader, lp(matchParent, dp(64)))
-
-            val genreScroll = createScroll()
-
-            genreScroll.addView(libGenres)
-
-            panel.addView(genreScroll, lp(matchParent, 0, 1f))
-
-            page.addView(panel, panelParams(0.24f))
-        }
-
-        libScroll = createScroll()
-
-        libContent = LinearLayout(this)
-
-        libContent.orientation = LinearLayout.VERTICAL
-
-        libContent.setPadding(dp(if (phoneMode) 4 else 10), dp(6), dp(if (phoneMode) 4 else 10), dp(18))
-
-        libScroll.addView(libContent)
-
-        if (phoneMode) {
-
-            page.addView(libScroll, lp(matchParent, 0, 1f))
-
-        } else {
-
-            val panel = createPanel()
-
-            panel.addView(libScroll, lp(matchParent, 0, 1f))
-
-            page.addView(panel, panelParams(0.76f))
-        }
-
-        vodHost.addView(page, FrameLayout.LayoutParams(matchParent, matchParent))
-    }
-
-    private fun genreRow(name: String, count: Int, selected: Boolean): View {
-
-        val row = LinearLayout(this)
-
-        row.orientation = LinearLayout.HORIZONTAL
-
-        row.gravity = Gravity.CENTER_VERTICAL
-
-        row.setPadding(dp(16), 0, dp(16), 0)
-
-        row.isClickable = true
-
-        row.isFocusable = true
-
-        row.isFocusableInTouchMode = !phoneMode
-
-        row.tag = name
-
-        row.addView(label("$count", 13f, if (selected) white else gray, true, Gravity.LEFT), lp(wrap, wrap))
-
-        row.addView(
-            label(name, if (phoneMode) 15f else 17f, white, true),
-            if (phoneMode) {
-                lp(wrap, wrap).apply { setMargins(dp(10), 0, 0, 0) }
-            } else {
-                lp(0, wrap, 1f).apply { setMargins(dp(10), 0, 0, 0) }
-            }
-        )
-
-        row.layoutParams =
-            if (phoneMode) {
-                lp(wrap, dp(40)).apply { setMargins(dp(4), 0, dp(4), 0) }
-            } else {
-                lp(matchParent, dp(54)).apply { setMargins(0, dp(4), 0, dp(4)) }
-            }
-
-        fun style(focused: Boolean) {
-
-            row.background =
-                when {
-
-                    focused ->
-                        GradientDrawable(
-                            GradientDrawable.Orientation.LEFT_RIGHT,
-                            intArrayOf(mix(cyan, bgMid, 0.55f), mix(violet, bgMid, 0.55f))
-                        ).apply {
-                            cornerRadius = dp(18).toFloat()
-                            setStroke(dp(2), Color.WHITE)
-                        }
-
-                    selected ->
-                        GradientDrawable().apply {
-                            cornerRadius = dp(18).toFloat()
-                            setColor(withAlpha(cyan, 60))
-                            setStroke(dp(1), withAlpha(cyan, 170))
-                        }
-
-                    else ->
-                        GradientDrawable().apply {
-                            cornerRadius = dp(18).toFloat()
-                            setColor(Color.argb(22, 255, 255, 255))
-                            setStroke(dp(1), Color.argb(28, 255, 255, 255))
-                        }
-                }
-        }
-
-        style(false)
-
-        row.setOnFocusChangeListener { _, focused -> style(focused) }
-
-        row.setOnClickListener {
-
-            vodGenre = if (name == "الكل") "" else name
-
-            renderLibrary()
-
-            for (i in 0 until libGenres.childCount) {
-                val child = libGenres.getChildAt(i)
-                if (child.tag == name) {
-                    child.requestFocus()
-                }
-            }
-        }
-
-        return row
-    }
-
-    private fun sectionTitle(text: String): TextView {
-
-        val title = label(text, if (phoneMode) 17f else 20f, white, true)
-
-        title.setPadding(dp(8), dp(16), dp(8), dp(8))
-
-        return title
-    }
 
     private fun actionButton(text: String, primary: Boolean, onClick: () -> Unit): TextView {
 
@@ -13398,961 +11077,9 @@ class MainActivity : Activity() {
         return button
     }
 
-    private fun posterView(
-        item: VodItem,
-        wDp: Int,
-        hDp: Int,
-        badge: String,
-        progress: Float,
-        onClick: () -> Unit
-    ): FrameLayout {
-
-        val frame = FrameLayout(this)
-
-        frame.isClickable = true
-
-        frame.isFocusable = true
-
-        frame.isFocusableInTouchMode = !phoneMode
-
-        frame.background = placeholderFor(item.title)
-
-        roundOutline(frame, 14)
-
-        val image = ImageView(this)
-
-        image.scaleType = ImageView.ScaleType.CENTER_CROP
-
-        frame.addView(image, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        loadImage(image, item.poster, 360)
-
-        val scrim = LinearLayout(this)
-
-        scrim.orientation = LinearLayout.VERTICAL
-
-        scrim.setPadding(dp(8), dp(26), dp(8), dp(if (progress > 0f) 12 else 8))
-
-        scrim.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.BOTTOM_TOP,
-                intArrayOf(Color.argb(235, 4, 6, 18), Color.argb(0, 4, 6, 18))
-            )
-
-        scrim.addView(label(item.title, if (phoneMode) 11.5f else 12.5f, white, true, Gravity.CENTER, 2), lp(matchParent, wrap))
-
-        if (badge.isNotEmpty()) {
-            scrim.addView(label(badge, 10.5f, cyan, true, Gravity.CENTER), lp(matchParent, wrap))
-        }
-
-        frame.addView(scrim, FrameLayout.LayoutParams(matchParent, wrap, Gravity.BOTTOM))
-
-        if (item.rating.isNotBlank()) {
-
-            val rating = label("★ ${item.rating}", 11f, gold, true, Gravity.CENTER)
-
-            rating.setPadding(dp(7), dp(1), dp(7), dp(1))
-
-            rating.background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(9).toFloat()
-                    setColor(Color.argb(190, 4, 6, 18))
-                }
-
-            frame.addView(
-                rating,
-                FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.LEFT).apply { setMargins(dp(7), dp(7), 0, 0) }
-            )
-        }
-
-        if (item.isNew) {
-
-            val tag = label("جديد", 10.5f, Color.rgb(40, 24, 0), true, Gravity.CENTER)
-
-            tag.setPadding(dp(7), dp(1), dp(7), dp(1))
-
-            tag.background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(9).toFloat()
-                    setColor(gold)
-                }
-
-            frame.addView(
-                tag,
-                FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.RIGHT).apply { setMargins(0, dp(7), dp(7), 0) }
-            )
-        }
-
-        if (progress > 0f) {
-
-            val track = LinearLayout(this)
-
-            track.orientation = LinearLayout.HORIZONTAL
-
-            track.setBackgroundColor(Color.argb(120, 255, 255, 255))
-
-            val fill = View(this)
-
-            fill.setBackgroundColor(cyan)
-
-            track.addView(fill, LinearLayout.LayoutParams(0, matchParent, progress.coerceIn(0.03f, 1f)))
-
-            track.addView(View(this), LinearLayout.LayoutParams(0, matchParent, 1f - progress.coerceIn(0.03f, 1f)))
-
-            frame.addView(track, FrameLayout.LayoutParams(matchParent, dp(4), Gravity.BOTTOM))
-        }
-
-        fun style(focused: Boolean) {
-
-            frame.foreground =
-                if (focused) {
-                    GradientDrawable().apply {
-                        cornerRadius = dp(14).toFloat()
-                        setStroke(dp(3), Color.WHITE)
-                    }
-                } else {
-                    null
-                }
-
-            frame.animate()
-                .scaleX(if (focused) 1.07f else 1f)
-                .scaleY(if (focused) 1.07f else 1f)
-                .setDuration(130)
-                .start()
-
-            frame.elevation = dp(if (focused) 14 else 2).toFloat()
-
-            if (Build.VERSION.SDK_INT >= 28) {
-                frame.outlineSpotShadowColor = if (focused) cyan else Color.BLACK
-            }
-        }
-
-        frame.setOnFocusChangeListener { _, focused -> style(focused) }
-
-        frame.setOnClickListener { onClick() }
-
-        frame.layoutParams = lp(dp(wDp), dp(hDp)).apply { setMargins(dp(7), dp(8), dp(7), dp(8)) }
-
-        return frame
-    }
-
-    private fun heroBanner(item: VodItem, contentWidth: Int): View {
-
-        val hero = FrameLayout(this)
-
-        hero.background = placeholderFor(item.title)
-
-        roundOutline(hero, 22)
-
-        val backdrop = ImageView(this)
-
-        backdrop.scaleType = ImageView.ScaleType.CENTER_CROP
-
-        hero.addView(backdrop, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        loadImage(backdrop, item.backdrop.ifBlank { item.poster }, 960)
-
-        val scrim = View(this)
-
-        scrim.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.argb(20, 4, 6, 18), Color.argb(238, 4, 6, 18))
-            )
-
-        hero.addView(scrim, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        val column = LinearLayout(this)
-
-        column.orientation = LinearLayout.VERTICAL
-
-        column.gravity = Gravity.CENTER_VERTICAL
-
-        column.setPadding(dp(24), dp(14), dp(24), dp(14))
-
-        val meta =
-            listOf(genresOf(item).firstOrNull() ?: "", item.year, if (item.rating.isNotBlank()) "★ ${item.rating}" else "")
-                .filter { it.isNotBlank() }
-                .joinToString("  •  ")
-
-        if (meta.isNotEmpty()) {
-            column.addView(label(meta, 13f, cyan, true), lp(matchParent, wrap))
-        }
-
-        column.addView(
-            label(item.title, if (phoneMode) 21f else 28f, white, true, Gravity.RIGHT, 2),
-            lp(matchParent, wrap).apply { topMargin = dp(4) }
-        )
-
-        if (item.overview.isNotBlank()) {
-            column.addView(
-                label(item.overview, 13f, dimWhite, false, Gravity.RIGHT, if (phoneMode) 2 else 3),
-                lp(matchParent, wrap).apply { topMargin = dp(6) }
-            )
-        }
-
-        val buttons = LinearLayout(this)
-
-        buttons.orientation = LinearLayout.HORIZONTAL
-
-        buttons.gravity = Gravity.RIGHT
-
-        val details = actionButton("التفاصيل", false) { showDetail(item) }
-
-        val play =
-            actionButton(
-                if (item.series) "▶  ابدأ المشاهدة" else "▶  تشغيل",
-                true
-            ) { playBest(item) }
-
-        libFirstFocus = play
-
-        buttons.addView(details, lp(wrap, dp(if (phoneMode) 38 else 44)).apply { setMargins(dp(8), 0, 0, 0) })
-
-        buttons.addView(play, lp(wrap, dp(if (phoneMode) 38 else 44)))
-
-        column.addView(buttons, lp(matchParent, wrap).apply { topMargin = dp(12) })
-
-        hero.addView(
-            column,
-            FrameLayout.LayoutParams((contentWidth * (if (phoneMode) 0.9f else 0.62f)).toInt(), matchParent, Gravity.RIGHT)
-        )
-
-        return hero
-    }
-
-    private fun renderLibrary() {
-
-        if (!::libContent.isInitialized) {
-            return
-        }
-
-        val series = currentSection == 2
-
-        val all = if (series) seriesList else movies
-
-        val posterW = if (phoneMode) 104 else 128
-
-        val posterH = posterW * 3 / 2
-
-        val screenW = resources.displayMetrics.widthPixels
-
-        val contentW =
-            if (phoneMode) {
-                screenW - dp(24)
-            } else {
-                ((screenW - dp(36) - dp(28)) * 0.76f).toInt() - dp(40)
-            }
-
-        // genres
-        clearList(libGenres)
-
-        val genres = all.flatMap { genresOf(it) }.distinct()
-
-        libGenres.addView(genreRow("الكل", all.size, vodGenre.isEmpty()))
-
-        genres.forEach { g ->
-            libGenres.addView(genreRow(g, all.count { g in genresOf(it) }, vodGenre == g))
-        }
-
-        libGenreHeader.setCount(genres.size + 1)
-
-        val shown = if (vodGenre.isEmpty()) all else all.filter { vodGenre in genresOf(it) }
-
-        libContent.removeAllViews()
-
-        libFirstFocus = null
-
-        if (shown.isEmpty()) {
-
-            libContent.addView(
-                label(
-                    if (all.isEmpty()) "لا توجد أعمال بعد، تضاف من لوحة التحكم" else "لا توجد أعمال بهذا التصنيف",
-                    16f,
-                    gray,
-                    true,
-                    Gravity.CENTER,
-                    3
-                ),
-                lp(matchParent, wrap).apply { setMargins(dp(12), dp(60), dp(12), 0) }
-            )
-
-            return
-        }
-
-        // featured
-        val hero = shown.firstOrNull { it.featured } ?: shown.first()
-
-        libContent.addView(
-            heroBanner(hero, contentW),
-            lp(matchParent, dp(if (phoneMode) 200 else 250)).apply { setMargins(dp(4), dp(4), dp(4), dp(6)) }
-        )
-
-        // continue watching
-        val resumable = if (vodGenre.isEmpty()) all.filter { resumeTarget(it) != null } else emptyList()
-
-        if (resumable.isNotEmpty()) {
-
-            libContent.addView(sectionTitle("أكمل المشاهدة"))
-
-            val scroller = HorizontalScrollView(this)
-
-            scroller.isHorizontalScrollBarEnabled = false
-
-            scroller.clipChildren = false
-
-            val row = LinearLayout(this)
-
-            row.orientation = LinearLayout.HORIZONTAL
-
-            row.clipChildren = false
-
-            resumable.forEach { item ->
-
-                val target = resumeTarget(item)
-
-                val episode = target?.first
-
-                val progress = progressOf(vodKey(item, episode))
-
-                row.addView(
-                    posterView(
-                        item,
-                        posterW,
-                        posterH,
-                        if (episode != null) "الموسم ${episode.season} • الحلقة ${episode.number}" else "",
-                        progress
-                    ) { playBest(item) }
-                )
-            }
-
-            scroller.addView(row)
-
-            libContent.addView(scroller, lp(matchParent, wrap))
-        }
-
-        // everything
-        libContent.addView(
-            sectionTitle(
-                when {
-                    vodGenre.isNotEmpty() -> vodGenre
-                    series -> "كل المسلسلات"
-                    else -> "كل الأفلام"
-                }
-            )
-        )
-
-        val perRow = maxOf(2, contentW / (dp(posterW) + dp(14)))
-
-        shown.chunked(perRow).forEach { chunk ->
-
-            val row = LinearLayout(this)
-
-            row.orientation = LinearLayout.HORIZONTAL
-
-            row.clipChildren = false
-
-            chunk.forEach { item ->
-                row.addView(posterView(item, posterW, posterH, "", 0f) { showDetail(item) })
-            }
-
-            libContent.addView(row, lp(matchParent, wrap))
-        }
-    }
-
     // ---- details page ----
 
-    private fun detailOpen(): Boolean =
-        ::detailOverlay.isInitialized && detailOverlay.visibility == View.VISIBLE
-
-    private fun buildDetailOverlay() {
-
-        detailOverlay = FrameLayout(this)
-
-        detailOverlay.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(bgTop, bgMid, bgBottom)
-            )
-
-        detailOverlay.isClickable = true
-
-        detailOverlay.visibility = View.GONE
-
-        detailBackdrop = ImageView(this)
-
-        detailBackdrop.scaleType = ImageView.ScaleType.CENTER_CROP
-
-        detailBackdrop.alpha = 0.5f
-
-        val backdropHeight = dp(if (phoneMode) 230 else 320)
-
-        detailOverlay.addView(detailBackdrop, FrameLayout.LayoutParams(matchParent, backdropHeight))
-
-        val fade = View(this)
-
-        fade.background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(0, 0, 0, 0), bgMid)
-            )
-
-        detailOverlay.addView(fade, FrameLayout.LayoutParams(matchParent, backdropHeight))
-
-        detailScroll = ScrollView(this)
-
-        detailScroll.isVerticalScrollBarEnabled = false
-
-        detailCol = LinearLayout(this)
-
-        detailCol.orientation = LinearLayout.VERTICAL
-
-        detailCol.setPadding(dp(if (phoneMode) 14 else 34), dp(if (phoneMode) 56 else 40), dp(if (phoneMode) 14 else 34), dp(30))
-
-        detailScroll.addView(detailCol)
-
-        detailOverlay.addView(detailScroll, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        val close = TextView(this)
-
-        close.text = "✕"
-
-        close.textSize = 18f
-
-        close.setTextColor(white)
-
-        close.gravity = Gravity.CENTER
-
-        close.isClickable = true
-
-        close.isFocusable = true
-
-        close.isFocusableInTouchMode = !phoneMode
-
-        close.background =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(190, 8, 10, 28))
-                setStroke(dp(1), Color.argb(120, 255, 255, 255))
-            }
-
-        close.setOnClickListener { closeDetail() }
-
-        detailOverlay.addView(
-            close,
-            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.LEFT).apply { setMargins(dp(14), dp(14), 0, 0) }
-        )
-
-        root.addView(detailOverlay, FrameLayout.LayoutParams(matchParent, matchParent))
-    }
-
-    private fun showDetail(item: VodItem) {
-
-        detailItem = item
-
-        val target = resumeTarget(item)
-
-        detailSeason = target?.first?.season ?: item.episodes.firstOrNull()?.season ?: 1
-
-        detailReturnFocus = currentFocus
-
-        renderDetail()
-
-        normalScreen.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-
-        detailOverlay.visibility = View.VISIBLE
-
-        detailScroll.scrollTo(0, 0)
-
-        detailScroll.post { detailPrimary?.requestFocus() }
-    }
-
-    private fun closeDetail() {
-
-        if (!detailOpen()) {
-            return
-        }
-
-        detailOverlay.visibility = View.GONE
-
-        normalScreen.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
-
-        detailReturnFocus?.requestFocus()
-
-        detailReturnFocus = null
-    }
-
-    private fun renderDetail() {
-
-        val item = detailItem ?: return
-
-        detailCol.removeAllViews()
-
-        detailPrimary = null
-
-        detailBackdrop.setImageDrawable(null)
-
-        loadImage(detailBackdrop, item.backdrop.ifBlank { item.poster }, 960)
-
-        val posterW = if (phoneMode) 110 else 160
-
-        val posterH = posterW * 3 / 2
-
-        // poster + information
-        val top = LinearLayout(this)
-
-        top.orientation = LinearLayout.HORIZONTAL
-
-        val info = LinearLayout(this)
-
-        info.orientation = LinearLayout.VERTICAL
-
-        info.setPadding(dp(8), 0, dp(16), 0)
-
-        info.addView(
-            label(item.title, if (phoneMode) 21f else 32f, white, true, Gravity.RIGHT, 3),
-            lp(matchParent, wrap)
-        )
-
-        val facts =
-            listOf(
-                genresOf(item).joinToString("، "),
-                item.year,
-                if (item.duration > 0) "${item.duration} د" else "",
-                if (item.rating.isNotBlank()) "★ ${item.rating}" else "",
-                if (item.series) "${item.episodes.map { it.season }.distinct().size} مواسم" else ""
-            ).filter { it.isNotBlank() }.joinToString("  •  ")
-
-        if (facts.isNotEmpty()) {
-            info.addView(label(facts, 14f, cyan, true), lp(matchParent, wrap).apply { topMargin = dp(6) })
-        }
-
-        if (item.overview.isNotBlank()) {
-            info.addView(
-                label(item.overview, 14f, dimWhite, false, Gravity.RIGHT, 7),
-                lp(matchParent, wrap).apply { topMargin = dp(10) }
-            )
-        }
-
-        val buttons = LinearLayout(this)
-
-        buttons.orientation = if (phoneMode) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-
-        buttons.gravity = Gravity.RIGHT
-
-        val target = resumeTarget(item)
-
-        val resumeEpisode: Episode? = target?.first
-
-        val resumePos: Long = target?.second ?: 0L
-
-        val primary: TextView? =
-            if (!item.series) {
-
-                if (item.url.isBlank()) {
-                    null
-                } else if (target != null) {
-                    actionButton("▶  أكمل من ${fmtTime(target.second)}", true) { playVod(item, null, target.second) }
-                } else {
-                    actionButton("▶  تشغيل", true) { playVod(item, null, 0L) }
-                }
-
-            } else if (resumeEpisode != null) {
-
-                actionButton(
-                    "▶  أكمل: الموسم ${resumeEpisode.season} الحلقة ${resumeEpisode.number}",
-                    true
-                ) { playVod(item, resumeEpisode, resumePos) }
-
-            } else {
-
-                val first = item.episodes.firstOrNull()
-
-                if (first != null) actionButton("▶  ابدأ المشاهدة", true) { playVod(item, first, 0L) } else null
-            }
-
-        if (!item.series && target != null) {
-            val restart = actionButton("من البداية", false) { playVod(item, null, 0L) }
-            buttons.addView(restart, lp(wrap, dp(44)).apply { setMargins(dp(8), dp(4), 0, dp(4)) })
-        }
-
-        if (primary != null) {
-            buttons.addView(primary, lp(wrap, dp(44)).apply { setMargins(0, dp(4), 0, dp(4)) })
-            detailPrimary = primary
-        }
-
-        info.addView(buttons, lp(matchParent, wrap).apply { topMargin = dp(14) })
-
-        val posterFrame = FrameLayout(this)
-
-        posterFrame.background = placeholderFor(item.title)
-
-        roundOutline(posterFrame, 16)
-
-        val posterImage = ImageView(this)
-
-        posterImage.scaleType = ImageView.ScaleType.CENTER_CROP
-
-        posterFrame.addView(posterImage, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        loadImage(posterImage, item.poster, 480)
-
-        top.addView(info, lp(0, wrap, 1f))
-
-        top.addView(posterFrame, lp(dp(posterW), dp(posterH)))
-
-        detailCol.addView(top, lp(matchParent, wrap))
-
-        // seasons + episodes (series)
-        if (item.series && item.episodes.isNotEmpty()) {
-
-            val seasons = item.episodes.map { it.season }.distinct().sorted()
-
-            if (detailSeason !in seasons) {
-                detailSeason = seasons.first()
-            }
-
-            val chips = HorizontalScrollView(this)
-
-            chips.isHorizontalScrollBarEnabled = false
-
-            val chipRow = LinearLayout(this)
-
-            chipRow.orientation = LinearLayout.HORIZONTAL
-
-            chipRow.gravity = Gravity.RIGHT
-
-            seasons.reversed().forEach { season ->
-
-                val chip = actionButton("الموسم $season", season == detailSeason) {
-                    detailSeason = season
-                    renderDetail()
-                }
-
-                chipRow.addView(chip, lp(wrap, dp(40)).apply { setMargins(dp(5), 0, dp(5), 0) })
-            }
-
-            chips.addView(chipRow, FrameLayout.LayoutParams(wrap, wrap))
-
-            detailCol.addView(chips, lp(matchParent, wrap).apply { topMargin = dp(22) })
-
-            item.episodes.filter { it.season == detailSeason }.forEach { episode ->
-                detailCol.addView(episodeRow(item, episode))
-            }
-        }
-    }
-
-    private fun episodeRow(item: VodItem, ep: Episode): View {
-
-        val key = vodKey(item, ep)
-
-        val progress = progressOf(key)
-
-        val done = isFinished(key)
-
-        val row = LinearLayout(this)
-
-        row.orientation = LinearLayout.HORIZONTAL
-
-        row.gravity = Gravity.CENTER_VERTICAL
-
-        row.setPadding(dp(14), 0, dp(10), 0)
-
-        row.isClickable = true
-
-        row.isFocusable = true
-
-        row.isFocusableInTouchMode = !phoneMode
-
-        row.layoutParams = lp(matchParent, dp(88)).apply { topMargin = dp(8) }
-
-        // play icon (left)
-        val playCircle = FrameLayout(this)
-
-        playCircle.background =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(50, 255, 255, 255))
-            }
-
-        val playIcon = LineIconView()
-
-        playIcon.setIcon(if (done) "M5 13l4 4L19 7" else ICON_PLAY)
-
-        playCircle.addView(playIcon, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
-
-        row.addView(playCircle, lp(dp(40), dp(40)))
-
-        // texts
-        val texts = LinearLayout(this)
-
-        texts.orientation = LinearLayout.VERTICAL
-
-        texts.setPadding(dp(12), 0, dp(12), 0)
-
-        texts.addView(label(ep.title, 16f, white, true), lp(matchParent, wrap))
-
-        texts.addView(
-            label(
-                "الحلقة ${ep.number}" + (if (ep.duration > 0) "  •  ${ep.duration} د" else "") + (if (done) "  •  تمت المشاهدة" else ""),
-                12f,
-                gray
-            ),
-            lp(matchParent, wrap)
-        )
-
-        if (progress > 0f && !done) {
-
-            val track = LinearLayout(this)
-
-            track.orientation = LinearLayout.HORIZONTAL
-
-            track.background =
-                GradientDrawable().apply {
-                    cornerRadius = dp(2).toFloat()
-                    setColor(Color.argb(60, 255, 255, 255))
-                }
-
-            track.addView(
-                View(this).apply { setBackgroundColor(cyan) },
-                LinearLayout.LayoutParams(0, matchParent, progress.coerceIn(0.03f, 1f))
-            )
-
-            track.addView(View(this), LinearLayout.LayoutParams(0, matchParent, 1f - progress.coerceIn(0.03f, 1f)))
-
-            texts.addView(track, lp(matchParent, dp(4)).apply { topMargin = dp(8) })
-        }
-
-        row.addView(texts, lp(0, wrap, 1f))
-
-        // thumbnail (right)
-        val thumb = FrameLayout(this)
-
-        thumb.background = placeholderFor(item.title + ep.number)
-
-        roundOutline(thumb, 12)
-
-        val thumbImage = ImageView(this)
-
-        thumbImage.scaleType = ImageView.ScaleType.CENTER_CROP
-
-        thumb.addView(thumbImage, FrameLayout.LayoutParams(matchParent, matchParent))
-
-        loadImage(thumbImage, ep.thumb, 300)
-
-        thumb.addView(
-            label("${ep.number}", 18f, white, true, Gravity.CENTER),
-            FrameLayout.LayoutParams(matchParent, matchParent)
-        )
-
-        row.addView(thumb, lp(dp(if (phoneMode) 96 else 128), dp(if (phoneMode) 54 else 72)))
-
-        fun style(focused: Boolean) {
-
-            row.background =
-                if (focused) {
-                    GradientDrawable(
-                        GradientDrawable.Orientation.LEFT_RIGHT,
-                        intArrayOf(mix(cyan, bgMid, 0.5f), mix(violet, bgMid, 0.5f))
-                    ).apply {
-                        cornerRadius = dp(18).toFloat()
-                        setStroke(dp(2), Color.WHITE)
-                    }
-                } else {
-                    GradientDrawable().apply {
-                        cornerRadius = dp(18).toFloat()
-                        setColor(Color.argb(26, 255, 255, 255))
-                        setStroke(dp(1), Color.argb(30, 255, 255, 255))
-                    }
-                }
-        }
-
-        style(false)
-
-        row.setOnFocusChangeListener { _, focused -> style(focused) }
-
-        row.setOnClickListener {
-            playVod(item, ep, if (!done && progress > 0f) savedPos(key) else 0L)
-        }
-
-        return row
-    }
-
     // ---- playing ----
-
-    // the saved place, or the beginning
-    private fun playBest(item: VodItem) {
-
-        val target = resumeTarget(item)
-
-        if (target != null) {
-
-            playVod(item, target.first, target.second)
-
-        } else if (!item.series) {
-
-            playVod(item, null, 0L)
-
-        } else {
-
-            val first = item.episodes.firstOrNull()
-
-            if (first != null) {
-                playVod(item, first, 0L)
-            } else {
-                Toast.makeText(this, "لا توجد حلقات بعد", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun playVod(item: VodItem, ep: Episode?, startMs: Long) {
-
-        if (blocked || gated) {
-            return
-        }
-
-        val url = ep?.url ?: item.url
-
-        if (url.isBlank()) {
-            Toast.makeText(this, "لا يوجد رابط لهذا العمل", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (vodPlay == null) {
-            liveBeforeVod = playingChannel?.takeIf { !it.isVod } ?: liveBeforeVod
-        }
-
-        val name =
-            if (ep != null) "${item.title} · الموسم ${ep.season} الحلقة ${ep.number}" else item.title
-
-        val channel =
-            Channel(
-                name = name,
-                group = "vod",
-                url = url,
-                logo = item.poster,
-                enabled = true,
-                order = 0,
-                isVod = true
-            )
-
-        val play = VodPlay(item, ep)
-
-        vodPlay = play
-
-        pendingSeek = if (startMs > 15000L) startMs else 0L
-
-        if (ep != null) {
-            prefs.edit().putString("lastEp_${item.id}", "${ep.season}x${ep.number}").apply()
-        }
-
-        closeDetail()
-
-        playChannel(channel)
-
-        playingList = listOf(channel)
-
-        enterFullscreen()
-
-        mainHandler.removeCallbacks(vodSaveRunnable)
-
-        mainHandler.postDelayed(vodSaveRunnable, 10_000L)
-    }
-
-    private val vodSaveRunnable = object : Runnable {
-
-        override fun run() {
-
-            saveVodProgress()
-
-            if (vodPlay != null) {
-                mainHandler.postDelayed(this, 10_000L)
-            }
-        }
-    }
-
-    private fun saveVodProgress() {
-
-        val play = vodPlay ?: return
-
-        if (playingWeb || player.duration <= 0 || player.currentPosition <= 0) {
-            return
-        }
-
-        prefs.edit()
-            .putLong("vp_" + play.key, player.currentPosition)
-            .putLong("vd_" + play.key, player.duration)
-            .apply()
-    }
-
-    // the video ended: next episode at once, or the end screen
-    private fun onVodEnded() {
-
-        val play = vodPlay
-
-        if (play == null) {
-            showStatus("انتهى الفيديو", "اضغط رجوع للعودة", true)
-            return
-        }
-
-        val duration = player.duration
-
-        if (duration > 0) {
-            prefs.edit()
-                .putLong("vp_" + play.key, duration)
-                .putLong("vd_" + play.key, duration)
-                .apply()
-        }
-
-        val episode = play.episode
-
-        if (episode != null) {
-
-            val next = nextEpisode(play.item, episode)
-
-            if (next != null) {
-
-                Toast.makeText(this, "الحلقة التالية: ${next.title}", Toast.LENGTH_LONG).show()
-
-                playVod(play.item, next, 0L)
-
-                return
-            }
-        }
-
-        showStatus("انتهى العرض", "اضغط رجوع للعودة", true)
-    }
-
-    // back from the fullscreen: save the place, stop, and give the screen back
-    private fun leaveVod() {
-
-        saveVodProgress()
-
-        mainHandler.removeCallbacks(vodSaveRunnable)
-
-        try {
-            player.stop()
-            player.clearMediaItems()
-        } catch (_: Exception) {
-        }
-
-        vodPlay = null
-
-        pendingSeek = 0L
-
-        playingChannel = liveBeforeVod
-
-        if (currentSection == 0) {
-
-            liveBeforeVod?.let { playChannel(it) }
-
-        } else {
-
-            renderLibrary()
-
-            focusLibrary()
-        }
-    }
 
     // =========================
     // Check the update file before installing it
@@ -14440,16 +11167,10 @@ class MainActivity : Activity() {
 
         normalScreen.addView(homeHost, lp(matchParent, 0, 1f))
 
-        // opens on the start page only if the library has content (remembered from the last time)
-        hasVod = false
-
-        currentSection = -1
 
         homeHost.visibility = if (currentSection == -1) View.VISIBLE else View.GONE
 
         liveHost.visibility = if (currentSection == 0) View.VISIBLE else View.GONE
-
-        vodHost.visibility = View.GONE
 
         if (currentSection == -1) {
             renderHome()
@@ -15089,7 +11810,11 @@ class MainActivity : Activity() {
 
             canvas.drawRect(0f, 0f, edge, height.toFloat(), fade)
 
-            postInvalidateOnAnimation()
+            if (lightMode) {
+                postInvalidateDelayed(40L)
+            } else {
+                postInvalidateOnAnimation()
+            }
         }
     }
 
@@ -15179,7 +11904,7 @@ class MainActivity : Activity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
 
-        if (isFullscreen && !blocked && !splashVisible && !multiActive) {
+        if (isFullscreen && !blocked && !splashVisible) {
             gestureDetector.onTouchEvent(ev)
         }
 
@@ -15241,36 +11966,6 @@ class MainActivity : Activity() {
             return true
         }
 
-        // activation code screen
-        if (codeGateOpen()) {
-
-            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-
-                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-
-                    if (!gated) {
-
-                        hideCodeOverlay(false)
-
-                    } else {
-
-                        val now = System.currentTimeMillis()
-
-                        if (now - backPressedAt < 2000) {
-                            finish()
-                        } else {
-                            backPressedAt = now
-                            Toast.makeText(this, "اضغط رجوع مرة أخرى للخروج", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-
-                return true
-            }
-
-            return super.dispatchKeyEvent(event)
-        }
-
         // announcement / update notice
         if (noticeOpen()) {
 
@@ -15285,25 +11980,6 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
 
-        // movie / series details
-        if (detailOpen()) {
-
-            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-
-                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                    closeDetail()
-                }
-
-                return true
-            }
-
-            return super.dispatchKeyEvent(event)
-        }
-
-        // split screen (multi view)
-        if (multiActive) {
-            return handleMultiKey(event)
-        }
 
         // long-press menu
         if (menuOpen()) {
@@ -15319,7 +11995,7 @@ class MainActivity : Activity() {
         }
 
         // number keys / previous channel
-        if (moveState == null && (currentSection == 0 || isFullscreen) && handleSpecialKeys(event)) {
+        if ((currentSection == 0 || isFullscreen) && handleSpecialKeys(event)) {
             return true
         }
 
@@ -15338,10 +12014,6 @@ class MainActivity : Activity() {
             return handlePanelKey(event)
         }
 
-        // reorder mode
-        if (moveState != null) {
-            return handleMoveKey(event)
-        }
 
         if (isFullscreen) {
             return handleFullscreenKey(event)
@@ -15383,7 +12055,7 @@ class MainActivity : Activity() {
         }
 
         // movies / series pages and the section bar use the normal focus search
-        if (currentSection != 0 || isInSectionBar(currentFocus)) {
+        if (currentSection != 0) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -15565,16 +12237,6 @@ class MainActivity : Activity() {
             return
         }
 
-        if (detailOpen()) {
-            closeDetail()
-            return
-        }
-
-        if (currentSection > 0) {
-            switchSection(-1)
-            return
-        }
-
         when (columnOf(currentFocus)) {
 
             2 -> {
@@ -15626,7 +12288,6 @@ class MainActivity : Activity() {
 
         setPhoneOrientation(true)
 
-        cancelPreview()
 
         playingChannel?.let {
             if (!it.isVod) {
@@ -15711,10 +12372,6 @@ class MainActivity : Activity() {
         showSystemBars()
 
         playerFrame.requestFocus()
-
-        if (vodPlay != null) {
-            leaveVod()
-        }
     }
 
     @Suppress("DEPRECATION")
@@ -15831,16 +12488,13 @@ class MainActivity : Activity() {
             webView.onResume()
         }
 
-        if (multiActive) {
-            tiles.forEach { it.player.playWhenReady = true }
-        }
 
         if (externalAudio >= 0) {
             audioPlayer?.playWhenReady = true
         }
 
         playingChannel?.let {
-            if (!multiActive && !blocked && !gated) {
+            if (!blocked) {
                 beginWatch(it)
             }
         }
@@ -15863,7 +12517,6 @@ class MainActivity : Activity() {
             webView.onPause()
         }
 
-        tiles.forEach { it.player.pause() }
 
         audioPlayer?.pause()
 
@@ -15887,7 +12540,6 @@ class MainActivity : Activity() {
 
         listeners.clear()
 
-        detachCodeListener()
 
         flushWatch()
 
@@ -15902,14 +12554,6 @@ class MainActivity : Activity() {
             webView.destroy()
         }
 
-        tiles.forEach {
-            try {
-                it.player.release()
-            } catch (_: Exception) {
-            }
-        }
-
-        tiles.clear()
 
         audioPlayer?.release()
 
