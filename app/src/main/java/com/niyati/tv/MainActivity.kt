@@ -655,11 +655,6 @@ class MainActivity : Activity() {
     private lateinit var qualityStrip: LinearLayout
     private lateinit var qualityStripChips: LinearLayout
 
-    ) {
-        var sourceIdx = 0
-        var started = false
-    }
-
     // =========================
     // Helpers
     // =========================
@@ -12587,7 +12582,7 @@ private object Txt {
 
     const val ERR_TITLE = "\u062a\u0639\u0630\u0631 \u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0642\u0646\u0627\u0629"
 
-    const val HINT = "اضغط OK لملء الشاشة  •  اضغط مطولاً على القناة للمفضلة والنقل"
+    const val HINT = "اضغط OK لملء الشاشة  •  اضغط مطولاً على القناة للمفضلة"
 
     const val IDLE_SUB = "\u062a\u0646\u0642\u0651\u0644 \u0628\u0627\u0644\u0623\u0633\u0647\u0645 \u0628\u064a\u0646 \u0627\u0644\u0628\u0627\u0642\u0627\u062a \u0648\u0627\u0644\u0642\u0646\u0648\u0627\u062a"
 
