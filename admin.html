@@ -88,13 +88,13 @@ auth.onAuthStateChanged(u => {
 });
 
 // ---------------- التبويبات ----------------
-const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['news','الأخبار'],['codes','الأكواد'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج']];
+const TABS = [['channels','القنوات'],['packages','الباقات'],['matches','المباريات'],['news','الأخبار'],['settings','الإعدادات'],['reports','البلاغات'],['stats','الإحصائيات'],['epg','دليل البرامج'],['m3u','استيراد M3U']];
 function go(t){
   stopStats();
   localStorage.setItem('tab', t);
   $('#nav').innerHTML = TABS.map(([k,n]) => `<button class="${k===t?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
   $('#view').innerHTML = '<p class="mu">جاري التحميل…</p>';
-  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), import:viewImport, codes:viewCodes, settings:viewSettings, news:viewNews, reports:viewReports, stats:viewStats, epg:viewEpg})[t]();
+  ({channels:()=>list(CH), packages:()=>list(PK), matches:()=>list(MT), movies:()=>list(MOVIES), series:()=>list(SERIES), import:viewImport, settings:viewSettings, news:viewNews, reports:viewReports, stats:viewStats, epg:viewEpg, m3u:viewM3u})[t]();
 }
 
 // ---------------- قوائم عامة (قنوات / باقات / مباريات) ----------------
@@ -240,14 +240,12 @@ const SET = [
  {k:'announcementEnabled',l:'إظهار إعلان',t:'bool'},{k:'announcementTitle',l:'عنوان الإعلان',t:'text'},{k:'announcementMessage',l:'نص الإعلان (أو رسالة الصيانة)',t:'area'},
  {k:'latestVersion',l:'آخر رقم إصدار (versionCode)',t:'num'},{k:'updateUrl',l:'رابط ملف التحديث (APK مباشر)',t:'text'},{k:'updateNotes',l:'ملاحظات التحديث',t:'area'},
  {k:'forceUpdate',l:'تحديث إجباري',t:'bool'},{k:'minVersion',l:'أقل إصدار مسموح',t:'num'},{k:'updateSha256',l:'SHA-256 للملف (اختياري)',t:'text'},
- {k:'requireCode',l:'اشتراط كود التفعيل',t:'bool'},{k:'userAgent',l:'User-Agent الافتراضي',t:'text'},{k:'telegramUrl',l:'رابط قناة تلكرام (مثل https://t.me/NAITI_Tv)',t:'text'},
- {k:'weather_city',l:'مدينة الطقس',t:'text'},{k:'weather_lat',l:'خط العرض',t:'num'},{k:'weather_lon',l:'خط الطول',t:'num'},
- {k:'adminDevices',l:'معرّفات أجهزة المدير (سطر لكل جهاز)',t:'area'}];
+ {k:'userAgent',l:'User-Agent الافتراضي',t:'text'},{k:'telegramUrl',l:'رابط قناة تلكرام (مثل https://t.me/NAITI_Tv)',t:'text'},
+ {k:'weather_city',l:'مدينة الطقس',t:'text'},{k:'weather_lat',l:'خط العرض',t:'num'},{k:'weather_lon',l:'خط الطول',t:'num'}];
 async function viewSettings(){
   const v = (await db.ref('settings').once('value')).val() || {};
   CFG = {fields:SET};
-  const av = Object.keys(v.adminDevices||{}).join('\n');
-  $('#view').innerHTML = `<div class="card">${SET.map(f=>field(f, f.k==='adminDevices'?av:v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveSet()">حفظ الإعدادات</button></div>`;
+  $('#view').innerHTML = `<div class="card">${SET.map(f=>field(f, v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveSet()">حفظ الإعدادات</button></div>`;
 }
 const NEWSF = [{k:'newsEnabled',l:'إظهار شريط الأخبار بالتطبيق',t:'bool'},{k:'newsText',l:'الأخبار (اكتب كل خبر بسطر مستقل)',t:'area'},{k:'newsSpeed',l:'سرعة الحركة (1 بطيء · 2 متوسط · 3 سريع)',t:'num'},{k:'newsReverse',l:'عكس اتجاه الحركة',t:'bool'}];
 async function viewNews(){
@@ -263,7 +261,7 @@ async function saveNews(){
 
 async function saveSet(){
   const o = {};
-  SET.forEach(f=>{ let x = read(f); if (f.k==='adminDevices'){ const ids=(x||'').split(/\s+/).filter(Boolean); x = ids.length?Object.fromEntries(ids.map(i=>[i,true])):null } o[f.k]=x });
+  SET.forEach(f=>{ o[f.k] = read(f) });
   await db.ref('settings').update(o); toast('تم حفظ الإعدادات'); 
 }
 
@@ -400,6 +398,75 @@ async function iaSave(id){
   Object.keys(out).forEach(k=>{ if(out[k]==='') delete out[k] });
   try{ const k=db.ref('movies').push().key; await db.ref('movies/'+k).update(out); closeM(); toast('تمت الإضافة للأفلام'); }
   catch(e){ toast('فشل: '+e.message) }
+}
+
+// ---------------- استيراد قائمة M3U (أفلام أو قنوات) ----------------
+let M3U = [];
+function parseM3U(text){
+  const out = []; let cur = null;
+  String(text).split(/\r?\n/).forEach(l => {
+    l = l.trim(); if(!l) return;
+    if(l.startsWith('#EXTINF')){
+      cur = {name:(l.split(',').slice(1).join(',')||'').trim(), logo:(l.match(/tvg-logo="([^"]*)"/)||[])[1]||'', grp:(l.match(/group-title="([^"]*)"/)||[])[1]||''};
+    } else if(!l.startsWith('#') && cur){ cur.url = l; if(cur.name) out.push(cur); cur = null; }
+  });
+  return out;
+}
+function viewM3u(){
+  $('#view').innerHTML = `<div class="card"><b>استيراد قائمة M3U</b>
+  <p class="mu" style="line-height:1.8">تقرأ القائمة وتضيف الأعمال المحددة كقنوات داخل باقة تختارها. أنصح بعدد معقول (بضع مئات كحد أقصى) لأن كل القنوات تُنقل لكل جهاز. استورد فقط قوائم تملك حق عرضها أو أعمالاً من الملك العام.</p>
+  <label>رابط القائمة</label><input id="m_url" value="https://archivewatch.org/feeds/archivewatch.m3u">
+  <label>أو اختر ملف .m3u من جهازك (إذا منع المتصفح الرابط)</label><input id="m_file" type="file" accept=".m3u,.m3u8,text/plain">
+  <button class="btn" style="margin-top:14px;width:100%" onclick="m3uLoad()">قراءة القائمة</button><pre id="m_log" class="mu" style="white-space:pre-wrap"></pre></div><div id="m_res"></div>`;
+}
+async function m3uLoad(){
+  const log = m => $('#m_log').textContent = m; log('جاري القراءة…');
+  try{
+    let text;
+    const f = $('#m_file').files[0];
+    if(f) text = await f.text();
+    else { const r = await fetch($('#m_url').value.trim()); if(!r.ok) throw new Error('HTTP '+r.status); text = await r.text(); }
+    M3U = parseM3U(text);
+    if(!M3U.length) return log('ما لقيت عناصر بالقائمة. تأكد أنها بصيغة M3U.');
+    log('تمت قراءة ' + M3U.length + ' عنصر'); m3uRender();
+  }catch(e){ log('تعذّر جلب الرابط: ' + e.message + '\nنزّل الملف على جهازك واخترْه من الخانة فوق.'); }
+}
+function m3uRender(){
+  const groups = [...new Set(M3U.map(x => x.grp).filter(Boolean))];
+  $('#m_res').innerHTML = `<div class="card"><div class="row"><div><label>بحث بالاسم</label><input id="m_q" oninput="m3uList()" placeholder="اكتب جزء من الاسم"></div>
+  ${groups.length ? `<div><label>التصنيف</label><select id="m_g" onchange="m3uList()"><option value="">الكل</option>${groups.map(g => `<option>${esc(g)}</option>`).join('')}</select></div>` : ''}</div>
+  <div class="row"><div><label>الباقة المستهدفة (تُنشأ إذا غير موجودة)</label><input id="m_pkg" value="أفلام"></div><div><label>أقصى عدد للعرض</label><input id="m_max" type="number" value="150" oninput="m3uList()"></div></div>
+  <div style="display:flex;gap:10px;margin-top:12px"><button class="btn g" onclick="m3uAll(true)">تحديد الظاهر</button><button class="btn g" onclick="m3uAll(false)">إلغاء التحديد</button></div>
+  <div id="m_items" style="margin-top:12px"></div>
+  <button class="btn" style="margin-top:14px;width:100%" onclick="m3uImport()">استيراد المحدد</button></div>`;
+  m3uList();
+}
+function m3uShown(){
+  const q = ($('#m_q').value || '').toLowerCase(), g = $('#m_g') ? $('#m_g').value : '', max = Number($('#m_max').value) || 150;
+  return M3U.map((x,i) => ({...x, i})).filter(x => (!q || x.name.toLowerCase().includes(q)) && (!g || x.grp === g)).slice(0, max);
+}
+function m3uList(){
+  $('#m_items').innerHTML = m3uShown().map(x => `<label style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)"><input type="checkbox" class="m_c" value="${x.i}" style="width:auto"><span style="flex:1">${esc(x.name)}</span><span class="mu">${esc(x.grp)}</span></label>`).join('') || '<p class="mu">لا نتائج</p>';
+}
+function m3uAll(v){ document.querySelectorAll('.m_c').forEach(c => c.checked = v); }
+async function m3uImport(){
+  const sel = [...document.querySelectorAll('.m_c:checked')].map(c => M3U[Number(c.value)]);
+  const pkg = ($('#m_pkg').value || '').trim();
+  if(!sel.length) return toast('اختر عملاً واحداً على الأقل');
+  if(!pkg) return toast('اكتب اسم الباقة');
+  if(!confirm('سيتم إضافة ' + sel.length + ' عنصر إلى الباقة «' + pkg + '». متابعة؟')) return;
+  try{
+    const pk = db.ref('packages/' + clean(pkg));
+    if(!(await pk.once('value')).exists()) await pk.set({name: pkg, order: 99, enabled: true});
+    const map = {}, used = {};
+    sel.forEach((x, n) => {
+      let k = 'm_' + clean(x.name).slice(0, 60); if(used[k]) k += '_' + n; used[k] = 1;
+      const v = {name: x.name, group: pkg, url: x.url, order: n + 1, enabled: true};
+      if(x.logo) v.logo = x.logo; map[k] = v;
+    });
+    await db.ref('channels').update(map);
+    toast('تمت إضافة ' + sel.length + ' عنصر إلى «' + pkg + '»');
+  }catch(e){ toast('فشل: ' + e.message); }
 }
 
 async function importEpg(){
