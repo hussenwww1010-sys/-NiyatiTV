@@ -103,7 +103,7 @@ const PK = {path:'packages', title:'الباقات', key:v=>clean(v.name), field
   row:v=>[v.name, (v.enabled===false?'معطلة':'ظاهرة')+' · ترتيب '+(v.order??'-')]};
 const CH = {path:'channels', title:'القنوات', fields:[
   {k:'name',l:'اسم القناة',t:'text',req:1},{k:'group',l:'الباقة',t:'pkg',req:1},
-  {k:'url',l:'الرابط (السيرفر 1)',t:'text',req:1},{k:'url2',l:'السيرفر 2',t:'text'},{k:'url3',l:'السيرفر 3',t:'text'},{k:'url4',l:'السيرفر 4',t:'text'},{k:'url5',l:'السيرفر 5',t:'text'},
+  {k:'url',l:'الرابط (السيرفر 1). يمكن إضافة اسم بآخره: الرابط##FHD 1080',t:'text',req:1},{k:'url2',l:'السيرفر 2',t:'text'},{k:'url3',l:'السيرفر 3',t:'text'},{k:'url4',l:'السيرفر 4',t:'text'},{k:'url5',l:'السيرفر 5',t:'text'},{k:'backups',l:'روابط إضافية (جودات أخرى أو سيرفرات): سطر لكل رابط بصيغة  الرابط##الاسم  مثال: https://x.com/hd.m3u8##سيرفر 1 · HD 720',t:'qlinks'},
   {k:'logo',l:'رابط الشعار',t:'text'},{k:'order',l:'الترتيب',t:'num'},{k:'enabled',l:'مفعّلة',t:'bool',d:true},{k:'new',l:'علامة «جديد»',t:'bool'},
   {k:'userAgent',l:'User-Agent (اختياري)',t:'text'},{k:'referer',l:'Referer (اختياري)',t:'text'},{k:'epgId',l:'معرّف دليل البرامج (EPG)',t:'text'},
   {k:'audios',l:'قنوات صوتية (المعلقين)',t:'audios'}],
@@ -149,6 +149,7 @@ function field(f, v){
   else if (f.t==='chan') inner = `<input id="${id}" list="dl_${id}" value="${esc(val)}"><datalist id="dl_${id}">${CHN.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
   else if (f.t==='sel') inner = `<select id="${id}">${f.o.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (f.t==='area') inner = `<textarea id="${id}">${esc(val)}</textarea>`;
+  else if (f.t==='qlinks'){ inner=`<textarea id="${id}" style="min-height:150px;direction:ltr;font-size:13px" placeholder="https://x.com/hd.m3u8##سيرفر 1 · HD 720">${esc(Object.values(val&&typeof val==='object'?val:{}).join('\n'))}</textarea>` }
   else if (f.t==='eps'){ const arr=Object.values(val&&typeof val==='object'?val:{}).sort((a,b)=>((a.s||0)-(b.s||0))||((a.e||0)-(b.e||0)));
     inner=`<textarea id="${id}" style="min-height:220px;direction:ltr;font-size:13px" placeholder="1|1|الحلقة الأولى|https://.../1.mp4|45|https://.../thumb1.jpg">${esc(arr.map(e=>[e.s,e.e,e.title||'',e.url||'',e.duration||'',e.thumb||''].join('|')).join('\n'))}</textarea>` }
   else if (f.t==='audios'){ const a=(val&&typeof val==='object')?Object.values(val):[];
@@ -159,6 +160,7 @@ function field(f, v){
 function read(f){
   const id = 'f_' + f.k;
   if (f.t==='bool') return $('#'+id).checked;
+  if (f.t==='qlinks'){ const o={}; $('#'+id).value.split('\n').map(x=>x.trim()).filter(Boolean).forEach((x,i)=>{ o['b'+(i+1)]=x }); return Object.keys(o).length?o:null }
   if (f.t==='eps'){ const o={}; let n=0;
     $('#'+id).value.split('\n').forEach(line=>{ const p=line.split('|').map(x=>x.trim()); if(p.length<4||!p[3]) return;
       const e={s:Number(p[0])||1,e:Number(p[1])||(++n),title:p[2]||('الحلقة '+(Number(p[1])||n)),url:p[3]}; if(p[4]) e.duration=Number(p[4])||null; if(p[5]) e.thumb=p[5]; o['e'+(Object.keys(o).length+1)]=e });
