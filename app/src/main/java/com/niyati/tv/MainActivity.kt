@@ -1384,7 +1384,8 @@ class MainActivity : Activity() {
      */
     private fun parseSource(raw: String): Source {
 
-        val trimmed = raw.trim()
+        // the name shown to the viewer (after ##) is not part of the link
+        val trimmed = raw.trim().substringBefore("##").trim()
 
         val idx = trimmed.indexOf('|')
 
@@ -4137,6 +4138,16 @@ class MainActivity : Activity() {
     // Playback
     // =========================
 
+    // the name of a link: the text after ##, or "server N"
+    private fun sourceLabel(channel: Channel, index: Int): String {
+
+        val raw = sourcesOf(channel).getOrNull(index) ?: return "السيرفر ${index + 1}"
+
+        val label = raw.substringAfter("##", "").trim()
+
+        return if (label.isNotEmpty()) label else "السيرفر ${index + 1}"
+    }
+
     private fun sourcesOf(channel: Channel): List<String> =
         (listOf(channel.url) + channel.backups)
             .map { it.trim() }
@@ -4216,7 +4227,7 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(hideWebStatusRunnable)
 
         if (index > 0) {
-            nowSub.text = nowSubText(channel) + "  •  السيرفر ${index + 1}"
+            nowSub.text = nowSubText(channel) + "  •  " + sourceLabel(channel, index)
         }
 
         // ---- YouTube / Facebook -> WebView ----
@@ -4255,7 +4266,7 @@ class MainActivity : Activity() {
 
         showStatus(
             "جاري تشغيل القناة…",
-            channel.name + (if (index > 0) "  •  السيرفر ${index + 1}" else ""),
+            channel.name + (if (sourcesOf(channel).size > 1) "  •  " + sourceLabel(channel, index) else ""),
             false
         )
 
@@ -4286,8 +4297,8 @@ class MainActivity : Activity() {
         val token = playToken
 
         showStatus(
-            "تعذر تشغيل السيرفر ${next}",
-            "جاري التحويل إلى السيرفر ${next + 1} من ${urls.size}",
+            "تعذر تشغيل " + sourceLabel(channel, sourceIndex),
+            "جاري التحويل إلى " + sourceLabel(channel, next) + " (${next + 1} من ${urls.size})",
             false
         )
 
@@ -8070,7 +8081,7 @@ class MainActivity : Activity() {
         }
 
         if (index == sourceIndex && !finalPlaybackError) {
-            Toast.makeText(this, "أنت على السيرفر ${index + 1} حالياً", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "أنت على " + sourceLabel(channel, index) + " حالياً", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -8081,7 +8092,7 @@ class MainActivity : Activity() {
 
         startSource(channel, index)
 
-        Toast.makeText(this, "السيرفر ${index + 1}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, sourceLabel(channel, index), Toast.LENGTH_SHORT).show()
     }
 
     // fullscreen: small strip at the top, hides after a few seconds
@@ -8122,7 +8133,7 @@ class MainActivity : Activity() {
 
             val selected = i == sourceIndex
 
-            val chip = menuItem((if (selected) "✓ " else "") + "السيرفر ${i + 1}", accentFor(0))
+            val chip = menuItem((if (selected) "✓ " else "") + sourceLabel(channel, i), accentFor(0))
 
             chip.setPadding(dp(16), 0, dp(16), 0)
 
@@ -8182,7 +8193,7 @@ class MainActivity : Activity() {
         val count = sourcesOf(channel).size
 
         if (count > 1) {
-            items.add("🖥  السيرفر (${sourceIndex + 1}/$count)" to { showServerMenu() })
+            items.add("🖥  ${sourceLabel(channel, sourceIndex)}  (${sourceIndex + 1}/$count)" to { showServerMenu() })
         }
 
         items.add("إلغاء" to {})
@@ -8205,7 +8216,7 @@ class MainActivity : Activity() {
 
         for (i in 0 until count) {
             items.add(
-                ((if (i == sourceIndex) "✓  " else "") + "السيرفر ${i + 1}") to { switchServer(i) }
+                ((if (i == sourceIndex) "✓  " else "") + sourceLabel(channel, i)) to { switchServer(i) }
             )
         }
 
