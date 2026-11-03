@@ -609,6 +609,45 @@ class MainActivity : Activity() {
     // news strip at the bottom of the app pages (hidden on the full screen player)
     private lateinit var newsBar: LinearLayout
     private lateinit var newsTicker: NewsTicker
+
+    // news over the video of the player (switch: settings/newsPlayer)
+    private var newsLines: List<String> = emptyList()
+    private var newsPlayerOn = false
+    private var hudShowing = false
+
+    private val playerTicker: NewsTicker by lazy { NewsTicker(10) }
+
+    private val playerNewsBar: LinearLayout by lazy {
+
+        LinearLayout(this).apply {
+
+            orientation = LinearLayout.HORIZONTAL
+
+            gravity = Gravity.CENTER_VERTICAL
+
+            visibility = View.GONE
+
+            setBackgroundColor(Color.argb(175, 4, 6, 18))
+
+            addView(playerTicker, lp(0, matchParent, 1f))
+
+            val tag = label("الأخبار", 11f, white, true, Gravity.CENTER)
+
+            tag.setPadding(dp(12), 0, dp(12), 0)
+
+            tag.setBackgroundColor(Color.rgb(200, 25, 60))
+
+            addView(tag, lp(wrap, matchParent))
+        }
+    }
+
+    // the strip shows while watching and hides when the player buttons are open
+    private fun updatePlayerNews() {
+
+        val show = newsPlayerOn && newsLines.isNotEmpty() && !hudShowing && !playingWeb
+
+        playerNewsBar.visibility = if (show) View.VISIBLE else View.GONE
+    }
     private lateinit var homeHost: FrameLayout
     private var homeFirst: View? = null
     private lateinit var liveHost: LinearLayout
@@ -2616,37 +2655,141 @@ class MainActivity : Activity() {
         statusOverlay.visibility = View.GONE
     }
 
-    // small app name in the top-left corner of the player (every channel)
-    private val brandMark: TextView by lazy {
+    // the app name in the top-left corner of the player: the TV part slides over NIYATI and back
+    private val brandMark: BrandMark by lazy { BrandMark() }
 
-        TextView(this).apply {
+    private inner class BrandMark : View(this@MainActivity) {
 
-            val name = android.text.SpannableString("NIYATI TV")
+        private val namePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val tvPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var nameWidth = 0f
+        private var tvWidth = 0f
+        private var gap = 0f
+        private var progress = 0f
+        private var anim: ValueAnimator? = null
 
-            name.setSpan(
-                android.text.style.ForegroundColorSpan(cyan),
-                7,
-                9,
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        var textSize: Float = 12f
+            set(value) {
+                field = value
+                applySize()
+                requestLayout()
+                invalidate()
+            }
+
+        init {
+
+            namePaint.color = Color.WHITE
+            tvPaint.color = cyan
+
+            for (p in listOf(namePaint, tvPaint)) {
+                p.typeface = Typeface.DEFAULT_BOLD
+                p.letterSpacing = 0.12f
+                p.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.BLACK)
+            }
+
+            alpha = 0.9f
+            isClickable = false
+            isFocusable = false
+
+            applySize()
+        }
+
+        private fun applySize() {
+
+            val px = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                textSize,
+                resources.displayMetrics
             )
 
-            text = name
+            namePaint.textSize = px
+            tvPaint.textSize = px
 
-            setTextColor(Color.WHITE)
+            nameWidth = namePaint.measureText("NIYATI")
+            tvWidth = tvPaint.measureText("TV")
+            gap = px * 0.35f
+        }
 
-            typeface = Typeface.DEFAULT_BOLD
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            setMeasuredDimension(
+                (nameWidth + gap + tvWidth + dp(6)).toInt(),
+                (namePaint.textSize * 1.45f).toInt()
+            )
+        }
 
-            letterSpacing = 0.12f
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            startLoop()
+        }
 
-            alpha = 0.85f
+        override fun onDetachedFromWindow() {
+            stopLoop()
+            super.onDetachedFromWindow()
+        }
 
-            setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.BLACK)
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+            super.onVisibilityChanged(changedView, visibility)
+            if (visibility == VISIBLE && isAttachedToWindow) startLoop() else stopLoop()
+        }
 
-            isClickable = false
+        private fun ease(x: Float): Float = x * x * (3f - 2f * x)
 
-            isFocusable = false
+        private fun startLoop() {
+
+            // light mode: the name stays still
+            if (lightMode || anim?.isRunning == true) {
+                return
+            }
+
+            anim =
+                ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 7000
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    addUpdateListener {
+
+                        val t = it.animatedValue as Float
+
+                        val p =
+                            when {
+                                t < 0.60f -> 0f
+                                t < 0.67f -> ease((t - 0.60f) / 0.07f)
+                                t < 0.80f -> 1f
+                                t < 0.87f -> 1f - ease((t - 0.80f) / 0.07f)
+                                else -> 0f
+                            }
+
+                        if (p != progress) {
+                            progress = p
+                            invalidate()
+                        }
+                    }
+                    start()
+                }
+        }
+
+        private fun stopLoop() {
+            anim?.cancel()
+            anim = null
+        }
+
+        override fun onDraw(canvas: Canvas) {
+
+            val baseline = height / 2f - (namePaint.ascent() + namePaint.descent()) / 2f
+
+            // NIYATI fades out while TV slides over it, then they go back
+            namePaint.alpha = (255 * (1f - progress)).toInt()
+
+            if (namePaint.alpha > 0) {
+                canvas.drawText("NIYATI", 0f, baseline, namePaint)
+            }
+
+            val tvX = (nameWidth + gap) * (1f - progress)
+
+            canvas.drawText("TV", tvX, baseline, tvPaint)
         }
     }
+
 
     private fun moveVideoTo(container: FrameLayout) {
 
@@ -2657,6 +2800,8 @@ class MainActivity : Activity() {
         (statusOverlay.parent as? ViewGroup)?.removeView(statusOverlay)
 
         (brandMark.parent as? ViewGroup)?.removeView(brandMark)
+
+        (playerNewsBar.parent as? ViewGroup)?.removeView(playerNewsBar)
 
         // order: ExoPlayer video, then WebView, then the status overlay on top
         container.addView(
@@ -2687,6 +2832,19 @@ class MainActivity : Activity() {
                 setMargins(dp(if (container === playerFrame) 8 else 16), dp(if (container === playerFrame) 6 else 12), 0, 0)
             }
         )
+
+        // news over the video
+        val smallPlayer = container === playerFrame
+
+        playerTicker.setTextDp(if (smallPlayer) 9 else 15)
+
+        container.addView(
+            playerNewsBar,
+            4,
+            FrameLayout.LayoutParams(matchParent, dp(if (smallPlayer) 22 else 38), Gravity.BOTTOM)
+        )
+
+        updatePlayerNews()
     }
 
     private fun applyPlayerFrameBackground(focused: Boolean) {
@@ -5928,10 +6086,23 @@ class MainActivity : Activity() {
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
 
-            newsTicker.setContent(lines, st.readInt("newsSpeed", 2), st.readBool("newsReverse", false))
+            val speed = st.readInt("newsSpeed", 2)
+
+            val reverse = st.readBool("newsReverse", false)
+
+            newsTicker.setContent(lines, speed, reverse)
 
             newsBar.visibility =
                 if (st.readBool("newsEnabled", false) && lines.isNotEmpty()) View.VISIBLE else View.GONE
+
+            // news over the video (a separate switch)
+            newsLines = lines
+
+            newsPlayerOn = st.readBool("newsPlayer", false)
+
+            playerTicker.setContent(lines, speed, reverse)
+
+            updatePlayerNews()
         }
 
         st.readString("telegramUrl")?.let { telegramUrl = it.trim() }
@@ -9251,6 +9422,10 @@ class MainActivity : Activity() {
 
         touchControls.alpha = 0f
 
+        hudShowing = true
+
+        updatePlayerNews()
+
         touchControls.visibility = View.VISIBLE
 
         touchControls.animate().alpha(1f).setDuration(160).start()
@@ -9275,6 +9450,10 @@ class MainActivity : Activity() {
         if (!touchControlsVisible()) {
             return
         }
+
+        hudShowing = false
+
+        updatePlayerNews()
 
         hudTop.animate().cancel()
 
@@ -9364,22 +9543,8 @@ class MainActivity : Activity() {
         showTouchControls()
     }
 
-    // swipe up = next channel, swipe down = previous channel
-    private fun handleFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float) {
-
-        if (e1 == null || menuOpen() || noticeOpen() || panelOpen() ||
-            qualityStripOpen() || touchControlsVisible()
-        ) {
-            return
-        }
-
-        val dy = e2.y - e1.y
-
-        val dx = e2.x - e1.x
-
-        if (abs(velocityY) > 1200 && abs(dy) > dp(90) && abs(dy) > 2 * abs(dx)) {
-            zap(if (dy < 0) 1 else -1)
-        }
+    // swiping the screen no longer changes the channel (removed)
+    private fun handleFling(@Suppress("UNUSED_PARAMETER") e1: MotionEvent?, @Suppress("UNUSED_PARAMETER") e2: MotionEvent, @Suppress("UNUSED_PARAMETER") velocityX: Float, @Suppress("UNUSED_PARAMETER") velocityY: Float) {
     }
 
     // =========================
@@ -11701,7 +11866,7 @@ class MainActivity : Activity() {
     }
 
     // scrolling news text: the first news leads, the others follow
-    private inner class NewsTicker : View(this@MainActivity) {
+    private inner class NewsTicker(private var textDp: Int = if (phoneMode) 14 else 19) : View(this@MainActivity) {
 
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val mark = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -11716,13 +11881,28 @@ class MainActivity : Activity() {
         private var offset = 0f
         private var last = 0L
 
-        private val gap = dp(if (phoneMode) 46 else 66).toFloat()
+        private var gap = dp((textDp * 3.4f).toInt()).toFloat()
 
         init {
             paint.color = Color.WHITE
             paint.typeface = Typeface.DEFAULT_BOLD
-            paint.textSize = dp(if (phoneMode) 14 else 19).toFloat()
+            paint.textSize = dp(textDp).toFloat()
             mark.color = cyan
+        }
+
+        // the size of the text (the player strip is smaller than the app strip)
+        fun setTextDp(value: Int) {
+
+            if (value == textDp) {
+                return
+            }
+
+            textDp = value
+            paint.textSize = dp(value).toFloat()
+            gap = dp((value * 3.4f).toInt()).toFloat()
+            widths = FloatArray(items.size) { paint.measureText(items[it]) }
+            cycle = widths.sum() + gap * items.size
+            invalidate()
         }
 
         fun setContent(list: List<String>, speed: Int, reverseDir: Boolean) {
