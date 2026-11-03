@@ -249,11 +249,11 @@ async function viewSettings(){
   CFG = {fields:SET};
   $('#view').innerHTML = `<div class="card">${SET.map(f=>field(f, v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveSet()">حفظ الإعدادات</button></div>`;
 }
-const NEWSF = [{k:'newsEnabled',l:'إظهار شريط الأخبار بالتطبيق',t:'bool'},{k:'newsText',l:'الأخبار (اكتب كل خبر بسطر مستقل)',t:'area'},{k:'newsSpeed',l:'سرعة الحركة (1 بطيء · 2 متوسط · 3 سريع)',t:'num'},{k:'newsReverse',l:'عكس اتجاه الحركة',t:'bool'}];
+const NEWSF = [{k:'newsEnabled',l:'إظهار شريط الأخبار داخل صفحات التطبيق (الترحيب والقنوات)',t:'bool'},{k:'newsPlayer',l:'إظهار الأخبار داخل المشغل فوق الفيديو (خيار مستقل، يختفي عند ظهور أزرار التحكم)',t:'bool'},{k:'newsText',l:'الأخبار (اكتب كل خبر بسطر مستقل)',t:'area'},{k:'newsSpeed',l:'سرعة الحركة (1 بطيء · 2 متوسط · 3 سريع)',t:'num'},{k:'newsReverse',l:'عكس اتجاه الحركة',t:'bool'}];
 async function viewNews(){
   const v = (await db.ref('settings').once('value')).val() || {};
   CFG = {fields:NEWSF};
-  $('#view').innerHTML = `<div class="card"><p class="mu" style="line-height:1.8">الشريط يظهر أسفل صفحات التطبيق (الترحيب والقنوات) ويختفي عند تكبير المشغل. كل سطر خبر. إذا تركت الخانة فاضية أو أوقفت الإظهار، يختفي الشريط.</p>${NEWSF.map(f=>field(f, v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveNews()">حفظ الأخبار</button></div>`;
+  $('#view').innerHTML = `<div class="card"><p class="mu" style="line-height:1.8">الأخبار نفسها (كل سطر خبر) تظهر في مكانين، ولكل مكان مفتاح مستقل: شريط داخل صفحات التطبيق (يختفي عند تكبير المشغل)، وشريط داخل المشغل فوق الفيديو. إذا تركت الخانة فاضية أو أوقفت المفتاح يختفي الشريط.</p>${NEWSF.map(f=>field(f, v[f.k])).join('')}<button class="btn" style="margin-top:18px;width:100%" onclick="saveNews()">حفظ الأخبار</button></div>`;
 }
 async function saveNews(){
   const o = {}; NEWSF.forEach(f=>{ o[f.k]=read(f) });
