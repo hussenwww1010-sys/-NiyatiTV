@@ -6,19 +6,19 @@
 
 <meta charset="UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>NIYATI CLOUD - Import</title>
+<title>NIYATI CLOUD</title>
 
 <style>
 
 *{box-sizing:border-box}
 
-body{margin:0;padding:20px;background:#080d1d;color:#fff;font-family:Arial,sans-serif}
+body{margin:0;padding:16px;background:#080d1d;color:white;font-family:Arial}
 
-.container{max-width:650px;margin:25px auto;background:#131c32;border:1px solid #263653;border-radius:16px;padding:20px}
+.container{max-width:650px;margin:20px auto;background:#131c32;border:1px solid #263653;border-radius:16px;padding:20px}
 
-h2{color:#00d9ff;text-align:center}
+h2{text-align:center;color:#00d9ff}
 
 p{color:#b8c6dc;line-height:1.8}
 
@@ -26,13 +26,15 @@ label{display:block;margin:15px 0 7px}
 
 input{width:100%;padding:13px;border-radius:9px;border:1px solid #344766;background:#080f20;color:white}
 
-button{width:100%;padding:14px;margin-top:14px;border:0;border-radius:9px;background:#00bfe8;color:#00111b;font-size:16px;font-weight:bold}
+button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:9px;background:#00bfe8;color:#00111b;font-size:15px;font-weight:bold}
 
 button:disabled{opacity:.5}
 
+.secondary{background:#263b59;color:white}
+
 #log{background:#080f20;border:1px solid #344766;padding:13px;border-radius:9px;margin-top:16px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;min-height:70px}
 
-.small{font-size:13px;color:#9aabc4}
+.small{font-size:12px;color:#9aabc4}
 
 </style>
 
@@ -44,7 +46,7 @@ button:disabled{opacity:.5}
 
 <h2>NIYATI CLOUD</h2>
 
-<p>استيراد نسخة Firebase الكاملة إلى قاعدة بيانات Cloudflare D1.</p>
+<p>لوحة إدارة واستيراد وفحص قاعدة بيانات NIYATI CLOUD.</p>
 
 <label>رابط Worker</label>
 
@@ -58,169 +60,187 @@ button:disabled{opacity:.5}
 
 <input id="file" type="file" accept=".json,application/json">
 
-<button id="test" onclick="testConnection()">اختبار الاتصال</button>
+<button onclick="testConnection()">اختبار الاتصال</button>
 
-<button id="import" onclick="importData()">استيراد النسخة كاملة</button>
+<button onclick="importData()">استيراد النسخة كاملة</button>
+
+<button class="secondary" onclick="checkChannels()">فحص القنوات</button>
+
+<button class="secondary" onclick="downloadBackup()">تنزيل نسخة احتياطية</button>
 
 <div id="log">بانتظار العملية...</div>
 
-<p class="small">لا تغلق الصفحة أثناء الاستيراد. لا تشارك رمز ADMIN_TOKEN مع أي شخص.</p>
+<p class="small">احتفظ برمز ADMIN_TOKEN سرياً ولا تشاركه مع أي شخص.</p>
 
 </div>
 
 <script>
 
-const $ = id => document.getElementById(id);
+const $=id=>document.getElementById(id);
 
-function base(){
-
-  return $("worker").value.trim().replace(/\/+$/,"");
-
-}
+function base(){return $("worker").value.trim().replace(/\/+$/,"")}
 
 function headers(){
 
-  return {
-
-    "Authorization":"Bearer "+$("token").value.trim()
-
-  };
+ return {"Authorization":"Bearer "+$("token").value.trim()};
 
 }
 
-function log(s){
+function log(s){$("log").textContent=s}
 
-  $("log").textContent=s;
+function checkInputs(){
+
+ if(!base()||!$("token").value.trim()){
+
+  log("أدخل رابط Worker والرمز السري أولاً.");
+
+  return false;
+
+ }
+
+ return true;
+
+}
+
+async function request(path,options={}){
+
+ const response=await fetch(base()+path,{
+
+  ...options,
+
+  headers:{...headers(),...(options.headers||{})}
+
+ });
+
+ const data=await response.json();
+
+ if(!response.ok)throw new Error(data.error||"HTTP "+response.status);
+
+ return data;
 
 }
 
 async function testConnection(){
 
-  const b=base();
+ if(!checkInputs())return;
 
-  if(!b || !$("token").value.trim()){
+ log("جارٍ اختبار الاتصال...");
 
-    log("أدخل رابط Worker والرمز السري أولاً.");
+ try{
 
-    return;
+  const data=await request("/admin/ping");
 
-  }
+  log("✓ الاتصال ناجح\n"+JSON.stringify(data,null,2));
 
-  $("test").disabled=true;
-
-  log("جارٍ اختبار الاتصال...");
-
-  try{
-
-    const r=await fetch(b+"/admin/ping",{headers:headers()});
-
-    const data=await r.json();
-
-    if(!r.ok) throw new Error(data.error||("HTTP "+r.status));
-
-    log("✓ الاتصال ناجح\n"+JSON.stringify(data,null,2));
-
-  }catch(e){
-
-    log("فشل الاتصال: "+e.message);
-
-  }finally{
-
-    $("test").disabled=false;
-
-  }
+ }catch(e){log("❌ "+e.message)}
 
 }
 
 async function importData(){
 
-  const file=$("file").files[0];
+ if(!checkInputs())return;
 
-  if(!file){
+ const file=$("file").files[0];
 
-    log("اختَر ملف Firebase JSON أولاً.");
+ if(!file){log("اختَر ملف Firebase أولاً.");return}
 
-    return;
+ if(!confirm("سيتم استبدال بيانات Cloudflare بالكامل ببيانات الملف. هل تريد المتابعة؟"))return;
 
-  }
+ log("جارٍ قراءة الملف...");
 
-  if(!$("token").value.trim()){
+ try{
 
-    log("أدخل ADMIN_TOKEN أولاً.");
+  const root=JSON.parse(await file.text());
 
-    return;
+  if(!root||typeof root!=="object"||Array.isArray(root))throw new Error("ملف Firebase غير صحيح");
 
-  }
+  const sections=Object.keys(root);
 
-  if(!confirm("سيتم استبدال البيانات الموجودة في Cloudflare بالكامل بمحتويات ملف Firebase. هل تريد المتابعة؟")){
+  log("جارٍ إرسال النسخة كاملة بطلب واحد...");
 
-    return;
+  const result=await request("/admin/import",{
 
-  }
+   method:"POST",
 
-  $("import").disabled=true;
+   headers:{"Content-Type":"application/json"},
 
-  $("test").disabled=true;
+   body:JSON.stringify(root)
 
-  log("جارٍ قراءة الملف...");
+  });
 
-  try{
+  if(!result.ok||!result.imported)throw new Error("لم يؤكد Worker نجاح الاستيراد");
 
-    const root=JSON.parse(await file.text());
+  log("✓ تم الاستيراد بنجاح\nالأقسام: "+sections.join("، ")+"\nعدد الأقسام: "+result.sections+"\nالإصدار: "+result.version);
 
-    if(!root || typeof root!=="object" || Array.isArray(root)){
+ }catch(e){log("❌ فشل الاستيراد:\n"+e.message)}
 
-      throw new Error("الملف ليس كائن Firebase رئيسياً صحيحاً.");
+}
 
-    }
+async function checkChannels(){
 
-    const sections=Object.keys(root);
+ if(!checkInputs())return;
 
-    if(!sections.length) throw new Error("الملف فارغ.");
+ log("جارٍ فحص بيانات القنوات...");
 
-    log("الأقسام الموجودة:\n"+sections.join("، ")+"\n\nجارٍ إرسال الملف كاملاً بطلب واحد...");
+ try{
 
-    const response=await fetch(base()+"/admin/import",{
+  const root=await request("/admin/db");
 
-      method:"POST",
+  const channels=root.channels;
 
-      headers:{
+  if(!channels||typeof channels!=="object"){
 
-        ...headers(),
+   log("لم يتم العثور على قسم channels في قاعدة البيانات.");
 
-        "Content-Type":"application/json"
-
-      },
-
-      body:JSON.stringify(root)
-
-    });
-
-    const result=await response.json();
-
-    if(!response.ok) throw new Error(result.error||("HTTP "+response.status));
-
-    if(!result.ok || !result.imported) throw new Error("لم يؤكد Worker نجاح الاستيراد.");
-
-    log("✓ تم إرسال النسخة كاملة بنجاح\n"+
-
-        "عدد الأقسام: "+result.sections+
-
-        "\nإصدار قاعدة البيانات: "+result.version+
-
-        "\n\nالخطوة التالية: نتحقق من القنوات عبر النسخة الاحتياطية.");
-
-  }catch(e){
-
-    log("❌ فشل الاستيراد:\n"+e.message);
-
-  }finally{
-
-    $("import").disabled=false;
-
-    $("test").disabled=false;
+   return;
 
   }
+
+  const entries=Object.entries(channels);
+
+  const sample=entries.slice(0,10).map(([id,c])=>
+
+   (c.name||id)+" | "+(c.url?"رابط موجود":"لا يوجد رابط")
+
+  );
+
+  log("✓ تم فحص القنوات\nعدد القنوات: "+entries.length+"\n\nأول القنوات:\n"+sample.join("\n"));
+
+ }catch(e){log("❌ فشل الفحص:\n"+e.message)}
+
+}
+
+async function downloadBackup(){
+
+ if(!checkInputs())return;
+
+ log("جارٍ تنزيل النسخة الاحتياطية...");
+
+ try{
+
+  const root=await request("/admin/db");
+
+  const blob=new Blob([JSON.stringify(root,null,2)],{type:"application/json"});
+
+  const url=URL.createObjectURL(blob);
+
+  const a=document.createElement("a");
+
+  a.href=url;
+
+  a.download="niyati-cloud-backup.json";
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+  URL.revokeObjectURL(url);
+
+  log("✓ تم تجهيز النسخة الاحتياطية للتنزيل.\nحجم البيانات: "+Object.keys(root).length+" أقسام.");
+
+ }catch(e){log("❌ فشل تنزيل النسخة:\n"+e.message)}
 
 }
 
