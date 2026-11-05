@@ -1,0 +1,213 @@
+<!doctype html>
+
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>استيراد إلى NIYATI CLOUD</title>
+
+<style>
+
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#070a1c;color:#f1f5f9;padding:22px}
+
+.card{max-width:620px;margin:0 auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:22px}
+
+h2{margin:0 0 6px}
+
+p{color:#94a3b8;line-height:1.8}
+
+label{display:block;margin:14px 0 6px;color:#94a3b8}
+
+input{width:100%;box-sizing:border-box;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:#0c1030;color:#fff;font-size:16px}
+
+button{width:100%;margin-top:16px;padding:15px;border:0;border-radius:16px;background:linear-gradient(135deg,#00b4d8,#7c3aed);color:#fff;font-size:17px;font-weight:700}
+
+pre{white-space:pre-wrap;color:#94a3b8;line-height:1.7}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>استيراد قاعدة Firebase إلى NIYATI CLOUD</h2>
+
+<p>اختر ملف JSON الذي صدّرته من Firebase، وينتقل بنفس هيكله إلى قاعدة Cloudflare.</p>
+
+<label>رابط Worker</label>
+
+<input id="url" value="https://niyati-cloud-api.hussenwww1010.workers.dev" inputmode="url">
+
+<label>رمز الإدارة ADMIN_TOKEN</label>
+
+<input id="tok" type="password" autocomplete="off">
+
+<label>ملف JSON</label>
+
+<input id="file" type="file" accept=".json,application/json">
+
+<button onclick="test()" style="background:#1e2447">اختبار الاتصال</button>
+
+<button onclick="run()">استيراد</button>
+
+<button onclick="backup()" style="background:#1e2447">تحميل نسخة احتياطية</button>
+
+<pre id="log"></pre>
+
+</div>
+
+<script>
+
+const $=s=>document.querySelector(s);
+
+const log=m=>{$('#log').textContent+=m+'\n'};
+
+async function cf(path,opt){
+
+ const base=$('#url').value.trim().replace(/\/+$/,'');
+
+ const token=$('#tok').value.trim();
+
+ if(!base.startsWith('https://'))throw Error('رابط Worker غير صحيح');
+
+ if(!token)throw Error('أدخل ADMIN_TOKEN');
+
+ const r=await fetch(base+path,{
+
+  ...(opt||{}),
+
+  headers:{
+
+   'authorization':'Bearer '+token,
+
+   'content-type':'application/json',
+
+   ...((opt||{}).headers||{})
+
+  }
+
+ });
+
+ const t=await r.text();
+
+ let j;
+
+ try{j=JSON.parse(t)}catch(e){j=t}
+
+ if(!r.ok)throw Error((j&&j.error)||('HTTP '+r.status));
+
+ return j;
+
+}
+
+async function test(){
+
+ $('#log').textContent='';
+
+ try{
+
+  const r=await cf('/admin/ping');
+
+  log('✓ الاتصال ناجح');
+
+  log('نسخة البيانات: '+r.version);
+
+ }catch(e){log('✗ '+e.message)}
+
+}
+
+async function backup(){
+
+ $('#log').textContent='';
+
+ try{
+
+  const d=await cf('/admin/db');
+
+  const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+
+  const a=document.createElement('a');
+
+  a.href=URL.createObjectURL(blob);
+
+  a.download='niyati-cloud-backup.json';
+
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+
+  log('✓ تم تجهيز النسخة الاحتياطية');
+
+ }catch(e){log('✗ '+e.message)}
+
+}
+
+async function run(){
+
+ $('#log').textContent='';
+
+ const f=$('#file').files[0];
+
+ if(!f)return log('اختر ملف JSON أولاً');
+
+ try{
+
+  const tree=JSON.parse(await f.text());
+
+  if(!tree||typeof tree!=='object'||Array.isArray(tree))
+
+   throw Error('ملف JSON غير صالح');
+
+  const allowed=['settings','packages','channels','matches','epg','reports','stats'];
+
+  const nodes=Object.keys(tree).filter(n=>allowed.includes(n));
+
+  if(!nodes.length)throw Error('لم يتم العثور على أقسام معروفة');
+
+  log('الأقسام: '+nodes.join('، '));
+
+  if(!confirm('سيتم استبدال الأقسام الموجودة في Cloudflare. هل تريد المتابعة؟'))return;
+
+  // استيراد كل قسم باستبدال كامل
+
+  for(const n of nodes){
+
+   await cf('/admin/import',{
+
+    method:'POST',
+
+    body:JSON.stringify({node:n,data:tree[n],merge:false})
+
+   });
+
+   log('✓ تم استيراد '+n);
+
+  }
+
+  const c=await cf('/api/config');
+
+  log('\nالتحقق النهائي:');
+
+  log('القنوات: '+Object.keys(c.channels||{}).length);
+
+  log('الباقات: '+Object.keys(c.packages||{}).length);
+
+  log('المباريات: '+Object.keys(c.matches||{}).length);
+
+  log('✓ انتهى الاستيراد');
+
+ }catch(e){log('✗ فشل: '+e.message)}
+
+}
+
+</script>
+
+</body>
+
+</html>
